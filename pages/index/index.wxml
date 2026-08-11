@@ -1,0 +1,173 @@
+<view class="page-shell">
+  <view class="app-toolbar">
+    <view class="brand-block">
+      <text class="brand-name">画法几何 Mobile</text>
+    </view>
+    <picker class="module-picker" mode="selector" range="{{moduleOptions}}" value="{{moduleIndex}}" bindchange="handleModulePicker">
+      <view class="module-selector">
+        <text>{{moduleOptions[moduleIndex]}}</text>
+        <text class="selector-arrow">⌄</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="type-panel" wx:if="{{mode === 'point'}}">
+    <text class="type-label">类型</text>
+    <view class="type-toolbar">
+      <button class="type-chip {{pointType === 'general' ? 'active' : ''}}" data-type="general" bindtap="handlePointType">一般点</button>
+      <button class="type-chip {{pointType === 'origin' ? 'active' : ''}}" data-type="origin" bindtap="handlePointType">原点</button>
+      <button class="type-chip {{pointType === 'axisX' ? 'active' : ''}}" data-type="axisX" bindtap="handlePointType">OX轴</button>
+      <button class="type-chip {{pointType === 'axisY' ? 'active' : ''}}" data-type="axisY" bindtap="handlePointType">OY轴</button>
+      <button class="type-chip {{pointType === 'axisZ' ? 'active' : ''}}" data-type="axisZ" bindtap="handlePointType">OZ轴</button>
+      <button class="type-chip {{pointType === 'planeH' ? 'active' : ''}}" data-type="planeH" bindtap="handlePointType">H面</button>
+      <button class="type-chip {{pointType === 'planeV' ? 'active' : ''}}" data-type="planeV" bindtap="handlePointType">V面</button>
+      <button class="type-chip {{pointType === 'planeW' ? 'active' : ''}}" data-type="planeW" bindtap="handlePointType">W面</button>
+    </view>
+  </view>
+
+  <view class="type-panel" wx:elif="{{mode === 'line'}}">
+    <text class="type-label">类型</text>
+    <view class="type-toolbar">
+      <button class="type-chip {{lineType === 'general' ? 'active' : ''}}" data-type="general" bindtap="handleLineType">一般线</button>
+      <button class="type-chip {{lineType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handleLineType">水平线</button>
+      <button class="type-chip {{lineType === 'frontal' ? 'active' : ''}}" data-type="frontal" bindtap="handleLineType">正平线</button>
+      <button class="type-chip {{lineType === 'profile' ? 'active' : ''}}" data-type="profile" bindtap="handleLineType">侧平线</button>
+      <button class="type-chip {{lineType === 'vertical' ? 'active' : ''}}" data-type="vertical" bindtap="handleLineType">铅垂线</button>
+      <button class="type-chip {{lineType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleLineType">正垂线</button>
+      <button class="type-chip {{lineType === 'profileProjecting' ? 'active' : ''}}" data-type="profileProjecting" bindtap="handleLineType">侧垂线</button>
+    </view>
+  </view>
+
+  <view class="type-panel" wx:elif="{{mode === 'plane'}}">
+    <text class="type-label">类型</text>
+    <view class="type-toolbar">
+      <button class="type-chip {{planeType === 'general' ? 'active' : ''}}" data-type="general" bindtap="handlePlaneType">一般面</button>
+      <button class="type-chip {{planeType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handlePlaneType">水平面</button>
+      <button class="type-chip {{planeType === 'frontal' ? 'active' : ''}}" data-type="frontal" bindtap="handlePlaneType">正平面</button>
+      <button class="type-chip {{planeType === 'profile' ? 'active' : ''}}" data-type="profile" bindtap="handlePlaneType">侧平面</button>
+      <button class="type-chip {{planeType === 'vertical' ? 'active' : ''}}" data-type="vertical" bindtap="handlePlaneType">铅垂面</button>
+      <button class="type-chip {{planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handlePlaneType">正垂面</button>
+      <button class="type-chip {{planeType === 'profileProjecting' ? 'active' : ''}}" data-type="profileProjecting" bindtap="handlePlaneType">侧垂面</button>
+    </view>
+  </view>
+
+  <view class="type-panel" wx:else>
+    <text class="type-label">立体</text>
+    <view class="type-toolbar solid-toolbar">
+      <button class="type-chip {{section.solidType === 'triangularPyramid' ? 'active' : ''}}" data-type="triangularPyramid" bindtap="handleSolidType">三棱锥</button>
+      <button class="type-chip {{section.solidType === 'pentagonalPrism' ? 'active' : ''}}" data-type="pentagonalPrism" bindtap="handleSolidType">五棱柱</button>
+      <button class="type-chip {{section.solidType === 'cylinder' ? 'active' : ''}}" data-type="cylinder" bindtap="handleSolidType">圆柱</button>
+      <button class="type-chip {{section.solidType === 'cone' ? 'active' : ''}}" data-type="cone" bindtap="handleSolidType">圆锥</button>
+      <button class="type-chip {{section.solidType === 'sphere' ? 'active' : ''}}" data-type="sphere" bindtap="handleSolidType">圆球</button>
+      <button class="type-chip {{section.solidType === 'torus' ? 'active' : ''}}" data-type="torus" bindtap="handleSolidType">圆环</button>
+    </view>
+    <text class="type-label section-plane-label">截平面</text>
+    <view class="type-toolbar section-plane-toolbar">
+      <button class="type-chip {{section.planeType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handleSectionPlaneType">水平面</button>
+      <button class="type-chip {{section.planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleSectionPlaneType">正垂面</button>
+      <button class="type-chip {{section.planeType === 'profile' ? 'active' : ''}}" data-type="profile" bindtap="handleSectionPlaneType">侧平面</button>
+    </view>
+    <view class="section-controls">
+      <view class="section-control">
+        <view class="control-meta"><text>截平面角度</text><text>{{section.angle}}°</text></view>
+        <slider min="0" max="180" step="1" value="{{section.angle}}" data-key="angle" bindchanging="handleSectionSlider" bindchange="handleSectionSlider" activeColor="#e04f54" block-size="18" />
+      </view>
+      <view class="section-control">
+        <view class="control-meta"><text>平面位置</text><text>{{section.offset}}</text></view>
+        <slider min="-3" max="3" step="0.1" value="{{section.offset}}" data-key="offset" bindchanging="handleSectionSlider" bindchange="handleSectionSlider" activeColor="#1684ff" block-size="18" />
+      </view>
+    </view>
+  </view>
+
+  <view class="mobile-intro">
+    <view>
+      <text class="intro-title">{{mode === 'point' ? '点的三面投影' : (mode === 'line' ? '直线的三面投影' : (mode === 'plane' ? '平面的三面投影' : '平面切割立体'))}}</text>
+      <text class="intro-copy">{{mode === 'point' ? '拖动下方 a、a′、a″，观察空间点同步变化' : (mode === 'line' ? '拖动下方 A、B 的投影点，观察空间直线同步变化' : (mode === 'plane' ? '拖动下方 A、B、C 的投影点，观察空间平面同步变化' : '选择截平面类型并调整角度和位置，观察截交线变化'))}}</text>
+    </view>
+    <view class="status-pill">第一分角</view>
+  </view>
+
+  <view class="canvas-card">
+    <view class="card-heading">
+      <view>
+        <text class="card-title">{{mode === 'point' ? '空间与展开投影' : (mode === 'line' ? '空间直线与三面投影' : (mode === 'plane' ? '空间平面与三面投影' : '截平面切割与截交线'))}}</text>
+        <text class="card-caption">{{mode === 'point' ? '下方三个投影点均可拖动' : (mode === 'line' ? '下方六个端点投影均可拖动' : (mode === 'plane' ? '下方九个端点投影均可拖动' : '红色轮廓为实时截交线'))}}</text>
+      </view>
+      <button class="ghost-button" bindtap="resetPoint">重置</button>
+    </view>
+    <canvas
+      id="geometryCanvas"
+      type="2d"
+      class="geometry-canvas"
+      bindtouchstart="handleTouchStart"
+      bindtouchmove="handleTouchMove"
+      bindtouchend="handleTouchEnd"
+      aria-label="空间点与三面投影互动图"
+    ></canvas>
+    <view class="legend-row" wx:if="{{mode === 'point'}}">
+      <view class="legend-item"><text class="legend-dot dot-space"></text>空间点 A</view>
+      <view class="legend-item"><text class="legend-dot dot-projection"></text>a、a′、a″</view>
+      <view class="legend-item"><text class="legend-line"></text>投射线</view>
+    </view>
+    <view class="legend-row" wx:elif="{{mode === 'line'}}">
+      <view class="legend-item"><text class="legend-dot dot-a"></text>端点 A</view>
+      <view class="legend-item"><text class="legend-dot dot-b"></text>端点 B</view>
+      <view class="legend-item"><text class="legend-solid"></text>空间直线 AB</view>
+      <view class="legend-item"><text class="legend-line"></text>投射线</view>
+    </view>
+    <view class="legend-row" wx:elif="{{mode === 'plane'}}">
+      <view class="legend-item"><text class="legend-dot dot-a"></text>A</view>
+      <view class="legend-item"><text class="legend-dot dot-b"></text>B</view>
+      <view class="legend-item"><text class="legend-dot dot-c"></text>C</view>
+      <view class="legend-item"><text class="legend-plane"></text>空间平面 ABC</view>
+    </view>
+    <view class="legend-row" wx:else>
+      <view class="legend-item"><text class="legend-solid solid-edge"></text>立体轮廓</view>
+      <view class="legend-item"><text class="legend-plane cut-plane"></text>截平面</view>
+      <view class="legend-item"><text class="legend-solid section-line"></text>截交线</view>
+    </view>
+  </view>
+
+  <view class="lesson-card" wx:if="{{mode === 'point'}}">
+    <text class="lesson-index">观察 · 01</text>
+    <text class="lesson-title">一个空间点，三个二维信息</text>
+    <text class="lesson-body">上方类型按钮用于快速显示典型投影位置，不会锁定坐标。拖动 a′ 可改变 X、Z，拖动 a 可改变 X、Y，拖动 a″ 可改变 Y、Z。</text>
+    <view class="formula-row">
+      <view class="formula-chip">正视 A′ = (X, Z)</view>
+      <view class="formula-chip">俯视 A = (X, Y)</view>
+      <view class="formula-chip">左视 A″ = (Y, Z)</view>
+    </view>
+  </view>
+
+  <view class="lesson-card" wx:elif="{{mode === 'line'}}">
+    <text class="lesson-index">观察 · 02</text>
+    <text class="lesson-title">一条空间直线，三条投影线段</text>
+    <text class="lesson-body">直线由 A、B 两点确定。拖动任一端点的正视、俯视或左视投影，可改变该端点对应的两个空间坐标，并实时更新空间直线。</text>
+    <view class="formula-row">
+      <view class="formula-chip">正视：a′b′</view>
+      <view class="formula-chip">俯视：ab</view>
+      <view class="formula-chip">左视：a″b″</view>
+    </view>
+  </view>
+
+  <view class="lesson-card" wx:elif="{{mode === 'plane'}}">
+    <text class="lesson-index">观察 · 03</text>
+    <text class="lesson-title">三个不共线点确定一个平面</text>
+    <text class="lesson-body">空间平面 ABC 在三个投影面上分别形成投影三角形。特殊位置平面的某个投影可能积聚为直线，这正是判断平面位置的重要依据。</text>
+    <view class="formula-row">
+      <view class="formula-chip">正视：a′b′c′</view>
+      <view class="formula-chip">俯视：abc</view>
+      <view class="formula-chip">左视：a″b″c″</view>
+    </view>
+  </view>
+
+  <view class="lesson-card" wx:else>
+    <text class="lesson-index">观察 · 04</text>
+    <text class="lesson-title">截平面的方向和位置决定截交线形状</text>
+    <text class="lesson-body">立体保持不动，可快速选择水平面、侧平面或连续调整正垂面角度。截平面在正视图中积聚为红色直线，空间截交线及其三个投影同步更新。</text>
+    <view class="formula-row">
+      <view class="formula-chip">红色粗线：截交线</view>
+      <view class="formula-chip">红色细线：截平面积聚投影</view>
+    </view>
+  </view>
+</view>

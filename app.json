@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "画法几何互动课堂",
+    "navigationBarBackgroundColor": "#f4f7fb",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#eef3f8",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
