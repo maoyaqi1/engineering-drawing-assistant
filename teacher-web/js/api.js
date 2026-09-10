@@ -1,38 +1,43 @@
 // 教师端 Web -> 云函数调用封装
-// 页面部署在「微信云开发静态网站托管」官方域名下，使用微信云开发 Web SDK
-//（@cloudbase/js-sdk，全局对象 window.cloudbase）调用 teacher 云函数。
-// 官方域名下 callFunction 会被授权，无 auth 报错。
-// 教师登录采用「账号 + 密码」换取 token，后续请求凭 token 鉴权。
+// 通过「腾讯云 CloudBase HTTP 网关」以普通 HTTPS POST 调用 teacher 云函数。
+// 不使用云 SDK，不依赖云端登录态；身份校验由 teacher 云函数按 账号密码 -> token 完成。
+// 前置条件：网关「跨域设置」中已授权页面来源域名（否则浏览器会拦截跨域请求）。
 (function () {
   const CFG = window.TEACHER_CONFIG || {};
-  let cloudApp = null;
 
-  function initCloud() {
-    if (cloudApp) return cloudApp;
-    const cb = window.cloudbase;
-    if (!cb || !cb.init) {
-      throw new Error('cloudbase Web SDK 未加载：请检查网络能否访问 static.cloudbase.net');
-    }
-    if (!CFG.env) {
-      throw new Error('缺少云开发环境 ID，请在 config.js 填写 env');
-    }
-    cloudApp = cb.init({ env: CFG.env });
-    return cloudApp;
+  function gatewayUrl() {
+    const url = CFG.gatewayUrl || (new URLSearchParams(location.search).get('api') || '');
+    if (!url) throw new Error('缺少网关地址：请在 config.js 填写 gatewayUrl');
+    return url;
   }
 
   async function callTeacher(action, payload) {
     const token = localStorage.getItem(CFG.tokenKey || 'hfjh_teacher_token') || '';
     const data = Object.assign({}, payload || {}, { action, token });
-    const res = await initCloud().callFunction({
-      name: CFG.cloudFunction || 'teacher',
-      data: data
-    });
-    const result = (res && res.result) || {};
-    if (result && result.ok === false) {
-      if (result.code === 'UNAUTHORIZED') {
-        localStorage.removeItem(CFG.tokenKey || 'hfjh_teacher_token');
-        localStorage.removeItem(CFG.teacherKey || 'hfjh_teacher_info');
-      }
+    const url = gatewayUrl();
+    let res;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } catch (e) {
+      // 浏览器层失败：跨域被拦、网络不通，或首次访问尚未通过网关的「页面访问提示」
+      const err = new Error('无法连接服务器');
+      err.code = 'NETWORK';
+      err.gateway = url;
+      throw err;
+    }
+    let result;
+    try {
+      result = await res.json();
+    } catch (e) {
+      result = { ok: false, code: 'BAD_RESPONSE', msg: '服务返回异常（HTTP ' + res.status + '）' };
+    }
+    if (result && result.ok === false && result.code === 'UNAUTHORIZED') {
+      localStorage.removeItem(CFG.tokenKey || 'hfjh_teacher_token');
+      localStorage.removeItem(CFG.teacherKey || 'hfjh_teacher_info');
     }
     return result;
   }
@@ -49,6 +54,24 @@
     },
     dashboard() {
       return callTeacher('dashboard', {});
+    },
+    listStudents(filter) {
+      return callTeacher('student.list', filter || {});
+    },
+    updateStudent(payload) {
+      return callTeacher('student.update', payload);
+    },
+    createStudent(payload) {
+      return callTeacher('student.create', payload);
+    },
+    importStudents(payload) {
+      return callTeacher('student.import', payload);
+    },
+    deleteStudent(docId) {
+      return callTeacher('student.delete', { doc_id: docId });
+    },
+    adoptStudent(payload) {
+      return callTeacher('student.adopt', payload);
     },
     listTeachers() {
       return callTeacher('teacher.list', {});
