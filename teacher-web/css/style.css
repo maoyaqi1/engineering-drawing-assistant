@@ -234,6 +234,7 @@ button {
 }
 @media (min-width: 900px) {
   .stat-grid { grid-template-columns: repeat(4, 1fr); }
+  .stat-grid.stat-grid-3 { grid-template-columns: repeat(3, 1fr); }
 }
 .stat-card {
   background: var(--panel);
@@ -418,4 +419,50 @@ td .pending { color: #c98a12; font-weight: 600; }
   border-radius: 8px;
   font-size: 13px;
   line-height: 1.75;
+}
+
+/* ---- 驾驶舱：名册维度卡片、提醒、班级、热点 ---- */
+.stat-card.soft { border-left-color: #34c77b; }
+.stat-card.soft .stat-num { font-size: 24px; }
+
+.alert-list { display: flex; flex-direction: column; gap: 8px; }
+.alert-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  border-left: 3px solid var(--brand);
+}
+.alert-item.warn {
+  background: #fff6e6;
+  color: #a26a00;
+  border-left-color: #e0a33c;
+}
+
+.hot-list { display: flex; flex-direction: column; gap: 10px; }
+.hot-row { display: flex; align-items: center; gap: 12px; }
+.hot-name { width: 180px; flex-shrink: 0; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hot-track { flex: 1; height: 10px; background: var(--panel-soft); border-radius: 5px; overflow: hidden; }
+.hot-fill { height: 100%; background: var(--brand); border-radius: 5px; }
+.hot-count { width: 40px; text-align: right; font-size: 13px; color: var(--text-soft); }
+
+/* ---- 教师备注 ---- */
+.note-add { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.note-text { height: 70px; flex: 1; }
+.note-item { border-top: 1px solid var(--border); padding: 10px 0; }
+.note-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.note-meta .mini-btn { margin-left: auto; }
+.note-body {
+  font-size: 13px;
+  line-height: 1.75;
+  padding: 10px 12px;
+  background: var(--panel-soft);
+  border-radius: 8px;
 }

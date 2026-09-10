@@ -14,7 +14,8 @@ const COLLECTIONS = [
   'schools',
   'classes',
   'students',
-  'teacher_classes'
+  'teacher_classes',
+  'teacher_notes'
 ];
 
 // ---- 常量 ----
@@ -145,8 +146,8 @@ async function requireSuper(event) {
 
 // ---- 数据统计工具 ----
 function dayKey(ms) {
-  // 按本地日期(Asia/Shanghai 由 UTC+8)生成 YYYY-MM-DD
-  const d = new Date(ms);
+  // 按北京时间（UTC+8）生成 YYYY-MM-DD
+  const d = new Date(ms + 8 * 60 * 60 * 1000);
   const y = d.getUTCFullYear();
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
   const day = String(d.getUTCDate()).padStart(2, '0');
@@ -354,16 +355,85 @@ async function dashboard(event) {
     // ai_messages 可能尚未创建
   }
 
+  // ---- 名册与班级概况 ----
+  const rosterRes = await db.collection('students').limit(1000).get().catch(() => ({ data: [] }));
+  const regMap = await loadRegisteredMap();
+  const rosterItems = rosterRes.data.map((s) => {
+    const u = regMap.get(rosterKey(s.student_no, s.name));
+    return { class_name: s.class_name || '未分班', registered: !!u, openid: u ? u.openid : '' };
+  });
+  const registeredCount = rosterItems.filter((r) => r.registered).length;
+
+  const classMap = new Map();
+  rosterItems.forEach((r) => {
+    if (!classMap.has(r.class_name)) {
+      classMap.set(r.class_name, { class_name: r.class_name, total: 0, registered: 0, active7: new Set() });
+    }
+    const c = classMap.get(r.class_name);
+    c.total += 1;
+    if (r.registered) c.registered += 1;
+  });
+  const active7Openids = new Set(sessions.map((s) => s.openid).filter(Boolean));
+  rosterItems.forEach((r) => {
+    if (r.openid && active7Openids.has(r.openid)) {
+      const c = classMap.get(r.class_name);
+      if (c) c.active7.add(r.openid);
+    }
+  });
+  const classes = Array.from(classMap.values()).map((c) => ({
+    class_name: c.class_name,
+    total: c.total,
+    registered: c.registered,
+    unregistered: c.total - c.registered,
+    active7: c.active7.size
+  })).sort((a, b) => String(a.class_name).localeCompare(String(b.class_name)));
+
+  // ---- 学情提醒（统计规则，非 AI）----
+  const alerts = [];
+  const unregTotal = rosterItems.length - registeredCount;
+  if (unregTotal > 0) {
+    alerts.push({ level: 'info', text: '名册中还有 ' + unregTotal + ' 名学生尚未注册微信' });
+  }
+  const idleCount = rosterItems.filter((r) => r.registered && r.openid && !active7Openids.has(r.openid)).length;
+  if (idleCount > 0) {
+    alerts.push({ level: 'warn', text: '有 ' + idleCount + ' 名已注册学生最近 7 天没有学习记录' });
+  }
+
+  // ---- 本周 AI 提问热点 ----
+  let aiHot = [];
+  try {
+    const aiMsgs = await fetchAll('ai_messages',
+      db.collection('ai_messages').where({ role: 'user', created_at: db.command.gte(sevenDaysAgo) }));
+    const kpMap2 = new Map();
+    aiMsgs.forEach((m) => {
+      const k = m.knowledge_point || '（未分类）';
+      kpMap2.set(k, (kpMap2.get(k) || 0) + 1);
+    });
+    aiHot = Array.from(kpMap2.entries())
+      .map(([k, n]) => ({ knowledge_point_id: k, count: n }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+    if (aiHot.length && aiHot[0].count >= 3) {
+      alerts.push({ level: 'info', text: '本周 AI 提问最集中的是「' + aiHot[0].knowledge_point_id + '」（' + aiHot[0].count + ' 次）' });
+    }
+  } catch (e) {}
+
   return {
     ok: true,
     total_students: totalStudents,
+    roster_total: rosterItems.length,
+    registered_count: registeredCount,
+    unregistered_count: unregTotal,
     today_active_students: todayActiveUsers,
     plp_today: plpToday,
     plp_week: plpWeek,
     ai_today: aiToday,
     ai_week: aiWeek,
     trend,
-    module_distribution: moduleDistribution
+    module_distribution: moduleDistribution,
+    classes,
+    ai_hot: aiHot,
+    alerts
   };
 }
 
@@ -772,6 +842,83 @@ async function importStudents(event) {
   return { ok: true, mode: 'commit', added, summary, errors: errors.slice(0, 100) };
 }
 
+// ---- 教师备注（仅教师端可见）----
+async function addStudentNote(event) {
+  const me = await requireAuth(event);
+  const docId = String((event && event.doc_id) || '');
+  const content = String((event && event.content) || '').trim();
+  if (!docId) throw makeError('MISSING_ID', 400, '缺少学生记录 ID');
+  if (!content) throw makeError('EMPTY_NOTE', 400, '备注内容不能为空');
+
+  const rosterDoc = await db.collection('students').doc(docId).get().catch(() => null);
+  if (!rosterDoc || !rosterDoc.data) throw makeError('NOT_FOUND', 404, '名册中没有该学生');
+  if (!isSuper(me) && rosterDoc.data.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能给自己录入的学生写备注');
+  }
+
+  const record = {
+    student_doc_id: docId,
+    teacher_id: me._id,
+    teacher_name: me.name || me.username || '',
+    content,
+    created_at: now()
+  };
+  const added = await db.collection('teacher_notes').add({ data: record });
+  return { ok: true, note: Object.assign({ id: added._id }, record) };
+}
+
+async function deleteStudentNote(event) {
+  const me = await requireAuth(event);
+  const noteId = String((event && event.note_id) || '');
+  if (!noteId) throw makeError('MISSING_ID', 400, '缺少备注 ID');
+  const doc = await db.collection('teacher_notes').doc(noteId).get().catch(() => null);
+  if (!doc || !doc.data) throw makeError('NOT_FOUND', 404, '备注不存在');
+  if (!isSuper(me) && doc.data.teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能删除自己的备注');
+  }
+  await db.collection('teacher_notes').doc(noteId).remove();
+  return { ok: true };
+}
+
+// 当前教师可见的学生范围：超级管理员=全部名册；普通教师=自己录入的名册
+async function visibleStudents(me) {
+  const superUser = isSuper(me);
+  const rosterRes = await db.collection('students').limit(1000).get().catch(() => ({ data: [] }));
+  const scoped = superUser ? rosterRes.data : rosterRes.data.filter((s) => s.owner_teacher_id === me._id);
+  const regMap = await loadRegisteredMap();
+  const items = scoped.map((s) => {
+    const u = regMap.get(rosterKey(s.student_no, s.name));
+    return {
+      doc_id: s._id,
+      name: s.name || '',
+      student_no: s.student_no || '',
+      school: s.school || '',
+      class_name: s.class_name || '',
+      owner_teacher_name: s.owner_teacher_name || '',
+      registered: !!u,
+      openid: u ? u.openid : ''
+    };
+  });
+  const openids = Array.from(new Set(items.map((i) => i.openid).filter(Boolean)));
+  const byOpenid = new Map(items.filter((i) => i.openid).map((i) => [i.openid, i]));
+  return { superUser, items, openids, byOpenid };
+}
+
+// 按 openid 分批查询（规避 in 查询条数上限）
+async function fetchByOpenids(collection, openids, perBatch, perQuery) {
+  const out = [];
+  for (let i = 0; i < openids.length; i += perBatch) {
+    const batch = openids.slice(i, i + perBatch);
+    const res = await db.collection(collection)
+      .where({ openid: db.command.in(batch) })
+      .limit(perQuery)
+      .get()
+      .catch(() => ({ data: [] }));
+    out.push(...res.data);
+  }
+  return out;
+}
+
 // 学生详情：基本信息 + 核心统计 + 章节进度 + 学习轨迹 + AI 问答
 async function studentDetail(event) {
   const me = await requireAuth(event);
@@ -789,11 +936,22 @@ async function studentDetail(event) {
   const u = regMap.get(rosterKey(s.student_no, s.name));
   const info = publicRosterStudent(Object.assign({ _id: docId }, s), u);
 
+  const noteRes = await db.collection('teacher_notes')
+    .where({ student_doc_id: docId }).limit(100).get().catch(() => ({ data: [] }));
+  const notes = noteRes.data
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .map((n) => ({
+      id: n._id,
+      teacher_name: n.teacher_name || '',
+      content: n.content || '',
+      created_at: n.created_at || ''
+    }));
+
   if (!u) {
     return {
       ok: true, student: info, registered: false,
       stats: { total_duration: 0, session_count: 0, ai_count: 0, event_count: 0 },
-      chapters: [], records: [], ai: []
+      chapters: [], records: [], ai: [], notes
     };
   }
 
@@ -878,7 +1036,145 @@ async function studentDetail(event) {
       duration: r.duration || 0,
       created_at: r.created_at || ''
     })),
-    ai: ai.slice(0, 50)
+    ai: ai.slice(0, 50),
+    notes
+  };
+}
+
+// 学习记录：教师可见范围内的全体学习行为事件流
+async function listLearningRecords(event) {
+  const me = await requireAuth(event);
+  const scope = await visibleStudents(me);
+  const keyword = String((event && event.keyword) || '').trim().toLowerCase();
+  const classFilter = String((event && event.class_name) || '').trim();
+  const typeFilter = String((event && event.event_type) || '').trim();
+  const limit = Math.min(500, Math.max(1, Number((event && event.limit) || 200)));
+
+  let all = [];
+  if (scope.superUser) {
+    const res = await db.collection('learning_records').limit(1000).get().catch(() => ({ data: [] }));
+    all = res.data;
+  } else if (scope.openids.length) {
+    all = await fetchByOpenids('learning_records', scope.openids, 50, 500);
+  }
+
+  const classes = Array.from(new Set(scope.items.map((i) => i.class_name).filter(Boolean))).sort();
+
+  let items = all
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .map((r) => {
+      const info = scope.byOpenid.get(r.openid);
+      return {
+        id: r._id,
+        student_name: r.student_name || (info ? info.name : ''),
+        student_no: r.student_id || (info ? info.student_no : ''),
+        class_name: info ? info.class_name : '',
+        event_type: r.event_type || '',
+        chapter_name: r.chapter_name || '',
+        knowledge_point_id: r.knowledge_point_id || '',
+        duration: r.duration || 0,
+        created_at: r.created_at || ''
+      };
+    });
+
+  if (typeFilter) items = items.filter((r) => r.event_type === typeFilter);
+  if (classFilter) items = items.filter((r) => r.class_name === classFilter);
+  if (keyword) {
+    items = items.filter((r) =>
+      String(r.student_name).toLowerCase().includes(keyword) ||
+      String(r.student_no).toLowerCase().includes(keyword));
+  }
+
+  return { ok: true, total: items.length, items: items.slice(0, limit), classes, is_super: scope.superUser };
+}
+
+// AI 问答：教师可见范围内的提问（配成 问/答）+ 统计 + 高频知识点
+async function listAiQuestions(event) {
+  const me = await requireAuth(event);
+  const scope = await visibleStudents(me);
+  const keyword = String((event && event.keyword) || '').trim().toLowerCase();
+  const limit = Math.min(300, Math.max(1, Number((event && event.limit) || 100)));
+
+  let convs = [];
+  if (scope.superUser) {
+    const res = await db.collection('ai_conversations').limit(1000).get().catch(() => ({ data: [] }));
+    convs = res.data;
+  } else if (scope.openids.length) {
+    convs = await fetchByOpenids('ai_conversations', scope.openids, 50, 500);
+  }
+
+  const convById = new Map(convs.map((c) => [c._id, c]));
+  const convIds = convs
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .slice(0, 80)
+    .map((c) => c._id);
+
+  let msgs = [];
+  for (let i = 0; i < convIds.length; i += 50) {
+    const batch = convIds.slice(i, i + 50);
+    const res = await db.collection('ai_messages')
+      .where({ conversation_id: db.command.in(batch) })
+      .limit(1000).get().catch(() => ({ data: [] }));
+    msgs.push(...res.data);
+  }
+
+  const byConv = new Map();
+  msgs.forEach((m) => {
+    if (!byConv.has(m.conversation_id)) byConv.set(m.conversation_id, []);
+    byConv.get(m.conversation_id).push(m);
+  });
+
+  let items = [];
+  byConv.forEach((list, cid) => {
+    const conv = convById.get(cid);
+    const sorted = list.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    for (let i = 0; i < sorted.length; i += 1) {
+      if (sorted[i].role !== 'user') continue;
+      const next = sorted[i + 1];
+      const info = conv ? scope.byOpenid.get(conv.openid) : null;
+      items.push({
+        id: sorted[i]._id,
+        student_name: info ? info.name : '',
+        student_no: info ? info.student_no : '',
+        class_name: info ? info.class_name : '',
+        question: sorted[i].content || '',
+        answer: (next && next.role === 'assistant') ? (next.content || '') : '',
+        knowledge_point_id: sorted[i].knowledge_point || '',
+        created_at: sorted[i].created_at || ''
+      });
+    }
+  });
+  items.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+  const todayKey = dayKey(Date.now());
+  const weekAgoMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const todayCount = items.filter((q) => dayKey(new Date(q.created_at).getTime()) === todayKey).length;
+  const weekCount = items.filter((q) => new Date(q.created_at).getTime() >= weekAgoMs).length;
+
+  const kpMap = new Map();
+  items.filter((q) => new Date(q.created_at).getTime() >= weekAgoMs).forEach((q) => {
+    const k = q.knowledge_point_id || '（未分类）';
+    kpMap.set(k, (kpMap.get(k) || 0) + 1);
+  });
+  const hot = Array.from(kpMap.entries())
+    .map(([k, n]) => ({ knowledge_point_id: k, count: n }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  let filtered = items;
+  if (keyword) {
+    filtered = filtered.filter((q) =>
+      String(q.student_name).toLowerCase().includes(keyword) ||
+      String(q.question).toLowerCase().includes(keyword));
+  }
+
+  return {
+    ok: true,
+    total: filtered.length,
+    items: filtered.slice(0, limit),
+    summary: { today: todayCount, week: weekCount, total: items.length },
+    hot,
+    is_super: scope.superUser
   };
 }
 
@@ -927,6 +1223,10 @@ exports.main = async (event) => {
     else if (action === 'student.adopt') result = await adoptStudent(input);
     else if (action === 'student.records') result = await studentRecords(input);
     else if (action === 'student.detail') result = await studentDetail(input);
+    else if (action === 'note.add') result = await addStudentNote(input);
+    else if (action === 'note.delete') result = await deleteStudentNote(input);
+    else if (action === 'learning.list') result = await listLearningRecords(input);
+    else if (action === 'ai.questions') result = await listAiQuestions(input);
     else result = { ok: false, code: 'UNKNOWN_ACTION', msg: '未知操作' };
 
     return result;

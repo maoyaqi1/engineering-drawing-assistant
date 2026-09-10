@@ -76,6 +76,21 @@
     studentDetail(docId) {
       return callTeacher('student.detail', { doc_id: docId });
     },
+    // 教师备注（仅教师端可见，学生端不可见）
+    addNote(docId, content) {
+      return callTeacher('note.add', { doc_id: docId, content });
+    },
+    deleteNote(noteId) {
+      return callTeacher('note.delete', { note_id: noteId });
+    },
+    // 学习记录（按教师可见范围过滤）
+    listLearningRecords(filter) {
+      return callTeacher('learning.list', filter || {});
+    },
+    // AI 问答（按教师可见范围过滤）
+    listAiQuestions(filter) {
+      return callTeacher('ai.questions', filter || {});
+    },
     listTeachers() {
       return callTeacher('teacher.list', {});
     },

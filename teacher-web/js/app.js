@@ -7,8 +7,9 @@
   const routes = {
     dashboard: { title: '教学驾驶舱', sub: '学生如何学习点线面与 AI 教师' },
     students: { title: '学生管理', sub: '学生列表与搜索' },
+    learning: { title: '学习记录', sub: '全体学生的学习行为事件流' },
     plp: { title: '点线面分析', sub: '点 / 线 / 面互动使用情况' },
-    ai: { title: 'AI 教师分析', sub: '学生提问情况' },
+    ai: { title: 'AI 教师分析', sub: '学生提问记录与高频知识点' },
     teachers: { title: '教师管理', sub: '超级管理员：教师账号管理' },
     'student-detail': { title: '学生详情', sub: '学习档案与学习轨迹' },
     settings: { title: '系统设置', sub: '个人信息与退出' }
@@ -17,6 +18,7 @@
   const navItems = [
     { key: 'dashboard', label: '驾驶舱', icon: '📊' },
     { key: 'students', label: '学生', icon: '👥' },
+    { key: 'learning', label: '学习记录', icon: '🕘' },
     { key: 'plp', label: '点线面', icon: '📐' },
     { key: 'ai', label: 'AI 教师', icon: '💬' },
     { key: 'teachers', label: '教师管理', icon: '🧑‍🏫', superOnly: true },
@@ -133,25 +135,70 @@
     if (key === 'dashboard') await renderDashboard(content);
     else if (key === 'teachers') await renderTeachers(content);
     else if (key === 'students') await renderStudents(content);
+    else if (key === 'learning') await renderLearning(content);
     else if (key === 'student-detail') await renderStudentDetail(content);
     else if (key === 'plp') renderPlaceholder(content, '点线面分析');
-    else if (key === 'ai') renderPlaceholder(content, 'AI 教师分析');
+    else if (key === 'ai') await renderAi(content);
     else renderPlaceholder(content, '系统设置');
   }
 
   async function renderDashboard(container) {
     const dash = await api.dashboard();
     const d = (dash && dash.ok) ? dash : {};
-    const cards = [
+    const mainCards = [
       { label: '学生总数', value: d.total_students || 0 },
       { label: '今日活跃', value: d.today_active_students || 0 },
       { label: '点线面今日', value: d.plp_today || 0 },
       { label: 'AI提问今日', value: d.ai_today || 0 }
     ];
+    // 名册维度：反映「录入了多少人、其中多少人已注册微信」，是教师最关心的口径
+    const rosterCards = [
+      { label: '名册人数', value: d.roster_total || 0 },
+      { label: '名册已注册', value: d.registered_count || 0 },
+      { label: '名册未注册', value: d.unregistered_count || 0 },
+      { label: '近7天AI提问', value: d.ai_week || 0 }
+    ];
     let html = '<div class="stat-grid">';
-    cards.forEach((c) => {
+    mainCards.forEach((c) => {
       html += '<div class="stat-card"><div class="stat-num">' + c.value + '</div><div class="stat-label">' + c.label + '</div></div>';
     });
+    html += '</div>';
+
+    html += '<div class="stat-grid">';
+    rosterCards.forEach((c) => {
+      html += '<div class="stat-card soft"><div class="stat-num">' + c.value + '</div><div class="stat-label">' + c.label + '</div></div>';
+    });
+    html += '</div>';
+
+    // 学情提醒（按统计规则生成，不做无依据推测）
+    const alerts = d.alerts || [];
+    if (alerts.length) {
+      html += '<div class="card"><div class="card-title">学情提醒</div><div class="alert-list">';
+      alerts.forEach((a) => {
+        html += '<div class="alert-item ' + esc(a.level || 'info') + '">' + esc(a.text) + '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // 班级概况
+    const classes = d.classes || [];
+    html += '<div class="card"><div class="card-title">班级概况</div>';
+    if (classes.length) {
+      html += '<table style="width:100%;border-collapse:collapse">' +
+        '<tr style="background:var(--panel-soft);text-align:left">' +
+        '<th style="padding:8px">班级</th><th>名册人数</th><th>已注册</th><th>未注册</th><th>近7天活跃</th></tr>';
+      classes.forEach((c) => {
+        html += '<tr style="border-top:1px solid var(--border)">' +
+          '<td style="padding:8px">' + esc(c.class_name) + '</td>' +
+          '<td>' + (c.total || 0) + '</td>' +
+          '<td class="ok">' + (c.registered || 0) + '</td>' +
+          '<td>' + (c.unregistered ? '<span class="err">' + c.unregistered + '</span>' : '0') + '</td>' +
+          '<td>' + (c.active7 || 0) + '</td></tr>';
+      });
+      html += '</table>';
+    } else {
+      html += '<div class="chart-empty">暂无班级数据</div>';
+    }
     html += '</div>';
 
     // 近 7 天趋势：按当周最大值等比缩放，避免数值大时柱子溢出卡片
@@ -184,6 +231,26 @@
         '</div>';
     }
     html += '</div>';
+
+    // 本周 AI 提问热点（按知识点归类）
+    const hot = d.ai_hot || [];
+    html += '<div class="card"><div class="card-title">本周 AI 提问热点</div>';
+    if (hot.length) {
+      const hotPeak = hot.reduce((m, h) => Math.max(m, h.count || 0), 0) || 1;
+      html += '<div class="hot-list">';
+      hot.forEach((h) => {
+        const pct = Math.round(((h.count || 0) / hotPeak) * 100);
+        html += '<div class="hot-row">' +
+          '<div class="hot-name">' + esc(h.knowledge_point_id) + '</div>' +
+          '<div class="hot-track"><div class="hot-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="hot-count">' + h.count + '</div></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="chart-empty">本周暂无 AI 提问</div>';
+    }
+    html += '</div>';
+
     container.innerHTML = html;
     if (!dash || !dash.ok) {
       container.insertAdjacentHTML('beforeend',
@@ -642,6 +709,7 @@
     const chapters = res.chapters || [];
     const records = res.records || [];
     const ai = res.ai || [];
+    const notes = res.notes || [];
 
     let html = '<div class="detail-head"><button class="mini-btn" id="detailBack">← 返回学生列表</button></div>';
 
@@ -716,12 +784,240 @@
     }
     html += '</div>';
 
+    // 教师备注（仅教师端可见，学生端不展示）
+    html += '<div class="card"><div class="card-title">教师备注（' + notes.length + ' 条）</div>';
+    html += '<div class="note-add">' +
+      '<textarea id="noteInput" class="filter-input imp-text note-text" placeholder="记录该学生的课堂表现、答疑情况或需要跟进的问题…"></textarea>' +
+      '<button class="login-btn filter-btn" id="noteSave">添加备注</button>' +
+      '</div><div id="noteErr" class="form-err"></div>';
+    html += '<div id="noteList">';
+    if (notes.length) {
+      notes.forEach((n) => {
+        html += '<div class="note-item">' +
+          '<div class="note-meta"><b>' + esc(n.teacher_name || '教师') + '</b>' +
+            '<span class="muted">' + fmtDate(n.created_at) + '</span>' +
+            '<button class="mini-btn danger" data-note-del="' + esc(n.id) + '">删除</button></div>' +
+          '<div class="note-body">' + esc(n.content).replace(/\n/g, '<br>') + '</div>' +
+          '</div>';
+      });
+    } else {
+      html += '<div class="chart-empty">暂无备注</div>';
+    }
+    html += '</div></div>';
+
     container.innerHTML = html;
     $('detailBack').addEventListener('click', () => { location.hash = '#/students'; });
+
+    $('noteSave').addEventListener('click', async () => {
+      const text = ($('noteInput').value || '').trim();
+      $('noteErr').textContent = '';
+      if (!text) { $('noteErr').textContent = '备注内容不能为空'; return; }
+      $('noteSave').disabled = true;
+      const r = await api.addNote(docId, text);
+      $('noteSave').disabled = false;
+      if (r && r.ok) {
+        await renderStudentDetail(container);
+      } else {
+        $('noteErr').textContent = (r && r.msg) || '添加失败';
+      }
+    });
+
+    container.querySelectorAll('button[data-note-del]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('确定删除这条备注吗？')) return;
+        const r = await api.deleteNote(btn.dataset.noteDel);
+        if (r && r.ok) await renderStudentDetail(container);
+        else alert((r && r.msg) || '删除失败');
+      });
+    });
   }
 
   function renderPlaceholder(container, name) {
     container.innerHTML = '<div class="card"><div class="placeholder"><div class="icon">🚧</div><div>「' + name + '」将在后续阶段实现</div></div></div>';
+  }
+
+  // ---- 学习记录（全量行为事件流）----
+  const EVENT_TYPES = [
+    { v: '', t: '全部行为' },
+    { v: 'chapter_enter', t: '进入章节' },
+    { v: 'chapter_exit', t: '离开章节' },
+    { v: 'ai_question', t: 'AI 提问' },
+    { v: 'login', t: '登录' },
+    { v: 'logout', t: '退出' },
+    { v: 'tool_use', t: '互动工具' }
+  ];
+
+  const learningFilter = { keyword: '', class_name: '', event_type: '', limit: 200 };
+
+  function eventTypeOptionsHtml() {
+    return EVENT_TYPES.map((e) => '<option value="' + esc(e.v) + '">' + esc(e.t) + '</option>').join('');
+  }
+
+  async function renderLearning(container) {
+    container.innerHTML =
+      '<div class="page-title">学习记录</div>' +
+      '<div class="page-sub" id="learnSum">加载中…</div>' +
+      '<div class="card">' +
+        '<div class="filter-row">' +
+          '<input id="learnKeyword" class="filter-input" placeholder="搜索姓名或学号" />' +
+          '<select id="learnClass" class="filter-select"><option value="">全部班级</option></select>' +
+          '<select id="learnType" class="filter-select">' + eventTypeOptionsHtml() + '</select>' +
+          '<button id="learnSearch" class="login-btn filter-btn">搜索</button>' +
+        '</div>' +
+        '<table id="learnTable" style="width:100%;border-collapse:collapse"></table>' +
+      '</div>';
+
+    $('learnKeyword').value = learningFilter.keyword;
+    $('learnType').value = learningFilter.event_type;
+    $('learnSearch').addEventListener('click', () => {
+      learningFilter.keyword = $('learnKeyword').value.trim();
+      learningFilter.class_name = $('learnClass').value;
+      learningFilter.event_type = $('learnType').value;
+      loadLearning();
+    });
+    $('learnKeyword').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('learnSearch').click(); });
+    $('learnClass').addEventListener('change', () => $('learnSearch').click());
+    $('learnType').addEventListener('change', () => $('learnSearch').click());
+
+    await loadLearning();
+  }
+
+  async function loadLearning() {
+    const table = $('learnTable');
+    if (!table) return;
+    table.innerHTML = '<tr><td style="padding:16px;color:#6a7688">加载中…</td></tr>';
+
+    const res = await api.listLearningRecords(learningFilter);
+    if (!res || !res.ok) {
+      $('learnSum').textContent = (res && res.msg) || '加载失败';
+      table.innerHTML = '<tr><td style="padding:16px;color:#e04444">' +
+        esc((res && res.msg) || '加载失败') + '</td></tr>';
+      return;
+    }
+
+    // 班级下拉随云端返回的可选值刷新
+    const classSel = $('learnClass');
+    if (classSel) {
+      let html = '<option value="">全部班级</option>';
+      (res.classes || []).forEach((c) => {
+        html += '<option value="' + esc(c) + '">' + esc(c) + '</option>';
+      });
+      classSel.innerHTML = html;
+      classSel.value = learningFilter.class_name || '';
+    }
+
+    const items = res.items || [];
+    $('learnSum').innerHTML = (res.is_super
+      ? '超级管理员视角：全部学生学习记录'
+      : '教师视角：你录入名册范围内的学生学习记录') +
+      '　·　匹配 <b>' + (res.total || 0) + '</b> 条，显示最近 ' + items.length + ' 条';
+
+    let html = '<tr style="background:var(--panel-soft);text-align:left">' +
+      '<th style="padding:10px">时间</th><th>学生</th><th>学号</th><th>班级</th>' +
+      '<th>行为</th><th>章节</th><th>时长</th></tr>';
+    items.forEach((r) => {
+      html += '<tr style="border-top:1px solid var(--border)">' +
+        '<td style="padding:10px;color:#6a7688">' + fmtDate(r.created_at) + '</td>' +
+        '<td>' + esc(r.student_name || '—') + '</td>' +
+        '<td>' + esc(r.student_no || '—') + '</td>' +
+        '<td>' + (r.class_name ? esc(r.class_name) : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + esc(eventLabel(r.event_type)) + '</td>' +
+        '<td>' + (r.chapter_name ? esc(r.chapter_name) : '<span class="muted">—</span>') + '</td>' +
+        '<td>' + (r.duration ? fmtDuration(r.duration) : '—') + '</td></tr>';
+    });
+    if (!items.length) {
+      html += '<tr><td colspan="7" style="padding:26px;text-align:center;color:#9aa5b2">暂无学习记录</td></tr>';
+    }
+    table.innerHTML = html;
+  }
+
+  // ---- AI 教师分析（提问统计 + 高频知识点 + 问答明细）----
+  const aiFilter = { keyword: '', limit: 100 };
+
+  async function renderAi(container) {
+    container.innerHTML =
+      '<div class="page-title">AI 教师分析</div>' +
+      '<div class="page-sub" id="aiSub">加载中…</div>' +
+      '<div class="stat-grid stat-grid-3" id="aiStats"></div>' +
+      '<div class="card"><div class="card-title">近 7 天高频知识点</div><div id="aiHot">' +
+        '<div class="chart-empty">加载中…</div></div></div>' +
+      '<div class="card">' +
+        '<div class="card-title">问答记录</div>' +
+        '<div class="filter-row">' +
+          '<input id="aiKeyword" class="filter-input" placeholder="搜索学生姓名或问题关键字" />' +
+          '<button id="aiSearch" class="login-btn filter-btn">搜索</button>' +
+        '</div>' +
+        '<div id="aiList"><div class="chart-empty">加载中…</div></div>' +
+      '</div>';
+
+    $('aiKeyword').value = aiFilter.keyword;
+    $('aiSearch').addEventListener('click', () => {
+      aiFilter.keyword = $('aiKeyword').value.trim();
+      loadAi();
+    });
+    $('aiKeyword').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('aiSearch').click(); });
+
+    await loadAi();
+  }
+
+  async function loadAi() {
+    const listBox = $('aiList');
+    if (!listBox) return;
+    listBox.innerHTML = '<div class="chart-empty">加载中…</div>';
+
+    const res = await api.listAiQuestions(aiFilter);
+    if (!res || !res.ok) {
+      $('aiSub').textContent = (res && res.msg) || '加载失败';
+      listBox.innerHTML = '<div class="chart-empty" style="color:#e04444">' +
+        esc((res && res.msg) || '加载失败') + '</div>';
+      return;
+    }
+
+    const summary = res.summary || { today: 0, week: 0, total: 0 };
+    $('aiSub').innerHTML = (res.is_super
+      ? '超级管理员视角：全部学生的 AI 提问'
+      : '教师视角：你录入名册范围内学生的 AI 提问');
+    $('aiStats').innerHTML =
+      '<div class="stat-card"><div class="stat-num">' + summary.today + '</div><div class="stat-label">今日提问</div></div>' +
+      '<div class="stat-card"><div class="stat-num">' + summary.week + '</div><div class="stat-label">近 7 天提问</div></div>' +
+      '<div class="stat-card"><div class="stat-num">' + summary.total + '</div><div class="stat-label">累计提问</div></div>';
+
+    const hot = res.hot || [];
+    const hotBox = $('aiHot');
+    if (hot.length) {
+      const peak = hot.reduce((m, h) => Math.max(m, h.count || 0), 0) || 1;
+      let hh = '<div class="hot-list">';
+      hot.forEach((h) => {
+        const pct = Math.round(((h.count || 0) / peak) * 100);
+        hh += '<div class="hot-row">' +
+          '<div class="hot-name">' + esc(h.knowledge_point_id) + '</div>' +
+          '<div class="hot-track"><div class="hot-fill" style="width:' + pct + '%"></div></div>' +
+          '<div class="hot-count">' + h.count + '</div></div>';
+      });
+      hotBox.innerHTML = hh + '</div>';
+    } else {
+      hotBox.innerHTML = '<div class="chart-empty">近 7 天暂无提问</div>';
+    }
+
+    const items = res.items || [];
+    if (!items.length) {
+      listBox.innerHTML = '<div class="chart-empty">暂无问答记录</div>';
+      return;
+    }
+    let html = '';
+    items.forEach((q) => {
+      const who = [q.student_name, q.class_name].filter(Boolean).join(' · ');
+      html += '<details class="qa"><summary>' +
+        '<span class="muted">' + fmtDate(q.created_at) + '</span> ' +
+        (who ? '<b>' + esc(who) + '</b>　' : '') +
+        esc(q.question) +
+        '</summary><div class="qa-answer">' +
+        esc(q.answer || '（无回答记录）').replace(/\n/g, '<br>') +
+        '</div></details>';
+    });
+    listBox.innerHTML = html + (res.total > items.length
+      ? '<div class="chart-empty">仅显示最近 ' + items.length + ' 条（共 ' + res.total + ' 条）</div>'
+      : '');
   }
 
   async function renderTeachers(container) {
