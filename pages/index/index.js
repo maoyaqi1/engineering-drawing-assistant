@@ -536,7 +536,7 @@ Page({
     this.recordInteraction();
     const touch = event.touches && event.touches[0];
     if (!touch || !this.canvasWidth) return;
-    if (this.data.mode === 'section') return;
+    if (this.data.mode === 'section' || this.data.mode === 'solid') return;
     if (this.data.mode === 'plane') {
       this.handlePlaneTouchStart(touch);
       this.setDragLock(this.draggingPlaneProjection != null);
@@ -564,7 +564,7 @@ Page({
   handleTouchMove(event) {
     const touch = event.touches && event.touches[0];
     if (!touch) return;
-    if (this.data.mode === 'section') return;
+    if (this.data.mode === 'section' || this.data.mode === 'solid') return;
     if (this.data.mode === 'plane') {
       this.handlePlaneTouchMove(touch);
       return;
