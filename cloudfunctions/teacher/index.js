@@ -641,6 +641,48 @@ async function adoptStudent(event) {
   return { ok: true, student: publicRosterStudent(updated, regMap.get(rosterKey(no, name))) };
 }
 
+// 某名册学生的学习行为事件流（学习轨迹 / 章节进度用）
+async function studentRecords(event) {
+  const me = await requireAuth(event);
+  const docId = String((event && event.doc_id) || '');
+  if (!docId) throw makeError('MISSING_ID', 400, '缺少学生记录 ID');
+  const limit = Math.min(200, Math.max(1, Number((event && event.limit) || 100)));
+
+  const rosterDoc = await db.collection('students').doc(docId).get().catch(() => null);
+  if (!rosterDoc || !rosterDoc.data) throw makeError('NOT_FOUND', 404, '名册中没有该学生');
+  const s = rosterDoc.data;
+  if (!isSuper(me) && s.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能查看自己录入的学生');
+  }
+
+  const regMap = await loadRegisteredMap();
+  const u = regMap.get(rosterKey(s.student_no, s.name));
+  if (!u) return { ok: true, registered: false, records: [] };
+
+  // 按 openid 取该学生事件（避免 where+orderBy 复合索引要求，改在内存排序）
+  const res = await db.collection('learning_records')
+    .where({ openid: u.openid })
+    .limit(200)
+    .get()
+    .catch(() => ({ data: [] }));
+
+  const records = res.data
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .slice(0, limit)
+    .map((r) => ({
+      id: r._id,
+      event_type: r.event_type || '',
+      chapter_id: r.chapter_id || '',
+      chapter_name: r.chapter_name || '',
+      knowledge_point_id: r.knowledge_point_id || '',
+      page: r.page || '',
+      duration: r.duration || 0,
+      created_at: r.created_at || ''
+    }));
+
+  return { ok: true, registered: true, records };
+}
+
 async function createStudent(event) {
   const me = await requireAuth(event);
   const row = {
@@ -730,6 +772,116 @@ async function importStudents(event) {
   return { ok: true, mode: 'commit', added, summary, errors: errors.slice(0, 100) };
 }
 
+// 学生详情：基本信息 + 核心统计 + 章节进度 + 学习轨迹 + AI 问答
+async function studentDetail(event) {
+  const me = await requireAuth(event);
+  const docId = String((event && event.doc_id) || '');
+  if (!docId) throw makeError('MISSING_ID', 400, '缺少学生记录 ID');
+
+  const rosterDoc = await db.collection('students').doc(docId).get().catch(() => null);
+  if (!rosterDoc || !rosterDoc.data) throw makeError('NOT_FOUND', 404, '名册中没有该学生');
+  const s = rosterDoc.data;
+  if (!isSuper(me) && s.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能查看自己录入的学生');
+  }
+
+  const regMap = await loadRegisteredMap();
+  const u = regMap.get(rosterKey(s.student_no, s.name));
+  const info = publicRosterStudent(Object.assign({ _id: docId }, s), u);
+
+  if (!u) {
+    return {
+      ok: true, student: info, registered: false,
+      stats: { total_duration: 0, session_count: 0, ai_count: 0, event_count: 0 },
+      chapters: [], records: [], ai: []
+    };
+  }
+
+  const openid = u.openid;
+
+  const sesRes = await db.collection('learning_sessions')
+    .where({ openid }).limit(1000).get().catch(() => ({ data: [] }));
+  const totalDuration = sesRes.data.reduce((sum, x) => sum + (Number(x.duration) || 0), 0);
+  const sessionCount = sesRes.data.filter((x) => x.is_valid).length;
+
+  const recRes = await db.collection('learning_records')
+    .where({ openid }).limit(1000).get().catch(() => ({ data: [] }));
+  const recs = recRes.data
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+
+  const chapterMap = new Map();
+  recs.forEach((r) => {
+    const cid = r.chapter_id;
+    if (!cid || (r.event_type !== 'chapter_enter' && r.event_type !== 'chapter_exit')) return;
+    if (!chapterMap.has(cid)) {
+      chapterMap.set(cid, { chapter_id: cid, chapter_name: r.chapter_name || cid, visits: 0, duration: 0, last_at: '' });
+    }
+    const c = chapterMap.get(cid);
+    if (r.event_type === 'chapter_enter') c.visits += 1;
+    if (r.event_type === 'chapter_exit') c.duration += Number(r.duration) || 0;
+    if (String(r.created_at) > c.last_at) c.last_at = r.created_at;
+  });
+  const chapters = Array.from(chapterMap.values())
+    .sort((a, b) => String(b.last_at).localeCompare(String(a.last_at)));
+
+  const convRes = await db.collection('ai_conversations')
+    .where({ openid }).limit(100).get().catch(() => ({ data: [] }));
+  const convIds = convRes.data
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    .slice(0, 20)
+    .map((c) => c._id);
+
+  let ai = [];
+  if (convIds.length) {
+    const msgRes = await db.collection('ai_messages')
+      .where({ conversation_id: db.command.in(convIds) })
+      .limit(1000).get().catch(() => ({ data: [] }));
+    const byConv = new Map();
+    msgRes.data.forEach((m) => {
+      if (!byConv.has(m.conversation_id)) byConv.set(m.conversation_id, []);
+      byConv.get(m.conversation_id).push(m);
+    });
+    byConv.forEach((list) => {
+      const sorted = list.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+      for (let i = 0; i < sorted.length; i += 1) {
+        if (sorted[i].role !== 'user') continue;
+        const next = sorted[i + 1];
+        ai.push({
+          id: sorted[i]._id,
+          question: sorted[i].content || '',
+          answer: (next && next.role === 'assistant') ? (next.content || '') : '',
+          knowledge_point_id: sorted[i].knowledge_point || '',
+          created_at: sorted[i].created_at || ''
+        });
+      }
+    });
+    ai.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }
+
+  return {
+    ok: true,
+    student: info,
+    registered: true,
+    stats: {
+      total_duration: totalDuration,
+      session_count: sessionCount,
+      ai_count: ai.length,
+      event_count: recs.length
+    },
+    chapters,
+    records: recs.slice(0, 100).map((r) => ({
+      id: r._id,
+      event_type: r.event_type || '',
+      chapter_id: r.chapter_id || '',
+      chapter_name: r.chapter_name || '',
+      knowledge_point_id: r.knowledge_point_id || '',
+      duration: r.duration || 0,
+      created_at: r.created_at || ''
+    })),
+    ai: ai.slice(0, 50)
+  };
+}
+
 // ---- 入口 ----
 // 兼容两种调用方式：
 // 1) 传统 wx.cloud.callFunction / 小程序 SDK 调用：event 直接是对象。
@@ -773,6 +925,8 @@ exports.main = async (event) => {
     else if (action === 'student.import') result = await importStudents(input);
     else if (action === 'student.delete') result = await deleteStudent(input);
     else if (action === 'student.adopt') result = await adoptStudent(input);
+    else if (action === 'student.records') result = await studentRecords(input);
+    else if (action === 'student.detail') result = await studentDetail(input);
     else result = { ok: false, code: 'UNKNOWN_ACTION', msg: '未知操作' };
 
     return result;

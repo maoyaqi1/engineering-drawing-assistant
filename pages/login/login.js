@@ -32,6 +32,8 @@ Page({
     api.login().then((res) => {
       if (res && res.ok && res.user) {
         app.setUser(res.user);
+        // 埋点：登录
+        api.recordEvent('login', { page: 'login' });
         const registered = !!(res.registered && res.user.student_id);
         wx.redirectTo({ url: registered ? '/pages/index/index' : '/pages/register/register' });
         return;

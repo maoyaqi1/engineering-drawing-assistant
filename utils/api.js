@@ -62,6 +62,11 @@ function statistics(markInvite) {
   return callApi('statistics', { mark_invite: !!markInvite });
 }
 
+// 学习行为事件上报（进入/退出章节、AI 提问等）
+function recordEvent(eventType, payload) {
+  return callApi('record.event', Object.assign({ event_type: eventType }, payload || {}));
+}
+
 function submitSurvey(answers) {
   return callApi('survey.submit', {
     survey_id: SURVEY_ID,
@@ -103,6 +108,7 @@ module.exports = {
   rosterClear,
   startSession,
   endSession,
+  recordEvent,
   statistics,
   submitSurvey,
   aiAsk,

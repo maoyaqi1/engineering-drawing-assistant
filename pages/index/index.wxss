@@ -173,40 +173,6 @@
   letter-spacing: 1rpx;
 }
 
-.admin-fab {
-  position: fixed;
-  left: 24rpx;
-  bottom: calc(280rpx + env(safe-area-inset-bottom));
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12rpx 24rpx;
-  border-radius: 999rpx;
-  background: rgba(8, 125, 240, 0.82);
-  color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 650;
-  box-shadow: 0 8rpx 18rpx rgba(22, 132, 255, 0.4);
-}
-
-.teacher-fab {
-  position: fixed;
-  left: 24rpx;
-  bottom: calc(356rpx + env(safe-area-inset-bottom));
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12rpx 24rpx;
-  border-radius: 999rpx;
-  background: rgba(47, 111, 237, 0.92);
-  color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 650;
-  box-shadow: 0 8rpx 18rpx rgba(47, 111, 237, 0.42);
-}
-
 .ruler-fab {
   position: fixed;
   right: 20rpx;

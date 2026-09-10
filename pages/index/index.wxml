@@ -247,6 +247,4 @@
     <image class="ai-fab-avatar" src="/images/ai-avatar.png" mode="aspectFill" />
     <text class="ai-fab-label">问老师</text>
   </view>
-  <view wx:if="{{isAdmin}}" class="admin-fab" bindtap="goRoster" aria-label="名单管理">名单管理</view>
-  <view class="teacher-fab" bindtap="goTeacher" aria-label="教师端">教师端</view>
 </view>

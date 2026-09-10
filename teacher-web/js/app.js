@@ -10,6 +10,7 @@
     plp: { title: '点线面分析', sub: '点 / 线 / 面互动使用情况' },
     ai: { title: 'AI 教师分析', sub: '学生提问情况' },
     teachers: { title: '教师管理', sub: '超级管理员：教师账号管理' },
+    'student-detail': { title: '学生详情', sub: '学习档案与学习轨迹' },
     settings: { title: '系统设置', sub: '个人信息与退出' }
   };
 
@@ -132,6 +133,7 @@
     if (key === 'dashboard') await renderDashboard(content);
     else if (key === 'teachers') await renderTeachers(content);
     else if (key === 'students') await renderStudents(content);
+    else if (key === 'student-detail') await renderStudentDetail(content);
     else if (key === 'plp') renderPlaceholder(content, '点线面分析');
     else if (key === 'ai') renderPlaceholder(content, 'AI 教师分析');
     else renderPlaceholder(content, '系统设置');
@@ -322,7 +324,8 @@
             ' data-name="' + esc(s.name) + '" data-no="' + esc(s.student_no) + '">编辑</button> ' +
           '<button class="mini-btn danger" data-del="' + esc(s.id) + '" data-name="' + esc(s.name) + '">移除</button>';
       html += '<tr style="border-top:1px solid var(--border)">' +
-        '<td style="padding:10px">' + esc(s.name) + '</td>' +
+        '<td style="padding:10px"><a class="link" href="#/student-detail?id=' + esc(s.id) + '">' +
+          esc(s.name) + '</a></td>' +
         '<td>' + esc(s.student_no) + '</td>' +
         '<td>' + esc(s.school) + '</td>' +
         '<td>' + cls + '</td>' +
@@ -591,6 +594,130 @@
         $('impCommit').disabled = false;
       }
     });
+  }
+
+  // ---- 学生详情 ----
+  function hashParam(name) {
+    const h = location.hash || '';
+    const m = new RegExp('[?&]' + name + '=([^&]*)').exec(h);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function fmtDuration(sec) {
+    const n = Math.max(0, Math.floor(Number(sec) || 0));
+    if (n < 60) return n + ' 秒';
+    const m = Math.floor(n / 60);
+    if (m < 60) return m + ' 分钟';
+    return (m / 60).toFixed(1) + ' 小时';
+  }
+
+  function eventLabel(t) {
+    return ({
+      login: '登录',
+      logout: '退出',
+      chapter_enter: '进入章节',
+      chapter_exit: '离开章节',
+      ai_question: '向 AI 教师提问',
+      tool_use: '使用互动工具'
+    }[t] || t || '');
+  }
+
+  async function renderStudentDetail(container) {
+    const docId = hashParam('id');
+    container.innerHTML = '<div class="card"><div class="placeholder">加载中…</div></div>';
+    if (!docId) {
+      container.innerHTML = '<div class="card"><div class="placeholder">缺少学生 ID</div></div>';
+      return;
+    }
+
+    const res = await api.studentDetail(docId);
+    if (!res || !res.ok) {
+      container.innerHTML = '<div class="card"><div class="placeholder">' +
+        esc((res && res.msg) || '加载失败') + '</div></div>';
+      return;
+    }
+
+    const s = res.student || {};
+    const st = res.stats || {};
+    const chapters = res.chapters || [];
+    const records = res.records || [];
+    const ai = res.ai || [];
+
+    let html = '<div class="detail-head"><button class="mini-btn" id="detailBack">← 返回学生列表</button></div>';
+
+    html += '<div class="card">' +
+      '<div class="profile-title">' + esc(s.name || '') +
+        ' <span class="muted">' + esc(s.student_no || '') + '</span> ' +
+        (s.registered ? '<span class="ok">已注册</span>' : '<span class="pending">未注册</span>') +
+      '</div>' +
+      '<div class="meta-grid">' +
+        '<div><span class="k">学校</span>' + esc(s.school || '—') + '</div>' +
+        '<div><span class="k">班级</span>' + esc(s.class_name || '—') + '</div>' +
+        '<div><span class="k">录入教师</span>' + esc(s.owner_teacher_name || '—') + '</div>' +
+        '<div><span class="k">最近登录</span>' + fmtDate(s.last_login_at) + '</div>' +
+      '</div></div>';
+
+    html += '<div class="stat-grid">' +
+      '<div class="stat-card"><div class="stat-num">' + fmtDuration(st.total_duration) + '</div><div class="stat-label">累计学习时长</div></div>' +
+      '<div class="stat-card"><div class="stat-num">' + (st.session_count || 0) + '</div><div class="stat-label">有效学习次数</div></div>' +
+      '<div class="stat-card"><div class="stat-num">' + (st.ai_count || 0) + '</div><div class="stat-label">AI 提问次数</div></div>' +
+      '<div class="stat-card"><div class="stat-num">' + (st.event_count || 0) + '</div><div class="stat-label">学习事件数</div></div>' +
+      '</div>';
+
+    // 学习进度
+    html += '<div class="card"><div class="card-title">学习进度（按章节）</div>';
+    if (chapters.length) {
+      html += '<table style="width:100%;border-collapse:collapse">' +
+        '<tr style="background:var(--panel-soft);text-align:left">' +
+        '<th style="padding:8px">章节</th><th>进入次数</th><th>累计时长</th><th>最近学习</th></tr>';
+      chapters.forEach((c) => {
+        html += '<tr style="border-top:1px solid var(--border)">' +
+          '<td style="padding:8px">' + esc(c.chapter_name) + '</td>' +
+          '<td>' + (c.visits || 0) + '</td>' +
+          '<td>' + fmtDuration(c.duration) + '</td>' +
+          '<td style="color:#6a7688">' + fmtDate(c.last_at) + '</td></tr>';
+      });
+      html += '</table>';
+    } else {
+      html += '<div class="chart-empty">暂无学习记录</div>';
+    }
+    html += '</div>';
+
+    // 学习轨迹
+    html += '<div class="card"><div class="card-title">学习轨迹</div>';
+    if (records.length) {
+      html += '<div class="timeline">';
+      records.slice(0, 50).forEach((r) => {
+        html += '<div class="tl-item">' +
+          '<div class="tl-time">' + fmtDate(r.created_at) + '</div>' +
+          '<div class="tl-body">' + esc(eventLabel(r.event_type)) +
+            (r.chapter_name ? ' · ' + esc(r.chapter_name) : '') +
+            (r.duration ? ' <span class="muted">（' + fmtDuration(r.duration) + '）</span>' : '') +
+          '</div></div>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="chart-empty">暂无学习记录</div>';
+    }
+    html += '</div>';
+
+    // AI 问答
+    html += '<div class="card"><div class="card-title">AI 问答（' + ai.length + ' 条）</div>';
+    if (ai.length) {
+      ai.forEach((q) => {
+        html += '<details class="qa"><summary>' +
+          '<span class="muted">' + fmtDate(q.created_at) + '</span> ' + esc(q.question) +
+          '</summary><div class="qa-answer">' +
+          esc(q.answer || '（无回答记录）').replace(/\n/g, '<br>') +
+          '</div></details>';
+      });
+    } else {
+      html += '<div class="chart-empty">暂无 AI 问答记录</div>';
+    }
+    html += '</div>';
+
+    container.innerHTML = html;
+    $('detailBack').addEventListener('click', () => { location.hash = '#/students'; });
   }
 
   function renderPlaceholder(container, name) {

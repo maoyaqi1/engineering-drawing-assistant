@@ -92,6 +92,13 @@ Page({
       scrollTop: this.data.scrollTop + 10000
     });
     api.aiAsk(text, this.data.conversationId, null, image).then((res) => {
+      if (res && res.ok) {
+        // 埋点：AI 提问（仅记录事件与知识点，不重复保存问答正文）
+        api.recordEvent('ai_question', {
+          page: 'ai',
+          knowledge_point_id: (res && res.knowledge_point) || ''
+        });
+      }
       const content = (res && res.ok && res.message && res.message.content)
         ? res.message.content
         : (res && res.msg) || '暂时无法回答，请稍后重试。';

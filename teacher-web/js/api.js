@@ -73,6 +73,9 @@
     adoptStudent(payload) {
       return callTeacher('student.adopt', payload);
     },
+    studentDetail(docId) {
+      return callTeacher('student.detail', { doc_id: docId });
+    },
     listTeachers() {
       return callTeacher('teacher.list', {});
     },

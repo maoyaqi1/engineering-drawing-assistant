@@ -4,7 +4,7 @@ const ai = require('./ai/conversation.js');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
-const COLLECTIONS = ['users', 'learning_sessions', 'survey_responses', 'survey_invites', 'roster'];
+const COLLECTIONS = ['users', 'learning_sessions', 'survey_responses', 'survey_invites', 'roster', 'learning_records'];
 const SURVEY_ID = 'geometry_learning_2026';
 const SURVEY_VERSION = 'v1';
 
@@ -223,6 +223,32 @@ exports.main = async (event) => {
       const count = await validSessionCount(user._id);
       await db.collection('users').doc(user._id).update({ data: { valid_session_count: count } });
       return { ok: true, is_valid: isValid, valid_session_count: count };
+    }
+
+    // 学习行为事件上报（章节进入/退出、AI 提问等），用于教师端学习轨迹与章节进度
+    if (action === 'record.event') {
+      const user = await ensureUser(OPENID, UNIONID);
+      const eventType = String((event && event.event_type) || '').trim();
+      if (!eventType) {
+        return { ok: false, code: 'MISSING_EVENT_TYPE', msg: '缺少事件类型' };
+      }
+      await db.collection('learning_records').add({ data: {
+        user_id: user._id,
+        openid: OPENID,
+        student_id: user.student_id || '',
+        student_name: user.name || '',
+        session_id: String((event && event.session_id) || ''),
+        event_type: eventType,
+        chapter_id: String((event && event.chapter_id) || ''),
+        chapter_name: String((event && event.chapter_name) || ''),
+        knowledge_point_id: String((event && event.knowledge_point_id) || ''),
+        knowledge_point_name: String((event && event.knowledge_point_name) || ''),
+        page: String((event && event.page) || ''),
+        duration: Math.max(0, Number((event && event.duration) || 0)),
+        metadata: (event && event.metadata) || null,
+        created_at: now()
+      }});
+      return { ok: true };
     }
 
     if (action === 'statistics') {

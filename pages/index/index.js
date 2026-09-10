@@ -54,8 +54,7 @@ Page({
     rotationAxisIndex: 0,
     translationAxisIndex: 0,
     rotationValue: 0,
-    translationValue: 4,
-    isAdmin: false
+    translationValue: 4
   },
 
   onReady() {
@@ -64,11 +63,6 @@ Page({
 
   onShow() {
     this.ensureSession();
-    if (api && api.rosterStatus) {
-      api.rosterStatus().then((res) => {
-        this.setData({ isAdmin: !!(res && res.ok && res.admin) });
-      }).catch(() => {});
-    }
   },
 
   onHide() {
@@ -91,6 +85,7 @@ Page({
     this._sessionEnded = false;
     api.startSession(this.data.mode).then((res) => {
       if (res && res.ok) this._sessionId = res.session_id;
+      this.trackChapterEnter();
     });
     api.statistics(true).then((res) => {
       if (res && res.ok && !res.survey_completed && res.can_invite && res.valid_session_count >= 5) {
@@ -102,9 +97,41 @@ Page({
   endSession() {
     if (!api || !this._sessionId || this._sessionEnded) return;
     this._sessionEnded = true;
+    this.trackChapterExit();
     const duration = Math.max(0, Math.floor((Date.now() - (this._sessionStart || Date.now())) / 1000));
     api.endSession(this._sessionId, duration, this._interactionCount || 0);
     this._sessionId = null;
+  },
+
+  // ---- 学习行为埋点：只追加事件记录，不改变既有交互与渲染逻辑 ----
+  trackEvent(eventType, payload) {
+    if (!api || !api.recordEvent) return;
+    const names = {
+      point: '点的投影',
+      line: '直线的投影',
+      plane: '平面的投影',
+      solid: '基本立体',
+      section: '平面切割立体'
+    };
+    const chapterId = this.data.mode;
+    api.recordEvent(eventType, Object.assign({
+      session_id: this._sessionId || '',
+      chapter_id: chapterId,
+      chapter_name: names[chapterId] || chapterId,
+      page: 'index'
+    }, payload || {}));
+  },
+
+  trackChapterEnter() {
+    this._chapterStart = Date.now();
+    this.trackEvent('chapter_enter');
+  },
+
+  trackChapterExit() {
+    if (!this._chapterStart) return;
+    const duration = Math.max(0, Math.floor((Date.now() - this._chapterStart) / 1000));
+    this._chapterStart = null;
+    this.trackEvent('chapter_exit', { duration });
   },
 
   recordInteraction() {
@@ -196,18 +223,6 @@ Page({
     }
   },
 
-  goRoster() {
-    if (typeof wx !== 'undefined' && wx.navigateTo) {
-      wx.navigateTo({ url: '/pages/roster/roster' });
-    }
-  },
-
-  goTeacher() {
-    if (typeof wx !== 'undefined' && wx.navigateTo) {
-      wx.navigateTo({ url: '/pages/teacher/teacher' });
-    }
-  },
-
   goProfile() {
     if (typeof wx !== 'undefined' && wx.navigateTo) {
       wx.navigateTo({ url: '/pages/register/register' });
@@ -224,7 +239,12 @@ Page({
     this.draggingPlaneProjection = null;
     const titles = { point: '点的三面投影', line: '直线的三面投影', plane: '平面的三面投影', section: '平面切割立体', solid: '基本立体' };
     wx.setNavigationBarTitle({ title: titles[mode] });
-    this.setData({ mode, moduleIndex }, () => this.drawScene());
+    const chapterChanged = mode !== this.data.mode;
+    if (chapterChanged) this.trackChapterExit();
+    this.setData({ mode, moduleIndex }, () => {
+      this.drawScene();
+      if (chapterChanged) this.trackChapterEnter();
+    });
   },
 
   handleSolidType(event) {
