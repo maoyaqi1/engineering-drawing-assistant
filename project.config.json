@@ -1,7 +1,24 @@
 {
   "description": "画法几何互动教学微信小程序",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "value": "screen",
+        "type": "folder"
+      },
+      {
+        "value": "web",
+        "type": "folder"
+      },
+      {
+        "value": "web-release",
+        "type": "folder"
+      },
+      {
+        "value": "web-release.zip",
+        "type": "file"
+      }
+    ],
     "include": []
   },
   "setting": {
@@ -34,8 +51,9 @@
     }
   },
   "compileType": "miniprogram",
+  "cloudfunctionRoot": "cloudfunctions/",
   "libVersion": "3.17.1",
-  "appid": "wx744c9f1b8bfaa142",
+  "appid": "wx503b68d25311e803",
   "projectname": "descriptive-geometry-miniapp",
   "condition": {},
   "simulatorPluginLibVersion": {},

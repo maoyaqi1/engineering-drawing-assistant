@@ -1,0 +1,103 @@
+<view class="survey-shell">
+  <view class="survey-card">
+    <text class="survey-title">{{title}}</text>
+    <text class="survey-note">感谢你的反馈，帮助我们持续改进。</text>
+
+    <!-- Q1 -->
+    <view class="question">
+      <text class="q-label"><text class="req">*</text>Q1. 这个互动工具对你学习画法几何有帮助吗？</text>
+      <view class="options">
+        <view
+          wx:for="{{scales}}"
+          wx:key="*this"
+          class="option {{q1 === index + 1 ? 'selected' : ''}}"
+          data-key="q1"
+          data-value="{{index + 1}}"
+          bindtap="pickSingle"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- Q2 -->
+    <view class="question">
+      <text class="q-label"><text class="req">*</text>Q2. 使用互动工具后，你对画法几何空间关系的理解程度：</text>
+      <view class="options">
+        <view
+          wx:for="{{understand}}"
+          wx:key="*this"
+          class="option {{q2 === index + 1 ? 'selected' : ''}}"
+          data-key="q2"
+          data-value="{{index + 1}}"
+          bindtap="pickSingle"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- Q3 (新增：AI 教师使用情况) -->
+    <view class="question">
+      <text class="q-label"><text class="req">*</text>Q3. 你使用过“问老师”（AI 教师）来提问吗？</text>
+      <view class="options">
+        <view
+          wx:for="{{aiUse}}"
+          wx:key="*this"
+          class="option {{q3 === index + 1 ? 'selected' : ''}}"
+          data-key="q3"
+          data-value="{{index + 1}}"
+          bindtap="pickSingle"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- Q4 (新增：AI 教师帮助程度) -->
+    <view class="question">
+      <text class="q-label"><text class="req">*</text>Q4. 你觉得 AI 教师的回答对你理解画法几何有帮助吗？</text>
+      <view wx:if="{{q3 === 1}}" class="na-note">你选择未使用过“问老师”，本题不适用，会自动跳过。</view>
+      <view wx:else class="options">
+        <view
+          wx:for="{{aiHelp}}"
+          wx:key="*this"
+          class="option {{q4 === index + 1 ? 'selected' : ''}}"
+          data-key="q4"
+          data-value="{{index + 1}}"
+          bindtap="pickSingle"
+        >{{item}}</view>
+      </view>
+    </view>
+
+    <!-- Q5 -->
+    <view class="question">
+      <text class="q-label">Q5. 你最喜欢这个工具的哪个功能？</text>
+      <textarea class="textarea" value="{{q5}}" data-key="q5" bindinput="onOpenInput" placeholder="可省略" maxlength="200" />
+    </view>
+
+    <!-- Q6 -->
+    <view class="question">
+      <text class="q-label">Q6. 你认为这个工具最需要改进什么？</text>
+      <textarea class="textarea" value="{{q6}}" data-key="q6" bindinput="onOpenInput" placeholder="可省略" maxlength="200" />
+    </view>
+
+    <!-- Q7 -->
+    <view class="question">
+      <text class="q-label">Q7. 如果没有这个互动工具，你通常如何学习画法几何？（可多选）</text>
+      <view class="options multi">
+        <view
+          wx:for="{{q7Options}}"
+          wx:key="label"
+          class="option {{item.selected ? 'selected' : ''}}"
+          data-key="q7"
+          data-value="{{item.label}}"
+          bindtap="toggleMulti"
+        >{{item.label}}</view>
+      </view>
+    </view>
+
+    <button
+      class="submit-button"
+      bindtap="submit"
+      loading="{{submitting}}"
+      disabled="{{submitting || submitted}}"
+    >{{submitted ? '已提交' : '提交问卷'}}</button>
+
+    <button class="back-button" bindtap="backHome">返回工具首页</button>
+  </view>
+</view>

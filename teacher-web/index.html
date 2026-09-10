@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>工程制图学习助手 · 教师端</title>
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <!-- 登录视图 -->
+  <div id="loginView" class="login-view hidden">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="login-logo">图</div>
+        <div>
+          <div class="t1">教师端管理后台</div>
+          <div class="t2">工程制图学习助手 · 教学驾驶舱</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>账号</label>
+        <input id="loginUsername" type="text" placeholder="请输入教师账号" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label>密码</label>
+        <input id="loginPassword" type="password" placeholder="请输入密码" autocomplete="current-password" />
+      </div>
+      <button id="loginBtn" class="login-btn">登 录</button>
+      <div id="loginError" class="login-error"></div>
+      <div class="login-tip">
+        如提示未初始化，请先部署 <code>teacher</code> 云函数并配置环境变量
+        <code>TEACHER_USERNAME</code> / <code>TEACHER_PASSWORD</code>。
+      </div>
+    </div>
+  </div>
+
+  <!-- 后台框架 -->
+  <div id="appView" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="t1">教师端后台</div>
+        <div class="t2">教学驾驶舱</div>
+      </div>
+      <nav class="sidebar-nav" id="nav"></nav>
+      <div class="sidebar-foot">
+        <div class="teacher-chip">
+          <div class="avatar" id="avatarLetter">T</div>
+          <div class="info">
+            <div class="n" id="teacherName">--</div>
+            <div class="r" id="teacherRole">--</div>
+          </div>
+        </div>
+        <button class="logout-btn" id="logoutBtn">退出登录</button>
+      </div>
+    </aside>
+
+    <section class="main">
+      <div class="topbar">
+        <div class="title" id="pageTitle">教学驾驶舱</div>
+        <div class="right" id="pageSub">欢迎使用</div>
+      </div>
+      <div class="content" id="content"></div>
+    </section>
+  </div>
+
+  <!-- 微信云开发 Web SDK（在静态网站官方域名下调用云函数被授权） -->
+  <script src="https://static.cloudbase.net/cloudbase-js-sdk/2.10.0/cloudbase.full.js"></script>
+  <!-- 顺序：config -> api -> app -->
+  <script src="./js/config.js"></script>
+  <script src="./js/api.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>

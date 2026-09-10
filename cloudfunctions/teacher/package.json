@@ -1,0 +1,9 @@
+{
+  "name": "teacher",
+  "version": "1.0.0",
+  "description": "工程制图学习助手教师端云函数（教师登录/鉴权/超级管理员/班级与学生档案/学情，独立于学生端 api）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

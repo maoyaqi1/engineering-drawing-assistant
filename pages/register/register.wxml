@@ -1,0 +1,49 @@
+<view class="reg-shell">
+  <view class="reg-card">
+    <text class="reg-brand">{{isEdit ? '修改个人信息' : '学生信息注册'}}</text>
+    <text class="reg-sub">{{isEdit ? '可修改学校、姓名和学号，名单资格以最新学号为准。' : '请填写真实信息，用于课堂名单核对与提问权限'}}</text>
+
+    <view class="field">
+      <text class="field-label">学校</text>
+      <input
+        class="field-input"
+        value="{{school}}"
+        data-key="school"
+        bindinput="onInput"
+        placeholder="例如：安徽建筑大学"
+      />
+    </view>
+
+    <view class="field">
+      <text class="field-label">姓名</text>
+      <input
+        class="field-input"
+        value="{{name}}"
+        data-key="name"
+        bindinput="onInput"
+        placeholder="请输入姓名"
+      />
+    </view>
+
+    <view class="field">
+      <text class="field-label">学号</text>
+      <input
+        class="field-input"
+        value="{{studentId}}"
+        data-key="studentId"
+        bindinput="onInput"
+        placeholder="请输入学号"
+      />
+    </view>
+
+    <button
+      class="reg-button"
+      bindtap="submit"
+      loading="{{submitting}}"
+      disabled="{{submitting}}"
+    >{{isEdit ? '保存信息' : '提交并进入工具'}}</button>
+
+    <text wx:if="{{error}}" class="reg-error">{{error}}</text>
+    <text class="reg-hint">如提示不在名单中，仍可使用互动工具，只是暂时无法提问。</text>
+  </view>
+</view>

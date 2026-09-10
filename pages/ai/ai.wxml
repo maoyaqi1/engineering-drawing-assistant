@@ -1,0 +1,79 @@
+<view class="ai-shell">
+  <scroll-view
+    class="chat"
+    scroll-y
+    scroll-top="{{scrollTop}}"
+    scroll-with-animation
+    enable-back-to-top
+  >
+    <view class="welcome">
+      <view class="welcome-head">
+        <image class="ai-avatar lg" src="/images/ai-avatar.png" mode="aspectFill" />
+        <view class="welcome-meta">
+          <text class="welcome-title">你好，我是画法几何 AI 教师</text>
+          <text class="welcome-sub">我可以为你解答知识点、讲解题目、指导作图步骤</text>
+        </view>
+      </view>
+      <view class="quick-questions">
+        <view
+          wx:for="{{suggestions}}"
+          wx:key="*this"
+          class="q-card"
+          data-text="{{item}}"
+          bindtap="onSuggestion"
+        >
+          <text class="q-text">{{item}}</text>
+          <text class="q-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <view
+      wx:for="{{messages}}"
+      wx:key="index"
+      class="msg {{item.role}}"
+    >
+      <image wx:if="{{item.role === 'assistant'}}" class="ai-avatar" src="/images/ai-avatar.png" mode="aspectFill" />
+      <view class="bubble">
+        <image wx:if="{{item.image}}" class="msg-image" src="{{item.image}}" mode="widthFix" />
+        <text>{{item.content}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{sending}}" class="msg assistant">
+      <image class="ai-avatar" src="/images/ai-avatar.png" mode="aspectFill" />
+      <view class="bubble">正在思考…</view>
+    </view>
+  </scroll-view>
+
+  <view class="quick-row">
+    <view class="quick-chip" data-text="请举个简单例题帮我理解" bindtap="onSuggestion">举个例题</view>
+    <view class="quick-chip" data-text="相关的知识点再给我讲讲" bindtap="onSuggestion">相关知识</view>
+    <view class="quick-chip" data-text="请把这题的作图步骤一步一步讲清楚" bindtap="onSuggestion">讲解步骤</view>
+  </view>
+
+  <view wx:if="{{!canAsk}}" class="notice">{{notice}}</view>
+
+  <view class="image-preview" wx:if="{{enableImage && imageDataUrl}}">
+    <image class="preview-img" src="{{imageDataUrl}}" mode="widthFix" />
+    <text class="preview-remove" bindtap="clearImage">×</text>
+    <text class="preview-tip">AI 只能抓大错、给方向，细节请以老师为准</text>
+  </view>
+
+  <view class="input-bar">
+    <button class="new" size="mini" bindtap="newConversation" disabled="{{sending || !canAsk}}">新对话</button>
+    <textarea
+      class="input"
+      value="{{input}}"
+      bindinput="onInput"
+      placeholder="输入画法几何问题，我来解答"
+      disabled="{{!canAsk}}"
+      auto-height
+      maxlength="300"
+      confirm-type="send"
+      bindconfirm="send"
+    />
+    <view wx:if="{{enableImage}}" class="img-btn" bindtap="pickImage">📷</view>
+    <button class="send" size="mini" bindtap="send" disabled="{{sending || !canAsk}}">➤</button>
+  </view>
+</view>

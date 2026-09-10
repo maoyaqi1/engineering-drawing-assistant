@@ -1,0 +1,30 @@
+<view class="login-shell">
+  <image class="login-watermark" src="/images/projection-watermark.png" mode="widthFix" />
+
+  <view class="login-hero">
+    <text class="login-title">工程制图学习助手</text>
+    <text class="login-sub">让空间投影看得见</text>
+  </view>
+
+  <view class="login-bottom">
+    <button
+      class="login-button"
+      bindtap="tryLogin"
+      loading="{{loading}}"
+      disabled="{{loading || !agreed}}"
+    >
+      <image class="wx-icon" src="/images/wechat-icon.png" mode="aspectFit" />
+      <text>微信登录</text>
+    </button>
+
+    <text class="login-hint">登录后即可使用互动工具</text>
+    <view class="agree-row" bindtap="toggleAgreed">
+      <view class="agree-box {{agreed ? 'checked' : ''}}">{{agreed ? '✓' : ''}}</view>
+      <view class="agree-text">我已阅读并同意
+        <text class="link" catchtap="openTerms" data-type="user">《用户协议》</text> 与
+        <text class="link" catchtap="openTerms" data-type="privacy">《隐私政策》</text>
+      </view>
+    </view>
+    <text wx:if="{{error}}" class="login-error">{{error}}</text>
+  </view>
+</view>

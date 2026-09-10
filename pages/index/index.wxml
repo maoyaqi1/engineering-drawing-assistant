@@ -1,7 +1,8 @@
 <view class="page-shell">
   <view class="app-toolbar">
-    <view class="brand-block">
-      <text class="brand-name">画法几何 Mobile</text>
+    <view class="profile-entry" bindtap="goProfile">
+      <text class="profile-avatar">👤</text>
+      <text class="profile-link">个人信息</text>
     </view>
     <picker class="module-picker" mode="selector" range="{{moduleOptions}}" value="{{moduleIndex}}" bindchange="handleModulePicker">
       <view class="module-selector">
@@ -11,6 +12,7 @@
     </picker>
   </view>
 
+  <scroll-view class="page-scroll" scroll-y="{{!canvasDragging}}" scroll-top="0">
   <view class="type-panel" wx:if="{{mode === 'point'}}">
     <text class="type-label">类型</text>
     <view class="type-toolbar">
@@ -51,6 +53,61 @@
     </view>
   </view>
 
+  <view class="type-panel" wx:elif="{{mode === 'solid'}}">
+    <view class="solid-type-tabs">
+      <button wx:for="{{solidTypes}}" wx:key="index" class="solid-type-chip {{solidTypeIndex === index ? 'active' : ''}}" data-type="{{index}}" bindtap="handleBasicSolidType">{{item}}</button>
+    </view>
+
+    <text class="solid-group-label">尺寸</text>
+    <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid'}}">
+      <text class="param-name">棱数</text>
+      <view class="stepper">
+        <button class="step-btn" data-delta="-1" bindtap="handleSidesStep">−</button>
+        <text class="step-val">{{solid.sides}}</text>
+        <button class="step-btn" data-delta="1" bindtap="handleSidesStep">＋</button>
+      </view>
+    </view>
+    <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid' || solid.type === 'cylinder' || solid.type === 'cone' || solid.type === 'sphere'}}">
+      <text class="param-name">半径</text>
+      <slider class="param-slider" min="0.5" max="3" step="0.1" value="{{solid.radius}}" data-key="radius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+      <text class="param-val">{{solid.radius}}</text>
+    </view>
+    <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid' || solid.type === 'cylinder' || solid.type === 'cone'}}">
+      <text class="param-name">高度</text>
+      <slider class="param-slider" min="1" max="6" step="0.1" value="{{solid.height}}" data-key="height" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+      <text class="param-val">{{solid.height}}</text>
+    </view>
+    <view class="slider-row" wx:if="{{solid.type === 'torus'}}">
+      <text class="param-name">大圆半径</text>
+      <slider class="param-slider" min="1" max="2.5" step="0.1" value="{{solid.majorRadius}}" data-key="majorRadius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+      <text class="param-val">{{solid.majorRadius}}</text>
+    </view>
+    <view class="slider-row" wx:if="{{solid.type === 'torus'}}">
+      <text class="param-name">小圆半径</text>
+      <slider class="param-slider" min="0.2" max="1" step="0.1" value="{{solid.minorRadius}}" data-key="minorRadius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+      <text class="param-val">{{solid.minorRadius}}</text>
+    </view>
+
+    <text class="solid-group-label">姿态</text>
+    <view class="pose-tabs">
+      <button wx:for="{{poseTabs}}" wx:key="index" class="pose-tab {{poseTabIndex === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handlePoseTab">{{item}}</button>
+    </view>
+
+    <block wx:if="{{poseTabIndex === 0 || poseTabIndex === 1}}">
+      <view class="axis-row">
+        <text class="param-name">坐标轴</text>
+        <button wx:for="{{axisLabels}}" wx:key="index" class="axis-chip {{(poseTabIndex === 0 ? rotationAxisIndex : translationAxisIndex) === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handleAxisChip">{{item}}</button>
+      </view>
+      <view class="slider-row">
+        <text class="param-name">{{poseTabIndex === 0 ? '旋转角度' : '平移量'}}</text>
+        <slider wx:if="{{poseTabIndex === 0}}" class="param-slider" min="0" max="360" step="1" value="{{rotationValue}}" bindchanging="handleRotationAngleLive" bindchange="handleRotationAngle" activeColor="#e04f54" block-size="16" />
+        <slider wx:else class="param-slider" min="{{translationAxis === 'z' ? (solid.type === 'torus' ? solid.minorRadius : (solid.type === 'sphere' ? solid.radius : solid.height / 2)) : (solid.type === 'torus' ? (solid.majorRadius + solid.minorRadius) : solid.radius)}}" max="{{translationAxis === 'z' ? (8 - (solid.type === 'torus' ? solid.minorRadius : (solid.type === 'sphere' ? solid.radius : solid.height / 2))) : (8 - (solid.type === 'torus' ? (solid.majorRadius + solid.minorRadius) : solid.radius))}}" step="0.1" value="{{translationValue}}" bindchanging="handleTranslationLive" bindchange="handleTranslation" activeColor="#1684ff" block-size="16" />
+        <text class="param-val">{{poseTabIndex === 0 ? (rotationValue + '°') : translationValue}}</text>
+        <button wx:if="{{poseTabIndex === 0}}" class="rot90-chip" bindtap="handleRotate90">旋转90°</button>
+      </view>
+    </block>
+  </view>
+
   <view class="type-panel" wx:else>
     <text class="type-label">立体</text>
     <view class="type-toolbar solid-toolbar">
@@ -70,19 +127,19 @@
     <view class="section-controls">
       <view class="section-control">
         <view class="control-meta"><text>截平面角度</text><text>{{section.angle}}°</text></view>
-        <slider min="0" max="180" step="1" value="{{section.angle}}" data-key="angle" bindchanging="handleSectionSlider" bindchange="handleSectionSlider" activeColor="#e04f54" block-size="18" />
+        <slider min="0" max="180" step="1" value="{{section.angle}}" data-key="angle" bindchanging="handleSectionLive" bindchange="handleSectionSlider" activeColor="#e04f54" block-size="18" />
       </view>
       <view class="section-control">
         <view class="control-meta"><text>平面位置</text><text>{{section.offset}}</text></view>
-        <slider min="-3" max="3" step="0.1" value="{{section.offset}}" data-key="offset" bindchanging="handleSectionSlider" bindchange="handleSectionSlider" activeColor="#1684ff" block-size="18" />
+        <slider min="-3" max="3" step="0.1" value="{{section.offset}}" data-key="offset" bindchanging="handleSectionLive" bindchange="handleSectionSlider" activeColor="#1684ff" block-size="18" />
       </view>
     </view>
   </view>
 
   <view class="mobile-intro">
     <view>
-      <text class="intro-title">{{mode === 'point' ? '点的三面投影' : (mode === 'line' ? '直线的三面投影' : (mode === 'plane' ? '平面的三面投影' : '平面切割立体'))}}</text>
-      <text class="intro-copy">{{mode === 'point' ? '拖动下方 a、a′、a″，观察空间点同步变化' : (mode === 'line' ? '拖动下方 A、B 的投影点，观察空间直线同步变化' : (mode === 'plane' ? '拖动下方 A、B、C 的投影点，观察空间平面同步变化' : '选择截平面类型并调整角度和位置，观察截交线变化'))}}</text>
+      <text class="intro-title">{{mode === 'point' ? '点的三面投影' : (mode === 'line' ? '直线的三面投影' : (mode === 'plane' ? '平面的三面投影' : (mode === 'section' ? '平面切割立体' : '基本立体')))}}</text>
+      <text class="intro-copy">{{mode === 'point' ? '拖动下方 a、a′、a″，观察空间点同步变化' : (mode === 'line' ? '拖动下方 A、B 的投影点，观察空间直线同步变化' : (mode === 'plane' ? '拖动下方 A、B、C 的投影点，观察空间平面同步变化' : (mode === 'section' ? '选择截平面类型并调整角度和位置，观察截交线变化' : '调整立体参数，观察三视图变化')))}}</text>
     </view>
     <view class="status-pill">第一分角</view>
   </view>
@@ -90,8 +147,8 @@
   <view class="canvas-card">
     <view class="card-heading">
       <view>
-        <text class="card-title">{{mode === 'point' ? '空间与展开投影' : (mode === 'line' ? '空间直线与三面投影' : (mode === 'plane' ? '空间平面与三面投影' : '截平面切割与截交线'))}}</text>
-        <text class="card-caption">{{mode === 'point' ? '下方三个投影点均可拖动' : (mode === 'line' ? '下方六个端点投影均可拖动' : (mode === 'plane' ? '下方九个端点投影均可拖动' : '红色轮廓为实时截交线'))}}</text>
+        <text class="card-title">{{mode === 'point' ? '空间与展开投影' : (mode === 'line' ? '空间直线与三面投影' : (mode === 'plane' ? '空间平面与三面投影' : (mode === 'section' ? '截平面切割与截交线' : '立体与三面投影')))}}</text>
+        <text class="card-caption">{{mode === 'point' ? '下方三个投影点均可拖动' : (mode === 'line' ? '下方六个端点投影均可拖动' : (mode === 'plane' ? '下方九个端点投影均可拖动' : (mode === 'section' ? '红色轮廓为实时截交线' : '调整参数，观察 3D 与三视图联动')))}}</text>
       </view>
       <button class="ghost-button" bindtap="resetPoint">重置</button>
     </view>
@@ -121,7 +178,7 @@
       <view class="legend-item"><text class="legend-dot dot-c"></text>C</view>
       <view class="legend-item"><text class="legend-plane"></text>空间平面 ABC</view>
     </view>
-    <view class="legend-row" wx:else>
+    <view class="legend-row" wx:elif="{{mode === 'section'}}">
       <view class="legend-item"><text class="legend-solid solid-edge"></text>立体轮廓</view>
       <view class="legend-item"><text class="legend-plane cut-plane"></text>截平面</view>
       <view class="legend-item"><text class="legend-solid section-line"></text>截交线</view>
@@ -161,6 +218,16 @@
     </view>
   </view>
 
+  <view class="lesson-card" wx:elif="{{mode === 'solid'}}">
+    <text class="lesson-index">观察 · 05</text>
+    <text class="lesson-title">改变尺寸与姿态，观察三视图如何同步变化</text>
+    <text class="lesson-body">调整「尺寸」改变立体大小，调整「姿态」改变位置与方向，V、H、W 三面投影实时同步。</text>
+    <view class="formula-row">
+      <view class="formula-chip">红/蓝/绿：V/W/H 面投影</view>
+      <view class="formula-chip">虚线：不可见轮廓线</view>
+    </view>
+  </view>
+
   <view class="lesson-card" wx:else>
     <text class="lesson-index">观察 · 04</text>
     <text class="lesson-title">截平面的方向和位置决定截交线形状</text>
@@ -170,4 +237,16 @@
       <view class="formula-chip">红色细线：截平面积聚投影</view>
     </view>
   </view>
+  </scroll-view>
+
+  <view class="ruler-fab" bindtap="goRuler" aria-label="尺规作图">
+    <text class="ruler-fab-icon">✏</text>
+    <text class="ruler-fab-label">尺规</text>
+  </view>
+  <view class="ai-fab" bindtap="goToAi" aria-label="AI 教师">
+    <image class="ai-fab-avatar" src="/images/ai-avatar.png" mode="aspectFill" />
+    <text class="ai-fab-label">问老师</text>
+  </view>
+  <view wx:if="{{isAdmin}}" class="admin-fab" bindtap="goRoster" aria-label="名单管理">名单管理</view>
+  <view class="teacher-fab" bindtap="goTeacher" aria-label="教师端">教师端</view>
 </view>

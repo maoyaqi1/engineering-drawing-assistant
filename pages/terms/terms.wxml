@@ -1,0 +1,16 @@
+<view class="terms-shell">
+  <text class="terms-update">{{updated}}</text>
+  <view
+    wx:for="{{sections}}"
+    wx:key="h"
+    class="terms-section"
+  >
+    <text class="terms-h">{{item.h}}</text>
+    <text class="terms-p">{{item.p}}</text>
+  </view>
+  <view class="terms-foot">
+    <text>产品：工程制图学习助手</text>
+    <text>运营：安徽建筑大学 毛亚岐老师</text>
+    <text>联系：微信公众号“流金岁月”</text>
+  </view>
+</view>

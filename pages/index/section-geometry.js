@@ -268,10 +268,21 @@ function intersectTriangle(triangle, plane) {
 
 function intersectSolid(solid, plane) {
   const segments = [];
-  solid.triangles.forEach((triangle) => {
+  const n = plane.normal;
+  const c = plane.constant;
+  const len = solid.triangles.length;
+  for (let i = 0; i < len; i += 1) {
+    const triangle = solid.triangles[i];
+    // 快速剔除：三顶点都在平面同一侧则本三角形不与平面相交，无需完整求交
+    const d0 = triangle[0].x * n.x + triangle[0].y * n.y + triangle[0].z * n.z - c;
+    const d1 = triangle[1].x * n.x + triangle[1].y * n.y + triangle[1].z * n.z - c;
+    const d2 = triangle[2].x * n.x + triangle[2].y * n.y + triangle[2].z * n.z - c;
+    if ((d0 > EPSILON && d1 > EPSILON && d2 > EPSILON) || (d0 < -EPSILON && d1 < -EPSILON && d2 < -EPSILON)) {
+      continue;
+    }
     const segment = intersectTriangle(triangle, plane);
     if (segment && squaredDistance(segment[0], segment[1]) > EPSILON * EPSILON) segments.push(segment);
-  });
+  }
   return segments;
 }
 

@@ -1,9 +1,18 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/login/login",
+    "pages/register/register",
+    "pages/index/index",
+    "pages/survey/survey",
+    "pages/ai/ai",
+    "pages/roster/roster",
+    "pages/teacher/teacher",
+    "pages/terms/terms",
+    "pages/ruler/ruler"
   ],
+  "lazyCodeLoading": "requiredComponents",
   "window": {
-    "navigationBarTitleText": "画法几何互动课堂",
+    "navigationBarTitleText": "工程制图学习助手",
     "navigationBarBackgroundColor": "#f4f7fb",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#eef3f8",

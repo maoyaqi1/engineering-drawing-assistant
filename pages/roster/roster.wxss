@@ -1,0 +1,128 @@
+.roster-shell {
+  min-height: 100vh;
+  padding: 28rpx 24rpx calc(40rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: #eef3f8;
+}
+
+.self-info {
+  padding: 16rpx 20rpx;
+  margin-bottom: 20rpx;
+  border-radius: 14rpx;
+  background: #eaf3ff;
+  color: #245a75;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+.deny {
+  margin-top: 120rpx;
+  padding: 40rpx 32rpx;
+  border-radius: 20rpx;
+  background: #ffffff;
+  text-align: center;
+}
+
+.deny-title {
+  display: block;
+  color: #172438;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.deny-text {
+  display: block;
+  margin-top: 20rpx;
+  color: #66748a;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.import-box,
+.list-box {
+  padding: 26rpx 24rpx;
+  border-radius: 18rpx;
+  background: #ffffff;
+  box-shadow: 0 6rpx 18rpx rgba(36, 55, 82, 0.05);
+}
+
+.list-box {
+  margin-top: 22rpx;
+}
+
+.box-title {
+  display: block;
+  color: #172438;
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 18rpx;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.list-header .box-title {
+  margin-bottom: 14rpx;
+}
+
+.clear-all {
+  color: #e04444;
+  font-size: 26rpx;
+  padding: 6rpx 10rpx;
+}
+
+.ids-input {
+  width: 100%;
+  height: 240rpx;
+  padding: 18rpx 20rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #d4d8de;
+  border-radius: 12rpx;
+  background: #f7f9fb;
+  font-size: 28rpx;
+}
+
+.import-button {
+  margin-top: 20rpx;
+  height: 82rpx;
+  line-height: 82rpx;
+  border-radius: 16rpx;
+  background: #087df0;
+  color: #ffffff;
+  font-size: 30rpx;
+}
+
+.result {
+  display: block;
+  margin-top: 16rpx;
+  color: #087df0;
+  font-size: 26rpx;
+}
+
+.empty {
+  color: #9aa3ad;
+  font-size: 26rpx;
+  padding: 20rpx 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 8rpx;
+  border-bottom: 1rpx solid #eef1f4;
+}
+
+.row-id {
+  color: #172438;
+  font-size: 28rpx;
+}
+
+.row-del {
+  color: #e04444;
+  font-size: 26rpx;
+  padding: 8rpx 16rpx;
+}

@@ -1,15 +1,19 @@
 const SectionGeometry = require('./section-geometry.js');
+const BasicSolid = require('./basic-solid.js');
 
 const DEFAULT_POINT = Object.freeze({ x: 4, y: 3, z: 5 });
 const MODEL_MIN = 0;
 const MODEL_LIMIT = 8;
 const ISOMETRIC_DEPTH_Z = 0.76;
+// 云能力仅在微信小程序可用；网页版（web/、web-release/）下 api 为 null，相关逻辑自动空跑，不影响 V0.1.0 绘图
+const api = (typeof wx !== 'undefined' && wx.cloud) ? require('../../utils/api.js') : null;
 
 Page({
   data: {
     mode: 'point',
+    canvasDragging: false,
     moduleIndex: 0,
-    moduleOptions: ['点', '直线', '平面', '平面切割立体'],
+    moduleOptions: ['点', '直线', '平面', '基本立体', '平面切割立体'],
     point: { ...DEFAULT_POINT },
     pointType: 'general',
     lineType: 'general',
@@ -28,14 +32,102 @@ Page({
       planeType: 'frontProjecting',
       angle: 42,
       offset: 0
-    }
+    },
+    solid: {
+      type: 'prism',
+      sides: 5,
+      radius: 2,
+      height: 3,
+      majorRadius: 3,
+      minorRadius: 1,
+      position: { x: 4, y: 3, z: 3 },
+      rotation: { x: 0, y: 0, z: 0 }
+    },
+    solidTypes: ['棱柱', '棱锥', '圆柱', '圆锥', '圆球', '圆环'],
+    solidTypeIndex: 0,
+    poseTabs: ['旋转', '平移'],
+    poseTabIndex: 0,
+    axisKeys: ['x', 'y', 'z'],
+    axisLabels: ['X', 'Y', 'Z'],
+    rotationAxis: 'x',
+    translationAxis: 'x',
+    rotationAxisIndex: 0,
+    translationAxisIndex: 0,
+    rotationValue: 0,
+    translationValue: 4,
+    isAdmin: false
   },
 
   onReady() {
     this.initializeCanvas();
   },
 
+  onShow() {
+    this.ensureSession();
+    if (api && api.rosterStatus) {
+      api.rosterStatus().then((res) => {
+        this.setData({ isAdmin: !!(res && res.ok && res.admin) });
+      }).catch(() => {});
+    }
+  },
+
+  onHide() {
+    this.endSession();
+  },
+
+  ensureSession() {
+    if (!api) return;
+    const app = getApp();
+    if (!app.globalData.user) {
+      wx.redirectTo({ url: '/pages/login/login' });
+      return;
+    }
+    if (!app.globalData.user.student_id) {
+      wx.redirectTo({ url: '/pages/register/register' });
+      return;
+    }
+    this._sessionStart = Date.now();
+    this._interactionCount = 0;
+    this._sessionEnded = false;
+    api.startSession(this.data.mode).then((res) => {
+      if (res && res.ok) this._sessionId = res.session_id;
+    });
+    api.statistics(true).then((res) => {
+      if (res && res.ok && !res.survey_completed && res.can_invite && res.valid_session_count >= 5) {
+        this.inviteSurvey();
+      }
+    });
+  },
+
+  endSession() {
+    if (!api || !this._sessionId || this._sessionEnded) return;
+    this._sessionEnded = true;
+    const duration = Math.max(0, Math.floor((Date.now() - (this._sessionStart || Date.now())) / 1000));
+    api.endSession(this._sessionId, duration, this._interactionCount || 0);
+    this._sessionId = null;
+  },
+
+  recordInteraction() {
+    if (!api) return;
+    this._interactionCount = (this._interactionCount || 0) + 1;
+  },
+
+  inviteSurvey() {
+    if (this._surveyPrompted) return;
+    this._surveyPrompted = true;
+    wx.showModal({
+      title: '使用反馈调查',
+      content: '你已连续使用工程制图学习助手 5 次。我们希望了解这个工具是否真正帮助了你的学习。',
+      confirmText: '开始调查',
+      cancelText: '暂时不做',
+      success: (res) => {
+        if (res.confirm) wx.navigateTo({ url: '/pages/survey/survey' });
+      }
+    });
+  },
+
   onUnload() {
+    this.endSession();
     this.canvas = null;
     this.context = null;
     this.sectionSolidCache = null;
@@ -43,24 +135,33 @@ Page({
   },
 
   initializeCanvas() {
-    const query = this.createSelectorQuery();
-    query.select('#geometryCanvas').fields({ node: true, size: true }).exec((results) => {
-      const canvasInfo = results && results[0];
-      if (!canvasInfo || !canvasInfo.node) return;
-
-      const pixelRatio = Math.min(wx.getWindowInfo().pixelRatio || 1, 3);
-      this.canvas = canvasInfo.node;
-      this.context = this.canvas.getContext('2d');
-      this.canvasWidth = canvasInfo.width;
-      this.canvasHeight = canvasInfo.height;
-      this.canvas.width = canvasInfo.width * pixelRatio;
-      this.canvas.height = canvasInfo.height * pixelRatio;
-      this.context.scale(pixelRatio, pixelRatio);
-      this.drawScene();
-    });
+    const init = (retry) => {
+      const query = this.createSelectorQuery();
+      query.select('#geometryCanvas').fields({ node: true, size: true }).exec((results) => {
+        const canvasInfo = results && results[0];
+        if (!canvasInfo || !canvasInfo.node || canvasInfo.width < 50) {
+          if (retry > 0) setTimeout(() => init(retry - 1), 300);
+          return;
+        }
+        const pixelRatio = Math.min(wx.getWindowInfo().pixelRatio || 1, 3);
+        this.canvas = canvasInfo.node;
+        this.context = this.canvas.getContext('2d');
+        this.canvasWidth = canvasInfo.width;
+        this.canvasHeight = canvasInfo.height;
+        this.canvas.width = canvasInfo.width * pixelRatio;
+        this.canvas.height = canvasInfo.height * pixelRatio;
+        this.context.scale(pixelRatio, pixelRatio);
+        this.drawScene();
+      });
+    };
+    init(4);
   },
 
   resetPoint() {
+    if (this.data.mode === 'solid') {
+      this.handleReset();
+      return;
+    }
     if (this.data.mode === 'section') {
       this.setData({
         'section.planeType': 'frontProjecting',
@@ -80,22 +181,54 @@ Page({
       return;
     }
     const point = this.getPointTypePreset(this.data.pointType);
-    this.setData({ point }, () => this.drawScene());
+      this.setData({ point }, () => this.drawScene());
+  },
+
+  goToAi() {
+    if (typeof wx !== 'undefined' && wx.navigateTo) {
+      wx.navigateTo({ url: '/pages/ai/ai' });
+    }
+  },
+
+  goRuler() {
+    if (typeof wx !== 'undefined' && wx.navigateTo) {
+      wx.navigateTo({ url: '/pages/ruler/ruler' });
+    }
+  },
+
+  goRoster() {
+    if (typeof wx !== 'undefined' && wx.navigateTo) {
+      wx.navigateTo({ url: '/pages/roster/roster' });
+    }
+  },
+
+  goTeacher() {
+    if (typeof wx !== 'undefined' && wx.navigateTo) {
+      wx.navigateTo({ url: '/pages/teacher/teacher' });
+    }
+  },
+
+  goProfile() {
+    if (typeof wx !== 'undefined' && wx.navigateTo) {
+      wx.navigateTo({ url: '/pages/register/register' });
+    }
   },
 
   handleModulePicker(event) {
+    this.recordInteraction();
     const moduleIndex = Number(event.detail.value);
     if (!Number.isInteger(moduleIndex) || moduleIndex < 0 || moduleIndex >= this.data.moduleOptions.length) return;
-    const mode = ['point', 'line', 'plane', 'section'][moduleIndex];
+    const mode = ['point', 'line', 'plane', 'solid', 'section'][moduleIndex];
     this.draggingProjection = null;
     this.draggingLineProjection = null;
     this.draggingPlaneProjection = null;
-    const titles = { point: '点的三面投影', line: '直线的三面投影', plane: '平面的三面投影', section: '平面切割立体' };
+    const titles = { point: '点的三面投影', line: '直线的三面投影', plane: '平面的三面投影', section: '平面切割立体', solid: '基本立体' };
     wx.setNavigationBarTitle({ title: titles[mode] });
     this.setData({ mode, moduleIndex }, () => this.drawScene());
   },
 
   handleSolidType(event) {
+    this.recordInteraction();
     const solidType = event.currentTarget.dataset.type;
     const validTypes = ['triangularPyramid', 'pentagonalPrism', 'cylinder', 'cone', 'sphere', 'torus'];
     if (!validTypes.includes(solidType)) return;
@@ -103,22 +236,208 @@ Page({
   },
 
   handleSectionSlider(event) {
+    this.recordInteraction();
+    this.applySectionLive(event);
+    this.setData({ section: this.data.section }, () => this.scheduleCanvasDraw());
+  },
+
+  applySectionLive(event) {
     const key = event.currentTarget.dataset.key;
     const value = Number(event.detail.value);
     if (!['angle', 'offset'].includes(key) || !Number.isFinite(value)) return;
     const normalizedValue = key === 'offset' ? Math.round(value * 10) / 10 : Math.round(value);
-    const updates = { [`section.${key}`]: normalizedValue };
-    if (key === 'angle') updates['section.planeType'] = this.getSectionPlaneType(normalizedValue);
-    this.setData(updates, () => this.drawScene());
+    this.setLivePath('section.' + key, normalizedValue);
+    if (key === 'angle') this.setLivePath('section.planeType', this.getSectionPlaneType(normalizedValue));
+  },
+
+  handleSectionLive(event) {
+    this.recordInteraction();
+    this.applySectionLive(event);
+    this.scheduleCanvasDraw();
   },
 
   handleSectionPlaneType(event) {
+    this.recordInteraction();
     const planeType = event.currentTarget.dataset.type;
     const presetAngles = { horizontal: 0, frontProjecting: 42, profile: 90 };
     if (!Object.prototype.hasOwnProperty.call(presetAngles, planeType)) return;
     this.setData({
       'section.planeType': planeType,
       'section.angle': presetAngles[planeType]
+    }, () => this.drawScene());
+  },
+
+  handleSizeSliderLive(event) {
+    this.recordInteraction();
+    const key = event.currentTarget.dataset.key;
+    const value = Number(event.detail.value);
+    if (!Number.isFinite(value)) return;
+    const solid = this.data.solid;
+    solid[key] = Math.round(value * 10) / 10;
+    solid.position = this.sanitizeSolidPosition(solid);
+    this.scheduleCanvasDraw();
+  },
+
+  handleSizeSlider(event) {
+    this.recordInteraction();
+    const key = event.currentTarget.dataset.key;
+    const value = Number(event.detail.value);
+    if (!Number.isFinite(value)) return;
+    const solid = Object.assign({}, this.data.solid, {
+      position: Object.assign({}, this.data.solid.position),
+      rotation: Object.assign({}, this.data.solid.rotation)
+    });
+    solid[key] = Math.round(value * 10) / 10;
+    solid.position = this.sanitizeSolidPosition(solid);
+    this.setData({ solid, translationValue: solid.position[this.data.translationAxis] }, () => this.drawScene());
+  },
+
+  handleRotationAxis(event) {
+    this.recordInteraction();
+    const index = Number(event.detail.value);
+    const axis = this.data.axisKeys[index];
+    if (!axis) return;
+    const rotationValue = Number(this.data.solid.rotation[axis]) || 0;
+    this.setData({ rotationAxisIndex: index, rotationAxis: axis, rotationValue }, () => this.drawScene());
+  },
+
+  handleRotationAngleLive(event) {
+    this.recordInteraction();
+    const value = Number(event.detail.value);
+    if (!Number.isFinite(value)) return;
+    const v = Math.round(value);
+    this.data.solid.rotation[this.data.rotationAxis] = v;
+    this.data.rotationValue = v;
+    this.scheduleCanvasDraw();
+  },
+
+  handleRotationAngle(event) {
+    this.recordInteraction();
+    const value = Number(event.detail.value);
+    if (!Number.isFinite(value)) return;
+    this.setData({
+      [`solid.rotation.${this.data.rotationAxis}`]: Math.round(value),
+      rotationValue: Math.round(value)
+    }, () => this.drawScene());
+  },
+
+  handleTranslationAxis(event) {
+    this.recordInteraction();
+    const index = Number(event.detail.value);
+    const axis = this.data.axisKeys[index];
+    if (!axis) return;
+    const translationValue = Number(this.data.solid.position[axis]) || 0;
+    this.setData({ translationAxisIndex: index, translationAxis: axis, translationValue }, () => this.drawScene());
+  },
+
+  handleTranslationLive(event) {
+    this.recordInteraction();
+    const value = Number(event.detail.value);
+    if (!Number.isFinite(value)) return;
+    const solid = this.data.solid;
+    const axis = this.data.translationAxis;
+    solid.position[axis] = Math.round(value * 10) / 10;
+    solid.position = this.sanitizeSolidPosition(solid);
+    this.scheduleCanvasDraw();
+  },
+
+  handleTranslation(event) {
+    this.recordInteraction();
+    const value = Number(event.detail.value);
+    if (!Number.isFinite(value)) return;
+    const solid = Object.assign({}, this.data.solid, {
+      position: Object.assign({}, this.data.solid.position),
+      rotation: Object.assign({}, this.data.solid.rotation)
+    });
+    const axis = this.data.translationAxis;
+    solid.position[axis] = Math.round(value * 10) / 10;
+    solid.position = this.sanitizeSolidPosition(solid);
+    this.setData({ solid, translationValue: solid.position[axis] }, () => this.drawScene());
+  },
+
+  sanitizeSolidPosition(solid) {
+    const type = solid.type;
+    let r = Math.max(0.5, Number(solid.radius) || 2);
+    let halfH = Math.max(0.1, Number(solid.height) / 2 || 1.5);
+    if (type === 'torus') { r = (Number(solid.majorRadius) || 3) + (Number(solid.minorRadius) || 1); halfH = Number(solid.minorRadius) || 1; }
+    if (type === 'sphere') { halfH = r; }
+    const p = solid.position || {};
+    return {
+      x: this.clamp(Number(p.x) || 0, r, 8 - r),
+      y: this.clamp(Number(p.y) || 0, r, 8 - r),
+      z: this.clamp(Number(p.z) || 0, halfH, 8 - halfH)
+    };
+  },
+
+  handleSidesStep(event) {
+    this.recordInteraction();
+    const delta = Number(event.currentTarget.dataset.delta);
+    const next = this.clamp((Number(this.data.solid.sides) || 5) + delta, 3, 8);
+    this.setData({ 'solid.sides': next }, () => this.drawScene());
+  },
+
+  handleBasicSolidType(event) {
+    this.recordInteraction();
+    const index = Number(event.currentTarget.dataset.type);
+    const types = ['prism', 'pyramid', 'cylinder', 'cone', 'sphere', 'torus'];
+    if (index < 0 || index >= types.length) return;
+    this.setData({ solidTypeIndex: index, solid: this.defaultSolidParams(types[index]) }, () => this.drawScene());
+  },
+
+  defaultSolidParams(type) {
+    return {
+      type,
+      sides: 5,
+      radius: 2,
+      height: 3,
+      majorRadius: type === 'torus' ? 2 : 3,
+      minorRadius: type === 'torus' ? 0.8 : 1,
+      position: type === 'torus' ? { x: 4, y: 4, z: 3 } : { x: 4, y: 3, z: 3 },
+      rotation: { x: 0, y: 0, z: 0 }
+    };
+  },
+
+  handlePoseTab(event) {
+    this.recordInteraction();
+    const index = Number(event.currentTarget.dataset.index);
+    this.setData({ poseTabIndex: index }, () => this.drawScene());
+  },
+
+  handleAxisChip(event) {
+    this.recordInteraction();
+    const index = Number(event.currentTarget.dataset.index);
+    if (this.data.poseTabIndex === 0) this.handleRotationAxis({ detail: { value: index } });
+    else this.handleTranslationAxis({ detail: { value: index } });
+  },
+
+  handleRotate90(event) {
+    this.recordInteraction();
+    const axis = this.data.rotationAxis || 'x';
+    const current = Number(this.data.solid.rotation[axis]) || 0;
+    const next = (current + 90) % 360;
+    this.setData({
+      [`solid.rotation.${axis}`]: next,
+      rotationAxis: axis,
+      rotationAxisIndex: this.data.axisKeys.indexOf(axis),
+      rotationValue: next
+    }, () => this.drawScene());
+  },
+
+  handleReset() {
+    this.recordInteraction();
+    const currentType = this.data.solid.type || 'prism';
+    const solid = this.defaultSolidParams(currentType);
+    const typeIndex = ['prism', 'pyramid', 'cylinder', 'cone', 'sphere', 'torus'].indexOf(currentType);
+    this.setData({
+      solid,
+      solidTypeIndex: typeIndex >= 0 ? typeIndex : 0,
+      poseTabIndex: 0,
+      rotationAxisIndex: 0,
+      translationAxisIndex: 0,
+      rotationAxis: 'x',
+      translationAxis: 'x',
+      rotationValue: 0,
+      translationValue: 4,
     }, () => this.drawScene());
   },
 
@@ -130,6 +449,7 @@ Page({
   },
 
   handlePlaneType(event) {
+    this.recordInteraction();
     const planeType = event.currentTarget.dataset.type;
     const validTypes = ['general', 'horizontal', 'frontal', 'profile', 'vertical', 'frontProjecting', 'profileProjecting'];
     if (!validTypes.includes(planeType)) return;
@@ -166,6 +486,7 @@ Page({
   },
 
   handleLineType(event) {
+    this.recordInteraction();
     const lineType = event.currentTarget.dataset.type;
     const validTypes = ['general', 'horizontal', 'frontal', 'profile', 'vertical', 'frontProjecting', 'profileProjecting'];
     if (!validTypes.includes(lineType)) return;
@@ -189,6 +510,7 @@ Page({
   },
 
   handlePointType(event) {
+    this.recordInteraction();
     const pointType = event.currentTarget.dataset.type;
     const validTypes = ['general', 'planeH', 'planeV', 'planeW', 'axisX', 'axisY', 'axisZ', 'origin'];
     if (!validTypes.includes(pointType)) return;
@@ -211,15 +533,18 @@ Page({
   },
 
   handleTouchStart(event) {
+    this.recordInteraction();
     const touch = event.touches && event.touches[0];
     if (!touch || !this.canvasWidth) return;
     if (this.data.mode === 'section') return;
     if (this.data.mode === 'plane') {
       this.handlePlaneTouchStart(touch);
+      this.setDragLock(this.draggingPlaneProjection != null);
       return;
     }
     if (this.data.mode === 'line') {
       this.handleLineTouchStart(touch);
+      this.setDragLock(this.draggingLineProjection != null);
       return;
     }
     const projections = this.getProjectionScreenPoints();
@@ -233,6 +558,7 @@ Page({
       }
       return false;
     });
+    this.setDragLock(this.draggingProjection != null);
   },
 
   handleTouchMove(event) {
@@ -261,13 +587,58 @@ Page({
       nextPoint.y = this.screenToModel(touch.x - metrics.origin.x, metrics.unit);
       nextPoint.z = this.screenToModel(metrics.origin.y - touch.y, metrics.unit);
     }
-    this.setData({ point: nextPoint, pointType: 'general' }, () => this.drawScene());
+    this.setLivePath('point', nextPoint);
+    this.setLivePath('pointType', 'general');
+    this.scheduleCanvasDraw();
   },
 
   handleTouchEnd() {
+    const wasDragging = this.draggingProjection != null || this.draggingLineProjection != null || this.draggingPlaneProjection != null;
+    if (wasDragging) {
+      if (this.data.mode === 'point') {
+        this.setData({ point: this.data.point, pointType: this.data.pointType, canvasDragging: false }, () => this.scheduleCanvasDraw());
+      } else if (this.data.mode === 'plane') {
+        this.setData({ plane: this.data.plane, planeType: this.data.planeType, canvasDragging: false }, () => this.scheduleCanvasDraw());
+      } else if (this.data.mode === 'line') {
+        this.setData({ line: this.data.line, lineType: this.data.lineType, canvasDragging: false }, () => this.scheduleCanvasDraw());
+      } else {
+        this.setData({ canvasDragging: false });
+      }
+    } else {
+      this.setDragLock(false);
+    }
     this.draggingProjection = null;
     this.draggingLineProjection = null;
     this.draggingPlaneProjection = null;
+  },
+
+  scheduleCanvasDraw() {
+    if (this._drawScheduled) return;
+    this._drawScheduled = true;
+    const canvasRaf = this.canvas && this.canvas.requestAnimationFrame;
+    const run = () => {
+      this._drawScheduled = false;
+      if (this.context) this.drawScene();
+    };
+    if (canvasRaf) {
+      canvasRaf.call(this.canvas, run);
+    } else {
+      setTimeout(run, 16);
+    }
+  },
+
+  setLivePath(path, value) {
+    const parts = String(path).split('.');
+    let cur = this.data;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (cur[parts[i]] == null) return;
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = value;
+  },
+
+  setDragLock(active) {
+    if (this.data.canvasDragging !== active) this.setData({ canvasDragging: active });
   },
 
   handlePlaneTouchStart(touch) {
@@ -303,7 +674,9 @@ Page({
     }
     const nextPlane = { ...this.data.plane, [pointKey]: point };
     if (!this.isPlaneNonCollinear(nextPlane)) return;
-    this.setData({ [`plane.${pointKey}`]: point, planeType: 'general' }, () => this.drawScene());
+    this.setLivePath(`plane.${pointKey}`, point);
+    this.setLivePath('planeType', 'general');
+    this.scheduleCanvasDraw();
   },
 
   isPlaneNonCollinear(plane) {
@@ -356,7 +729,9 @@ Page({
       endpoint.y = this.screenToModel(touch.x - metrics.origin.x, metrics.unit);
       endpoint.z = this.screenToModel(metrics.origin.y - touch.y, metrics.unit);
     }
-    this.setData({ [`line.${endpointKey}`]: endpoint, lineType: 'general' }, () => this.drawScene());
+    this.setLivePath(`line.${endpointKey}`, endpoint);
+    this.setLivePath('lineType', 'general');
+    this.scheduleCanvasDraw();
   },
 
   getProjectionMetrics() {
@@ -433,10 +808,12 @@ Page({
     if (this.data.mode === 'line') this.drawLineIsometricOverlay(context);
     if (this.data.mode === 'plane') this.drawPlaneIsometricOverlay(context);
     if (this.data.mode === 'section') this.drawSectionIsometricOverlay(context);
+    if (this.data.mode === 'solid') BasicSolid.drawIso(context, this);
     this.drawProjectionPanels(context, layout);
     if (this.data.mode === 'line') this.drawLineProjectionOverlay(context, layout);
     if (this.data.mode === 'plane') this.drawPlaneProjectionOverlay(context);
     if (this.data.mode === 'section') this.drawSectionProjectionOverlay(context);
+    if (this.data.mode === 'solid') BasicSolid.drawViews(context, this);
   },
 
   drawIsometricPanel(context, layout) {
@@ -483,13 +860,13 @@ Page({
       this.drawArrow(context, origin, axis.end, axis.color);
       this.drawText(context, axis.label, axis.end.x + 3, axis.end.y - 5, '#e3e5e8', 10, '600');
     });
-    const spaceTitle = this.data.mode === 'line' ? '空间直线及投影' : (this.data.mode === 'plane' ? '空间平面及投影' : (this.data.mode === 'section' ? '空间截切及截交线' : '空间投影面'));
+    const spaceTitle = this.data.mode === 'line' ? '空间直线及投影' : (this.data.mode === 'plane' ? '空间平面及投影' : (this.data.mode === 'section' ? '空间截切及截交线' : (this.data.mode === 'solid' ? '空间立体' : '空间投影面')));
     this.drawText(context, spaceTitle, 12, 22, '#d9dde4', 11, '600');
     this.drawText(context, 'V 面', origin.x - edge * 0.72, origin.y - edge * 0.42, '#78b7ff', 9, '600');
     this.drawText(context, 'W 面', origin.x + edge * 0.58, origin.y - edge * 0.42, '#f2d36c', 9, '600');
     this.drawText(context, 'H 面', origin.x - 10, origin.y + edge * 0.74, '#6ed59a', 9, '600');
 
-    if (this.data.mode === 'section') {
+    if (this.data.mode === 'section' || this.data.mode === 'solid') {
       context.restore();
       return;
     }
@@ -605,7 +982,7 @@ Page({
       return;
     }
 
-    const projectionTitle = this.data.mode === 'line' ? '直线三面投影 · 拖动端点' : (this.data.mode === 'plane' ? '平面三面投影 · 拖动顶点' : '三面投影展开 · 拖动红点');
+    const projectionTitle = this.data.mode === 'line' ? '直线三面投影 · 拖动端点' : (this.data.mode === 'plane' ? '平面三面投影 · 拖动顶点' : (this.data.mode === 'solid' ? '基本立体三视图' : '三面投影展开 · 拖动红点'));
     this.drawText(context, projectionTitle, 12, layout.dividerY + 23, '#3b4654', 11, '600');
     if (this.data.mode !== 'point') {
       context.restore();
@@ -908,10 +1285,84 @@ Page({
     return insideFirst ? [edge[0], intersection] : [intersection, edge[1]];
   },
 
+  simplifyLoopVertices(loop) {
+    const count = loop.length;
+    if (count <= 2) return loop.slice();
+    const result = [];
+    for (let index = 0; index < count; index += 1) {
+      const prev = loop[(index - 1 + count) % count];
+      const cur = loop[index];
+      const next = loop[(index + 1) % count];
+      const e1 = { x: cur.x - prev.x, y: cur.y - prev.y, z: cur.z - prev.z };
+      const e2 = { x: next.x - cur.x, y: next.y - cur.y, z: next.z - cur.z };
+      const cross = {
+        x: e1.y * e2.z - e1.z * e2.y,
+        y: e1.z * e2.x - e1.x * e2.z,
+        z: e1.x * e2.y - e1.y * e2.x
+      };
+      if (Math.hypot(cross.x, cross.y, cross.z) > 1e-8) result.push(cur);
+    }
+    return result.length ? result : loop.slice();
+  },
+
+  drawSectionPointCorrespondence(context) {
+    const result = this.getSectionResult();
+    const segments = result.sectionSegments;
+    if (!segments || !segments.length) return;
+    const loops = SectionGeometry.createSectionLoops(segments);
+    if (!loops.length) return;
+    const metrics = this.getProjectionMetrics();
+    const origin = metrics.origin;
+    const unit = metrics.unit;
+    const color = '#c9d0d8';
+    const key = (p) => `${Math.round(p.x * 1e6)}:${Math.round(p.y * 1e6)}:${Math.round(p.z * 1e6)}`;
+    const reps = [];
+    loops.forEach((loop) => {
+      this.simplifyLoopVertices(loop).forEach((point) => {
+        const k = key(point);
+        if (!reps.some((existing) => key(existing) === k)) reps.push(point);
+      });
+    });
+    const step = Math.max(1, Math.ceil(reps.length / 6));
+    const selected = [];
+    for (let index = 0; index < reps.length; index += step) selected.push(reps[index]);
+    context.save();
+    context.strokeStyle = color;
+    context.lineWidth = 0.8;
+    context.setLineDash([]);
+    selected.forEach((point) => {
+      const front = { x: origin.x - point.x * unit, y: origin.y - point.z * unit };
+      const top = { x: origin.x - point.x * unit, y: origin.y + point.y * unit };
+      const left = { x: origin.x + point.y * unit, y: origin.y - point.z * unit };
+      const topAxis = { x: origin.x, y: top.y };
+      const leftAxis = { x: left.x, y: origin.y };
+      // 长对正：正视↔俯视（共 X）；高平齐：正视↔左视（共 Z）
+      this.drawProjectionLine(context, front, top, color);
+      this.drawProjectionLine(context, front, left, color);
+      // 投影点引向对应投影轴的辅助对应线
+      this.drawProjectionLine(context, top, topAxis, color);
+      this.drawProjectionLine(context, leftAxis, left, color);
+      // 宽相等：该点 H 宽度与 W 宽度之间的转位弧（与点/线/面一致）
+      this.drawQuarterTurnForY(context, point.y, origin, unit);
+      [front, top, left].forEach((projected) => this.drawDot(context, projected, color));
+    });
+    context.restore();
+  },
+
+  drawDot(context, point, color) {
+    context.save();
+    context.beginPath();
+    context.arc(point.x, point.y, 3, 0, Math.PI * 2);
+    context.fillStyle = color;
+    context.fill();
+    context.restore();
+  },
+
   drawSectionProjectionOverlay(context) {
     const { solid, plane, sectionSegments, retainedSolid } = this.getSectionResult();
     const views = ['front', 'top', 'left'];
     context.save();
+    this.drawSectionPointCorrespondence(context);
     views.forEach((viewType) => {
       this.drawProjectionCenterLines(context, retainedSolid, solid.type, viewType);
       this.drawSolidProjection(context, retainedSolid, viewType);
@@ -935,16 +1386,33 @@ Page({
         '600'
       );
     }
+    const sectionLoops = SectionGeometry.createSectionLoops(sectionSegments);
     context.strokeStyle = '#e23840';
     context.lineWidth = 2.8;
+    context.setLineDash([]);
     views.forEach((viewType) => {
-      sectionSegments.forEach((segment) => {
-        this.drawLine(
-          context,
-          this.projectPointToView(segment[0], viewType),
-          this.projectPointToView(segment[1], viewType)
-        );
-      });
+      const drawLoop = (loop) => {
+        const projected = loop.map((point) => this.projectPointToView(point, viewType));
+        if (projected.length < 2) return;
+        context.beginPath();
+        context.moveTo(projected[0].x, projected[0].y);
+        for (let index = 1; index < projected.length; index += 1) {
+          context.lineTo(projected[index].x, projected[index].y);
+        }
+        context.closePath();
+        context.stroke();
+      };
+      if (sectionLoops.length) {
+        sectionLoops.forEach(drawLoop);
+      } else {
+        sectionSegments.forEach((segment) => {
+          this.drawLine(
+            context,
+            this.projectPointToView(segment[0], viewType),
+            this.projectPointToView(segment[1], viewType)
+          );
+        });
+      }
     });
     context.restore();
   },

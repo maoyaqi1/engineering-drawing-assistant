@@ -1,0 +1,77 @@
+.reg-shell {
+  min-height: 100vh;
+  padding: 60rpx 48rpx;
+  box-sizing: border-box;
+  background: linear-gradient(160deg, #e9f1ff 0%, #f6f9ff 55%, #eef3f8 100%);
+}
+
+.reg-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 56rpx 40rpx 48rpx;
+  box-sizing: border-box;
+  border-radius: 28rpx;
+  background: #ffffff;
+  box-shadow: 0 18rpx 50rpx rgba(20, 60, 120, 0.12);
+}
+
+.reg-brand {
+  color: #0e5fa8;
+  font-size: 40rpx;
+  font-weight: 750;
+}
+
+.reg-sub {
+  margin-top: 14rpx;
+  color: #768297;
+  font-size: 26rpx;
+}
+
+.field {
+  margin-top: 32rpx;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 12rpx;
+  color: #3b4654;
+  font-size: 28rpx;
+}
+
+.field-input {
+  width: 100%;
+  height: 84rpx;
+  padding: 0 22rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #d4d8de;
+  border-radius: 14rpx;
+  background: #f7f9fb;
+  font-size: 30rpx;
+}
+
+.reg-button {
+  width: 100%;
+  height: 88rpx;
+  margin: 56rpx auto 0;
+  padding: 0;
+  line-height: 88rpx;
+  border-radius: 44rpx;
+  background: #087df0;
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 650;
+  box-sizing: border-box;
+}
+
+.reg-error {
+  margin-top: 22rpx;
+  color: #e04444;
+  font-size: 26rpx;
+}
+
+.reg-hint {
+  margin-top: 24rpx;
+  color: #66748a;
+  font-size: 24rpx;
+}

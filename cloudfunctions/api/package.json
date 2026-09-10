@@ -1,0 +1,9 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "工程制图学习助手 V0.6.2 云函数（登录/注册/名单/记录/统计/问卷/AI 教师/基本立体，学号唯一）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

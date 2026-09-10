@@ -1,0 +1,40 @@
+<view class="roster-shell">
+  <view wx:if="{{!admin && !checking}}" class="deny">
+    <text class="deny-title">无名单管理权限</text>
+    <text class="deny-text">请先在 api 云函数的环境变量 ADMIN_OPENIDS 中配置你的 openid，再重新进入本页。</text>
+  </view>
+
+  <block wx:if="{{admin}}">
+    <view class="self-info">当前登录账号：学号 {{studentId || '未填写'}} ｜ 名单状态：{{inRoster ? '在名单，可提问' : '不在名单，无法提问'}}</view>
+
+    <view class="import-box">
+      <text class="box-title">批量导入学号</text>
+      <textarea
+        class="ids-input"
+        value="{{input}}"
+        bindinput="onInput"
+        placeholder="每行一个学号，或粘贴一列学号"
+        maxlength="6000"
+      />
+      <button
+        class="import-button"
+        bindtap="doImport"
+        loading="{{importing}}"
+        disabled="{{importing}}"
+      >导入名单</button>
+      <text wx:if="{{result}}" class="result">{{result}}</text>
+    </view>
+
+    <view class="list-box">
+      <view class="list-header">
+        <text class="box-title">名单（{{items.length}} 人）</text>
+        <text class="clear-all" bindtap="clearAll">清空名单</text>
+      </view>
+      <view wx:if="{{items.length === 0}}" class="empty">名单为空，请先导入。</view>
+      <view wx:for="{{items}}" wx:key="_id" class="row">
+        <text class="row-id">{{item.student_id}}</text>
+        <text class="row-del" data-id="{{item._id}}" data-no="{{item.student_id}}" bindtap="removeOne">移除</text>
+      </view>
+    </view>
+  </block>
+</view>

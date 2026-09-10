@@ -1,0 +1,45 @@
+.terms-shell {
+  padding: 32rpx 40rpx calc(48rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: #f4f7fb;
+  min-height: 100vh;
+}
+
+.terms-update {
+  display: block;
+  color: #8290a3;
+  font-size: 24rpx;
+  margin-bottom: 30rpx;
+}
+
+.terms-section {
+  margin-bottom: 34rpx;
+}
+
+.terms-h {
+  display: block;
+  color: #16223a;
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 14rpx;
+}
+
+.terms-p {
+  display: block;
+  color: #3b4a60;
+  font-size: 28rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.terms-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-top: 44rpx;
+  padding-top: 28rpx;
+  border-top: 1rpx solid #dfe5ee;
+  color: #8a97a8;
+  font-size: 23rpx;
+}

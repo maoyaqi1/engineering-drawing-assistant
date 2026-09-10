@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#202124">
+  <title>画法几何互动课堂</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-shell">
+    <header class="app-toolbar">
+      <strong class="brand-name">画法几何 Mobile</strong>
+      <label class="module-picker">
+        <span class="sr-only">教学模块</span>
+        <select id="moduleSelect" aria-label="选择教学模块">
+          <option value="0">点</option>
+          <option value="1">直线</option>
+          <option value="2">平面</option>
+          <option value="3">平面切割立体</option>
+        </select>
+      </label>
+    </header>
+
+    <section class="type-panel" data-mode-panel="point">
+      <strong class="type-label">类型</strong>
+      <div class="type-toolbar">
+        <button data-action="point" data-type="general">一般点</button>
+        <button data-action="point" data-type="origin">原点</button>
+        <button data-action="point" data-type="axisX">OX轴</button>
+        <button data-action="point" data-type="axisY">OY轴</button>
+        <button data-action="point" data-type="axisZ">OZ轴</button>
+        <button data-action="point" data-type="planeH">H面</button>
+        <button data-action="point" data-type="planeV">V面</button>
+        <button data-action="point" data-type="planeW">W面</button>
+      </div>
+    </section>
+
+    <section class="type-panel" data-mode-panel="line" hidden>
+      <strong class="type-label">类型</strong>
+      <div class="type-toolbar">
+        <button data-action="line" data-type="general">一般线</button>
+        <button data-action="line" data-type="horizontal">水平线</button>
+        <button data-action="line" data-type="frontal">正平线</button>
+        <button data-action="line" data-type="profile">侧平线</button>
+        <button data-action="line" data-type="vertical">铅垂线</button>
+        <button data-action="line" data-type="frontProjecting">正垂线</button>
+        <button data-action="line" data-type="profileProjecting">侧垂线</button>
+      </div>
+    </section>
+
+    <section class="type-panel" data-mode-panel="plane" hidden>
+      <strong class="type-label">类型</strong>
+      <div class="type-toolbar">
+        <button data-action="plane" data-type="general">一般面</button>
+        <button data-action="plane" data-type="horizontal">水平面</button>
+        <button data-action="plane" data-type="frontal">正平面</button>
+        <button data-action="plane" data-type="profile">侧平面</button>
+        <button data-action="plane" data-type="vertical">铅垂面</button>
+        <button data-action="plane" data-type="frontProjecting">正垂面</button>
+        <button data-action="plane" data-type="profileProjecting">侧垂面</button>
+      </div>
+    </section>
+
+    <section class="type-panel" data-mode-panel="section" hidden>
+      <strong class="type-label">立体</strong>
+      <div class="type-toolbar three-column">
+        <button data-action="solid" data-type="triangularPyramid">三棱锥</button>
+        <button data-action="solid" data-type="pentagonalPrism">五棱柱</button>
+        <button data-action="solid" data-type="cylinder">圆柱</button>
+        <button data-action="solid" data-type="cone">圆锥</button>
+        <button data-action="solid" data-type="sphere">圆球</button>
+        <button data-action="solid" data-type="torus">圆环</button>
+      </div>
+      <strong class="type-label secondary-label">截平面</strong>
+      <div class="type-toolbar three-column">
+        <button data-action="sectionPlane" data-type="horizontal">水平面</button>
+        <button data-action="sectionPlane" data-type="frontProjecting">正垂面</button>
+        <button data-action="sectionPlane" data-type="profile">侧平面</button>
+      </div>
+      <div class="section-controls">
+        <label class="section-control">
+          <span class="control-meta"><span>截平面角度</span><output id="angleValue">42°</output></span>
+          <input id="angleSlider" data-key="angle" type="range" min="0" max="180" step="1" value="42">
+        </label>
+        <label class="section-control">
+          <span class="control-meta"><span>平面位置</span><output id="offsetValue">0</output></span>
+          <input id="offsetSlider" data-key="offset" type="range" min="-3" max="3" step="0.1" value="0">
+        </label>
+      </div>
+    </section>
+
+    <section class="mobile-intro">
+      <div>
+        <h1 id="introTitle">点的三面投影</h1>
+        <p id="introCopy">拖动下方 a、a′、a″，观察空间点同步变化</p>
+      </div>
+      <span class="status-pill">第一分角</span>
+    </section>
+
+    <section class="canvas-card">
+      <div class="card-heading">
+        <div>
+          <h2 id="cardTitle">空间与展开投影</h2>
+          <p id="cardCaption">下方三个投影点均可拖动</p>
+        </div>
+        <button id="resetButton" class="ghost-button">重置</button>
+      </div>
+      <canvas id="geometryCanvas" class="geometry-canvas" aria-label="画法几何互动图"></canvas>
+      <div id="legendRow" class="legend-row"></div>
+    </section>
+
+    <section class="lesson-card">
+      <span id="lessonIndex" class="lesson-index">观察 · 01</span>
+      <h2 id="lessonTitle">一个空间点，三个二维信息</h2>
+      <p id="lessonBody"></p>
+      <div id="formulaRow" class="formula-row"></div>
+    </section>
+  </main>
+
+  <script>var module = { exports: {} };</script>
+  <script src="../pages/index/section-geometry.js"></script>
+  <script>
+    window.SectionGeometryModule = module.exports;
+    window.require = function () { return window.SectionGeometryModule; };
+    window.Page = function (definition) { window.geometryPage = definition; };
+    window.wx = {
+      getWindowInfo: function () { return { pixelRatio: window.devicePixelRatio || 1 }; },
+      setNavigationBarTitle: function (options) { if (options && options.title) document.title = options.title; }
+    };
+  </script>
+  <script src="../pages/index/index.js"></script>
+  <script src="runtime.js"></script>
+</body>
+</html>

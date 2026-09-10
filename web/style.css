@@ -1,0 +1,94 @@
+:root {
+  --blue: #1684ff;
+  --ink: #172438;
+  --muted: #768297;
+  --surface: #ffffff;
+  --page: #eef3f8;
+  font-family: "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--page);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: var(--page); }
+button, select, input { font: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+
+.page-shell { width: min(100%, 720px); min-height: 100vh; margin: 0 auto; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.app-toolbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; height: 58px; padding: 0 12px; border-bottom: 3px solid var(--blue); background: #202124; }
+.brand-name { flex: none; color: var(--blue); font-size: 17px; white-space: nowrap; }
+.module-picker { flex: 1; min-width: 0; }
+.module-picker select { width: 100%; height: 40px; padding: 0 14px; border: 1px solid #5a5c61; border-radius: 7px; background: #087df0; color: #fff; font-weight: 650; }
+
+.type-panel { padding: 10px 12px 12px; border-bottom: 1px solid #d4d7dc; background: #f1f2f4; }
+.type-label { display: block; margin-bottom: 7px; color: #e04444; font-size: 16px; }
+.secondary-label { margin-top: 12px; }
+.type-toolbar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.type-toolbar.three-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.type-toolbar button { min-width: 0; height: 38px; padding: 0 3px; overflow: hidden; border: 1px solid #aeb3ba; border-radius: 5px; background: #fff; color: #252b34; font-weight: 600; white-space: nowrap; }
+.type-toolbar button.active { border-color: var(--blue); color: #0877dd; box-shadow: inset 0 0 0 1px rgba(22,132,255,.15); }
+
+.section-controls { margin-top: 10px; padding-top: 10px; border-top: 1px solid #d4d8de; }
+.section-control { display: block; }
+.section-control + .section-control { margin-top: 7px; }
+.control-meta { display: flex; justify-content: space-between; color: #4c596b; font-size: 14px; }
+.control-meta output { color: #1c2c42; font-weight: 700; }
+.section-control input { width: 100%; accent-color: var(--blue); }
+#angleSlider { accent-color: #e04f54; }
+
+.mobile-intro { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 22px 22px 16px; }
+.mobile-intro h1, .card-heading h2, .lesson-card h2 { margin: 0; }
+.mobile-intro h1 { font-size: 24px; }
+.mobile-intro p, .card-heading p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+.status-pill { flex: none; padding: 7px 11px; border-radius: 999px; background: #e7f2ff; color: #116fc8; font-size: 13px; }
+
+.canvas-card, .lesson-card { margin: 0 16px 18px; padding: 20px; border: 1px solid rgba(109,130,156,.16); border-radius: 20px; background: var(--surface); box-shadow: 0 7px 22px rgba(36,55,82,.07); }
+.card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.card-heading h2 { font-size: 21px; }
+.ghost-button { flex: none; min-width: 100px; height: 40px; border: 0; border-radius: 12px; background: #edf4f8; color: #245a75; font-weight: 650; }
+.geometry-canvas { display: block; width: 100%; aspect-ratio: 4 / 7; border: 1px solid #25272b; border-radius: 10px; background: #fff; touch-action: none; }
+.legend-row { display: flex; flex-wrap: wrap; gap: 16px; min-height: 16px; margin-top: 14px; color: #66748a; font-size: 14px; }
+.legend-item { display: flex; align-items: center; }
+.legend-dot { width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; }
+.dot-space { background: #f2a83b; box-shadow: 0 0 0 3px rgba(242,168,59,.16); }
+.dot-projection { background: #286a86; }
+.dot-a { background: #ff4f53; }.dot-b { background: #3779d0; }.dot-c { background: #f0a62e; }
+.legend-line { width: 18px; margin-right: 6px; border-top: 1px solid #94a6b8; }
+.legend-solid { width: 18px; margin-right: 6px; border-top: 2px solid #ffb347; }
+.legend-plane { width: 19px; height: 11px; margin-right: 6px; border: 1px solid #35c3c8; background: rgba(53,195,200,.22); }
+.solid-edge { border-color: #8391a2; }.cut-plane { border-color: #e04f54; background: rgba(224,79,84,.18); }.section-line { border-color: #e04f54; border-top-width: 3px; }
+
+.lesson-card { background: linear-gradient(145deg, #fffaf0, #fff 62%); border-color: rgba(219,164,69,.2); }
+.lesson-index { color: #b47824; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+.lesson-card h2 { margin-top: 8px; font-size: 21px; }
+.lesson-card p { margin: 11px 0 0; color: #59667a; line-height: 1.75; }
+.formula-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.formula-chip { padding: 7px 10px; border-radius: 8px; background: #f5eee1; color: #755627; font-size: 13px; }
+
+@media (max-width: 520px) {
+  .app-toolbar { height: 52px; padding-inline: 8px; }
+  .brand-name { font-size: 15px; }
+  .type-panel { padding: 6px 8px 7px; }
+  .type-label { margin-bottom: 4px; font-size: 13px; }
+  .secondary-label { margin-top: 6px; }
+  .type-toolbar,
+  .type-toolbar.three-column { display: flex; flex-wrap: nowrap; gap: 5px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .type-toolbar::-webkit-scrollbar { display: none; }
+  .type-toolbar button { flex: 0 0 23%; height: 32px; font-size: 12px; scroll-snap-align: start; }
+  .type-toolbar.three-column button { flex-basis: 31%; }
+  .section-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; padding-top: 5px; }
+  .section-control + .section-control { margin-top: 0; }
+  .control-meta { font-size: 12px; }
+  .section-control input { height: 18px; margin: 2px 0 0; }
+  .mobile-intro { display: none; }
+  .canvas-card, .lesson-card { margin: 8px 7px 14px; padding: 8px; border-radius: 14px; }
+  .card-heading { margin: 0 4px 7px; }
+  .card-heading h2 { font-size: 16px; }
+  .card-heading p { display: none; }
+  .ghost-button { min-width: 68px; height: 32px; border-radius: 10px; font-size: 13px; }
+  .geometry-canvas { height: 500px; height: clamp(400px, 56svh, 520px); aspect-ratio: auto; }
+  .legend-row { gap: 10px; min-height: 12px; margin-top: 7px; font-size: 12px; }
+  .lesson-card { padding: 14px; }
+}

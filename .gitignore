@@ -12,3 +12,19 @@ $RECYCLE.BIN/
 
 # Node.js
 node_modules/
+
+# 本地截图反馈目录（非小程序资源）
+screen/
+
+# 本地 GeoGebra 离线部署（非小程序资源）
+geogebra-offline/
+
+# 本地开发者工具配置（本地环境相关，不入库）
+project.private.config.json
+
+# 环境变量与密钥（禁止入库）
+.env
+.env.*
+
+# 日志文件
+*.log
