@@ -66,16 +66,32 @@ function isRosterHeaderToken(s) {
   return ROSTER_HEADER_TOKENS.has(String(s).toLowerCase());
 }
 
-async function isInRoster(studentId) {
-  const sid = normalizeStudentId(studentId);
-  if (!sid) return false;
-  const set = await loadRosterSet();
-  return set.has(sid);
+// 白名单键 = 学号 + 姓名（不同学校的学号规则可能相同，不能只按学号判断）
+// legacy = 迁移前只有学号、没有姓名的旧记录；仅用于 roster.import 的去重，不再参与放行判定
+async function loadRosterSet() {
+  const res = await db.collection('roster').field({ student_id: true, name: true }).limit(1000).get();
+  const pairs = new Set();
+  const legacy = new Set();
+  res.data.forEach((r) => {
+    const sid = normalizeStudentId(r.student_id);
+    if (!sid) return;
+    const nm = String(r.name || '').trim();
+    if (nm) pairs.add(sid + '|' + nm);
+    else legacy.add(sid);
+  });
+  return { pairs, legacy };
 }
 
-async function loadRosterSet() {
-  const res = await db.collection('roster').field({ student_id: true }).limit(1000).get();
-  return new Set(res.data.map((r) => normalizeStudentId(r.student_id)).filter(Boolean));
+async function isInRoster(studentId, name) {
+  const sid = normalizeStudentId(studentId);
+  const nm = String(name == null ? '' : name).trim();
+  // 学号与姓名「两项都要对上」才算在白名单：
+  // - 同号不同名 → 不放行（否则别人拿同一学号就能冒用）
+  // - 不同号同名 → 不放行
+  // - 旧记录（无姓名）不再按学号兜底放行；需先用教师端 roster.backfill 补齐姓名
+  if (!sid || !nm) return false;
+  const set = await loadRosterSet();
+  return set.pairs.has(sid + '|' + nm);
 }
 
 function isAdmin(openid) {
@@ -105,11 +121,16 @@ exports.main = async (event) => {
       if (!school || !name || !studentId) {
         return { ok: false, code: 'MISSING_FIELDS', msg: '请完整填写学校、姓名和学号' };
       }
-      // 学号唯一：防止不同微信号冒用同一学号
+      // 学号 + 姓名 唯一：防止冒用；不同学校学号规则可能相同，因此不能只按学号判重
       const taken = await db.collection('users').where({ student_id: studentId }).get();
-      const conflict = taken.data.find((u) => u._id !== user._id);
+      const conflict = taken.data.find((u) => u._id !== user._id
+        && String(u.name || '').trim() === name);
       if (conflict) {
-        return { ok: false, code: 'STUDENT_ID_TAKEN', msg: '该学号已被其他账号绑定，请核对或联系老师' };
+        return {
+          ok: false,
+          code: 'STUDENT_ID_TAKEN',
+          msg: '该「学号 + 姓名」已被其他账号绑定，请核对学号与姓名是否填错'
+        };
       }
       await db.collection('users').doc(user._id).update({ data: {
         school,
@@ -129,7 +150,7 @@ exports.main = async (event) => {
         ok: true,
         registered,
         student_id: user.student_id || '',
-        in_roster: registered ? await isInRoster(user.student_id) : false,
+        in_roster: registered ? await isInRoster(user.student_id, user.name) : false,
         admin: isAdmin(OPENID)
       };
     }
@@ -143,13 +164,14 @@ exports.main = async (event) => {
       let added = 0;
       let duplicate = 0;
       for (const sid of clean) {
-        if (existing.has(sid)) { duplicate++; continue; }
+        if (existing.legacy.has(sid)) { duplicate++; continue; }
         // 双保险：逐条确认该学号尚未入库，防止一次性查询漏失/时序问题导致重复
         const cnt = await db.collection('roster').where({ student_id: sid }).count();
-        if (cnt.total > 0) { duplicate++; existing.add(sid); continue; }
-        await db.collection('roster').add({ data: { student_id: sid, created_at: now() } });
+        if (cnt.total > 0) { duplicate++; existing.legacy.add(sid); continue; }
+        // 该入口是历史遗留（按学号批量导入，页面已删除）：写入时姓名留空，按 legacy 记录处理
+        await db.collection('roster').add({ data: { student_id: sid, name: '', source: 'legacy_import', created_at: now() } });
         added++;
-        existing.add(sid);
+        existing.legacy.add(sid);
       }
       return { ok: true, added, duplicate, total: clean.length };
     }
@@ -157,7 +179,15 @@ exports.main = async (event) => {
     if (action === 'roster.list') {
       if (!isAdmin(OPENID)) return { ok: false, code: 'FORBIDDEN', msg: '无名单管理权限' };
       const res = await db.collection('roster').orderBy('created_at', 'desc').limit(1000).get();
-      return { ok: true, items: res.data.map((r) => ({ _id: r._id, student_id: r.student_id, created_at: r.created_at })) };
+      return {
+        ok: true,
+        items: res.data.map((r) => ({
+          _id: r._id,
+          student_id: r.student_id,
+          name: r.name || '',
+          created_at: r.created_at
+        }))
+      };
     }
 
     if (action === 'roster.remove') {
@@ -174,9 +204,12 @@ exports.main = async (event) => {
         }
       }
       if (!sid) return { ok: false, code: 'MISSING_ID', msg: '学号不能为空' };
+      const name = String((event && event.name) || '').trim();
       const res = await db.collection('roster').where({ student_id: sid }).get();
       let removed = 0;
       for (const r of res.data) {
+        // 传了姓名则只删同号同名；未传姓名保持旧的"按学号全删"行为（历史入口，页面已删除）
+        if (name && String(r.name || '').trim() && String(r.name || '').trim() !== name) continue;
         await db.collection('roster').doc(r._id).remove();
         removed++;
       }
@@ -311,7 +344,7 @@ exports.main = async (event) => {
     if (action === 'ai.ask') {
       await ai.ensureCollections();
       const user = await ensureUser(OPENID, UNIONID);
-      const canAsk = user.student_id ? await isInRoster(user.student_id) : false;
+      const canAsk = user.student_id ? await isInRoster(user.student_id, user.name) : false;
       if (!canAsk) {
         return { ok: false, code: 'NOT_IN_ROSTER', msg: '你不在名单中，暂时无法使用提问' };
       }

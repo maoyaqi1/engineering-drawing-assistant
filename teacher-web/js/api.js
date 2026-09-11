@@ -91,6 +91,41 @@
     listAiQuestions(filter) {
       return callTeacher('ai.questions', filter || {});
     },
+    // 名册批量清理（维护工具，仅超级管理员；默认 dry_run 预览）
+    purgeStudents(payload) {
+      return callTeacher('student.purge', payload || {});
+    },
+    // 班级管理（REQ-002 第一阶段）
+    // 说明：class_id 是唯一权威班级关联，class_name 仅为兼容展示快照；
+    // 前端只调用这些接口，不直接改写学生的 class_id / class_name。
+    listClasses(filter) {
+      return callTeacher('class.list', filter || {});
+    },
+    createClass(payload) {
+      return callTeacher('class.create', payload);
+    },
+    updateClass(payload) {
+      return callTeacher('class.update', payload);
+    },
+    classDetail(classId) {
+      return callTeacher('class.detail', { class_id: classId });
+    },
+    classCandidates(classId) {
+      return callTeacher('class.candidates', { class_id: classId });
+    },
+    // 把名册中已存在但未关联班级实体的学生并入本班（修复"学生页录入、班级页看不到"）
+    syncClassMembers(payload) {
+      return callTeacher('class.syncMembers', payload || {});
+    },
+    addClassMembers(classId, docIds) {
+      return callTeacher('class.members.add', { class_id: classId, doc_ids: docIds || [] });
+    },
+    removeClassMembers(classId, docIds) {
+      return callTeacher('class.members.remove', { class_id: classId, doc_ids: docIds || [] });
+    },
+    archiveClass(classId, archived) {
+      return callTeacher('class.archive', { class_id: classId, archived: archived !== false });
+    },
     listTeachers() {
       return callTeacher('teacher.list', {});
     },
