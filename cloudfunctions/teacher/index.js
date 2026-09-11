@@ -560,6 +560,10 @@ async function listRegisteredStudents(event, me) {
       s.name.toLowerCase().includes(keyword) || s.student_no.toLowerCase().includes(keyword));
   }
 
+  // 候选班级：名册中已出现过的班级去重排序。本视图仅超管可见，可见范围即全部名册，
+  // 与「名册学生」视图筛选栏「全部班级」的候选口径一致（同一份数据、同样排序）。
+  const classes = Array.from(new Set(rosterRes.data.map((s) => s.class_name).filter(Boolean))).sort();
+
   return {
     ok: true,
     source: 'registered',
@@ -567,7 +571,7 @@ async function listRegisteredStudents(event, me) {
     summary: { total: items.length, registered: items.length, unregistered: 0 },
     items,
     schools,
-    classes: [],
+    classes,
     owners: [],
     is_super: true
   };

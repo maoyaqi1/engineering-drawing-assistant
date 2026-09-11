@@ -260,6 +260,8 @@
 
   // ---- 学生管理 ----
   const studentFilter = { source: 'roster', keyword: '', school: '', class_name: '', registered: '', owner_teacher_id: '' };
+  // 最近一次加载到的候选班级（名册中已出现过的班级，由服务端去重排序）
+  let studentClassOptions = [];
 
   async function renderStudents(container) {
     const superUser = isSuper();
@@ -354,6 +356,7 @@
 
     fillSelect($('stuSchool'), res.schools || [], '全部学校', studentFilter.school);
     fillSelect($('stuClass'), res.classes || [], '全部班级', studentFilter.class_name);
+    studentClassOptions = (res.classes || []).slice();
     if (superUser && $('stuOwner')) {
       let ownHtml = '<option value="">全部录入教师</option>';
       (res.owners || []).forEach((o) => {
@@ -432,17 +435,44 @@
   }
 
   // 未入册学生 → 收进当前教师名册并指定班级
-  async function adoptRegisteredStudent(btn) {
+  // 班级为严格下拉（REQ-001）：候选来自名册中已出现过的班级，不可手输；首项「未分班（留空）」。
+  // 新班级的录入入口仍是「名册学生」的「新增学生 / 编辑」弹窗，本入口只做收编。
+  function adoptRegisteredStudent(btn) {
     const userId = btn.dataset.adopt;
     const name = btn.dataset.name;
-    const className = prompt('把「' + name + '」加入我的名册，并设置班级（可留空）：\n\n收编后该学号将自动开通 AI 教师提问权限。', '');
-    if (className === null) return;
-    const res = await api.adoptStudent({ user_id: userId, class_name: className });
-    if (res && res.ok) {
-      await loadStudents();
-    } else {
-      alert((res && res.msg) || '操作失败');
-    }
+
+    let options = '<option value="">未分班（留空）</option>';
+    studentClassOptions.forEach((c) => {
+      options += '<option value="' + esc(c) + '">' + esc(c) + '</option>';
+    });
+
+    const emptyHint = studentClassOptions.length
+      ? ''
+      : '<div class="form-err">名册中还没有任何班级。可先选「未分班（留空）」完成收编；' +
+        '如需分班，请先在「名册学生」的「新增学生 / 编辑」里录入班级。</div>';
+
+    openModal('设置班级',
+      '<div class="fld"><label>班级</label><select id="aClass" class="filter-select">' + options + '</select></div>' +
+      '<div class="hint">将「' + esc(name) + '」加入我的名册，并自动开通 AI 教师提问权限。<br />' +
+      '班级只能从已有班级中选择；新班级请先到「名册学生 → 新增学生 / 编辑」录入。</div>' +
+      emptyHint +
+      '<div id="aErr" class="form-err"></div>',
+      '<button class="mini-btn" id="aCancel">取消</button>' +
+      '<button class="login-btn filter-btn" id="aConfirm">确定</button>');
+
+    $('aCancel').addEventListener('click', closeModal);
+    $('aConfirm').addEventListener('click', async () => {
+      $('aErr').textContent = '';
+      $('aConfirm').disabled = true;
+      const res = await api.adoptStudent({ user_id: userId, class_name: $('aClass').value });
+      $('aConfirm').disabled = false;
+      if (res && res.ok) {
+        closeModal();
+        await loadStudents();
+      } else {
+        $('aErr').textContent = (res && res.msg) || '操作失败';
+      }
+    });
   }
 
   async function removeStudent(btn) {
