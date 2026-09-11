@@ -17,6 +17,34 @@
       {
         "value": "web-release.zip",
         "type": "file"
+      },
+      {
+        "value": "geogebra-offline",
+        "type": "folder"
+      },
+      {
+        "value": "docs",
+        "type": "folder"
+      },
+      {
+        "value": "teacher-web",
+        "type": "folder"
+      },
+      {
+        "value": ".agent",
+        "type": "folder"
+      },
+      {
+        "value": ".agents",
+        "type": "folder"
+      },
+      {
+        "value": "AGENTS.md",
+        "type": "file"
+      },
+      {
+        "value": "README.md",
+        "type": "file"
       }
     ],
     "include": []
