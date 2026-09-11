@@ -27,6 +27,15 @@ Page({
     }).catch(() => {});
   },
 
+  // 转发给好友：统一落到首页 —— 提问需要名册权限，好友先经过登录/注册更顺；
+  // 已登录的同学从首页一键即可回到「问老师」。
+  onShareAppMessage() {
+    return {
+      title: '工程制图学习助手 · 让空间投影看得见',
+      path: '/pages/index/index'
+    };
+  },
+
   onInput(event) {
     this.setData({ input: event.detail.value });
   },

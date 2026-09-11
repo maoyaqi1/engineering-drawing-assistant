@@ -22,6 +22,15 @@ Page({
     this.setData({ loading: false, error: '' });
   },
 
+  // 转发给好友：页面实现本方法后，右上角菜单的「转发」才可用（微信平台机制）。
+  // 好友点开统一落到首页，未登录/未注册会被首页自动引导，避免落在需要身份的页面。
+  onShareAppMessage() {
+    return {
+      title: '工程制图学习助手 · 让空间投影看得见',
+      path: '/pages/index/index'
+    };
+  },
+
   tryLogin() {
     if (this.data.loading) return;
     if (!this.data.agreed) {

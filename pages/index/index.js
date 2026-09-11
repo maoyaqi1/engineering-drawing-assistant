@@ -75,6 +75,15 @@ Page({
     this.endSession();
   },
 
+  // 转发给好友：好友点开落在首页（未登录会自动引导到登录页，未注册引导到注册页）。
+  // 仅实现 onShareAppMessage（转发给好友/群），不启用朋友圈分享。
+  onShareAppMessage() {
+    return {
+      title: '工程制图学习助手 · 让空间投影看得见',
+      path: '/pages/index/index'
+    };
+  },
+
   ensureSession() {
     if (!api) return;
     const app = getApp();
