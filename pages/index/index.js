@@ -223,12 +223,6 @@ Page({
     }
   },
 
-  goRuler() {
-    if (typeof wx !== 'undefined' && wx.navigateTo) {
-      wx.navigateTo({ url: '/pages/ruler/ruler' });
-    }
-  },
-
   goProfile() {
     if (typeof wx !== 'undefined' && wx.navigateTo) {
       wx.navigateTo({ url: '/pages/register/register' });

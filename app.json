@@ -5,8 +5,7 @@
     "pages/index/index",
     "pages/survey/survey",
     "pages/ai/ai",
-    "pages/terms/terms",
-    "pages/ruler/ruler"
+    "pages/terms/terms"
   ],
   "lazyCodeLoading": "requiredComponents",
   "resizable": true,

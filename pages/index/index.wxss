@@ -167,36 +167,6 @@
   letter-spacing: 1rpx;
 }
 
-.ruler-fab {
-  position: fixed;
-  right: 20rpx;
-  bottom: calc(440rpx + env(safe-area-inset-bottom));
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4rpx;
-  padding: 12rpx 16rpx 10rpx;
-  border-radius: 22rpx;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 8rpx 22rpx rgba(26, 143, 75, 0.24);
-  border: 1rpx solid rgba(26, 143, 75, 0.28);
-}
-
-.ruler-fab-icon {
-  font-size: 30rpx;
-  line-height: 1.2;
-}
-
-.ruler-fab-label {
-  color: #14804a;
-  font-size: 20rpx;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 1rpx;
-}
-
 @media (max-width: 520px) {
   .mobile-intro { display: none; }
   .card-caption { display: none; }
@@ -287,9 +257,6 @@
   /* 手机窄屏：参考网页版移动端布局，压缩纵向占用 */ .ai-fab { right: 10px; bottom: calc(140px + env(safe-area-inset-bottom)); gap: 3px; padding: 7px 8px 6px; border-radius: 12px; box-shadow: 0 4px 11px rgba(22, 132, 255, 0.26); border: 0.5px solid rgba(22, 132, 255, 0.22); }
   .ai-fab-avatar { width: 48px; height: 48px; box-shadow: 0 1px 4px rgba(22, 132, 255, 0.18); }
   .ai-fab-label { font-size: 11px; letter-spacing: 0.5px; }
-  .ruler-fab { right: 10px; bottom: calc(220px + env(safe-area-inset-bottom)); gap: 2px; padding: 6px 8px 5px; border-radius: 11px; box-shadow: 0 4px 11px rgba(26, 143, 75, 0.24); border: 0.5px solid rgba(26, 143, 75, 0.28); }
-  .ruler-fab-icon { font-size: 15px; }
-  .ruler-fab-label { font-size: 10px; letter-spacing: 0.5px; }
 
   /* 宽屏专属：一屏放下更多类型按钮（8 个一行 / 立体与截交 6 个一行），减少纵向占用 */
   .type-chip { flex-basis: calc((100% - 56px) / 8); max-width: calc((100% - 56px) / 8); }
