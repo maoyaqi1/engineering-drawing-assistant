@@ -151,7 +151,7 @@ git tag v0.7.0   # 可选：项目此前未使用 tag，版本以提交信息记
 
 `docs/rules/AGENTS-pre-layering.snapshot.md`（迁移前校验副本）**已随 W1 一并入库**：迁移映射表里对"迁移前行号"的溯源依赖它，入库才能复核。
 
-未使用 `git tag`（项目此前无 tag 约定，版本以提交信息与冻结记录为准）。上传云函数与同步教师网页预览仓库由用户执行；`git push` 由本 Agent 在用户明确要求后执行（认证沿用本机已配置的凭据，未涉及代输密码或自建 Token）。
+已按用户要求追加**附注 tag `v0.7.0`**（位于本文件所在提交，见 §10）。上传云函数与同步教师网页预览仓库由用户执行；`git push` 由本 Agent 在用户明确要求后执行（认证沿用本机已配置的凭据，未涉及代输密码或自建 Token）。
 
 ## 8. 修订记录（冻结后）
 
@@ -177,7 +177,10 @@ git tag v0.7.0   # 可选：项目此前未使用 tag，版本以提交信息记
 | 1 | `a998774` | `docs(rules): AGENTS.md 分层为全局入口，新增 docs/rules 专题规则与迁移映射`（`AGENTS.md` + `docs/rules/` 12 个 + `.agent/` 3 个） |
 | 2 | `4c5f657` | `feat(teacher): 班级管理第一阶段与学生名册维护，AI 白名单改为学号+姓名校验（REQ-002）`（教师端 6 个代码文件 + `docs/requirements/`、`docs/test/`） |
 | 3 | `edd05fb` | `feat(miniprogram): PAD/手机布局适配与参数面板合并，冻结 v0.7.0`（小程序 12 个文件 + 两份冻结记录） |
-| 4 | 本文件所在提交 | `docs: 冻结记录补充 v0.7.0 提交与部署状态` |
+| 4 | `0fc83ba` | `docs: 冻结记录补充 v0.7.0 提交与部署状态` |
+| 5 | 本文件所在提交 | `docs: 冻结记录补充 v0.7.0 标签信息` |
+
+**版本标签**：`v0.7.0`（附注 tag，指向第 5 个提交，即包含完整冻结记录的这一版）。核验：`git show v0.7.0`、`git tag -l -n1 v0.7.0`。
 
 基线：`2438fa3`（REQ-001），位于 `v0.6.2`（`aaf75d0`）之后。
 未纳入本版本的未跟踪资产（按 §C7 D 级与项目约定保持未跟踪）：`web-release/`、`docs/ai_teacher_reflections.txt`、`docs/qrcode.png`、`docs/产品海报.html`、`images/ai-avatar.png`。
