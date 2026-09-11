@@ -43,3 +43,14 @@
   color: #8a97a8;
   font-size: 23rpx;
 }
+
+/* ---- 宽屏适配（PAD / 折叠屏 / 横屏）：文字与控件保持与手机等大 ----
+   rpx 会随窗口宽度放大，这里按 1rpx = 0.5px 换算成 px，使大屏上的字号、间距、按钮与手机一致。 */
+@media (min-width: 500px) {
+  .terms-shell { padding: 16px 20px calc(24px + env(safe-area-inset-bottom)); }
+  .terms-update { font-size: 12px; margin-bottom: 15px; }
+  .terms-section { margin-bottom: 17px; }
+  .terms-h { font-size: 15px; margin-bottom: 7px; }
+  .terms-p { font-size: 14px; }
+  .terms-foot { gap: 4px; margin-top: 22px; padding-top: 14px; border-top: 0.5px solid #dfe5ee; font-size: 11.5px; }
+}

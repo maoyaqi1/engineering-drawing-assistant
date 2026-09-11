@@ -421,9 +421,11 @@ function drawViews(context, page) {
   // 视图标签
   const layout = page.getLayout();
   const origin = layout.projectionOrigin;
-  page.drawText(context, 'V面', 10, layout.dividerY + 44, '#df5757', 11, '700');
-  page.drawText(context, 'H面', 10, layout.dividerY + layout.bottomHeight - 16, '#43a66c', 11, '700');
-  page.drawText(context, 'W面', layout.rightWidth - 44, layout.dividerY + 44, '#3779d0', 11, '700');
+  page.drawText(context, 'V面', layout.projectionLeft + 10, layout.projectionTop + 44, '#df5757', 11, '700');
+  page.drawText(context, 'H面', layout.projectionLeft + 10,
+    layout.projectionTop + layout.projectionHeight - 16, '#43a66c', 11, '700');
+  page.drawText(context, 'W面', layout.projectionLeft + layout.projectionWidth - 44,
+    layout.projectionTop + 44, '#3779d0', 11, '700');
   context.restore();
 }
 
@@ -518,9 +520,11 @@ function drawCurvedViews(context, page, geo) {
   drawCurvedCenterLines(context, page, geo);
   drawCurvedCorrespondence(context, page, geo);
   const layout = page.getLayout();
-  page.drawText(context, 'V面', 10, layout.dividerY + 44, '#df5757', 11, '700');
-  page.drawText(context, 'H面', 10, layout.dividerY + layout.bottomHeight - 16, '#43a66c', 11, '700');
-  page.drawText(context, 'W面', layout.rightWidth - 44, layout.dividerY + 44, '#3779d0', 11, '700');
+  page.drawText(context, 'V面', layout.projectionLeft + 10, layout.projectionTop + 44, '#df5757', 11, '700');
+  page.drawText(context, 'H面', layout.projectionLeft + 10,
+    layout.projectionTop + layout.projectionHeight - 16, '#43a66c', 11, '700');
+  page.drawText(context, 'W面', layout.projectionLeft + layout.projectionWidth - 44,
+    layout.projectionTop + 44, '#3779d0', 11, '700');
 }
 
 function drawRing(context, page, ring, viewType, color) {

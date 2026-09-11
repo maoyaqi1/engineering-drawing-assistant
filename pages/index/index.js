@@ -61,6 +61,12 @@ Page({
     this.initializeCanvas();
   },
 
+  // 平板/PC 上窗口旋转或改变大小后，画布尺寸会变化：重新测量并重绘。
+  // 布局由 getLayout() 依据画布宽高比自动在「上下」与「左右」之间切换，手机竖屏不受影响。
+  onResize() {
+    this.initializeCanvas();
+  },
+
   onShow() {
     this.ensureSession();
   },
@@ -242,7 +248,8 @@ Page({
     const chapterChanged = mode !== this.data.mode;
     if (chapterChanged) this.trackChapterExit();
     this.setData({ mode, moduleIndex }, () => {
-      this.drawScene();
+      // 宽屏下画布高度按模式扣减剩余空间，切模式会改变画布高度：重新测量再绘制。
+      this.initializeCanvas();
       if (chapterChanged) this.trackChapterEnter();
     });
   },
@@ -432,7 +439,9 @@ Page({
 
   handleRotate90(event) {
     this.recordInteraction();
-    const axis = this.data.rotationAxis || 'x';
+    // 「旋转90°」是独立按钮，与「旋转/平移」页签无关：任何时候都可用，
+    // 每次点击都绕「当前高亮的那根轴」旋转 90°（旋转页签 = 旋转轴，平移页签 = 平移轴）。
+    const axis = (this.data.poseTabIndex === 0 ? this.data.rotationAxis : this.data.translationAxis) || 'x';
     const current = Number(this.data.solid.rotation[axis]) || 0;
     const next = (current + 90) % 360;
     this.setData({
@@ -785,15 +794,43 @@ Page({
   getLayout() {
     const width = this.canvasWidth;
     const height = this.canvasHeight;
+    // 宽画布（PAD 横屏 / 折叠屏展开 / 手机横屏）改为左右布局：左侧空间视图，右侧三面投影。
+    // 判定只看画布自身宽高比，手机竖屏（约 0.6）永远不会进入此分支，原有上下布局数值保持不变。
+    const WIDE_RATIO = 1.25;
+    if (width >= height * WIDE_RATIO) {
+      // 与参考版式一致：左右各半（空间视图 / 三面投影各占 50%）
+      const leftWidth = Math.round(width * 0.5);
+      const rightWidth = width - leftWidth;
+      return {
+        split: true,
+        dividerY: 0,
+        topHeight: height,      // 空间视图占满左列
+        bottomHeight: height,   // 三面投影占满右列
+        leftWidth,
+        rightWidth,
+        projectionLeft: leftWidth,
+        projectionTop: 0,
+        projectionWidth: rightWidth,
+        projectionHeight: height,
+        unit: Math.min(leftWidth / 27, height / 24),
+        isoOrigin: { x: leftWidth * 0.5, y: height * 0.52 },
+        projectionOrigin: { x: leftWidth + rightWidth * 0.5, y: height * 0.5 }
+      };
+    }
     const dividerY = height * 0.46;
     const topHeight = dividerY;
     const bottomHeight = height - dividerY;
     return {
+      split: false,
       dividerY,
       topHeight,
       bottomHeight,
       leftWidth: width,
       rightWidth: width,
+      projectionLeft: 0,
+      projectionTop: dividerY,
+      projectionWidth: width,
+      projectionHeight: bottomHeight,
       // X/Y 取相反极值时横向跨度最大，预留完整的 ±8 坐标显示范围。
       unit: Math.min(width / 27, topHeight / 24),
       isoOrigin: { x: width * 0.5, y: topHeight * 0.58 },
@@ -984,26 +1021,33 @@ Page({
     const unit = metrics.unit;
     context.save();
     context.fillStyle = '#ffffff';
-    context.fillRect(0, layout.dividerY, layout.rightWidth, layout.bottomHeight);
+    context.fillRect(layout.projectionLeft, layout.projectionTop, layout.projectionWidth, layout.projectionHeight);
     context.strokeStyle = '#31343a';
     context.lineWidth = 1.5;
-    this.drawLine(context, { x: 0, y: layout.dividerY }, { x: contextWidth, y: layout.dividerY });
+    if (layout.split) {
+      // 左右布局：分隔线改为左列与右列之间的竖线
+      this.drawLine(context, { x: layout.leftWidth, y: 0 }, { x: layout.leftWidth, y: height });
+    } else {
+      this.drawLine(context, { x: 0, y: layout.dividerY }, { x: contextWidth, y: layout.dividerY });
+    }
     context.strokeStyle = '#777d85';
     context.lineWidth = 1;
-    this.drawLine(context, { x: 10, y: origin.y }, { x: contextWidth - 10, y: origin.y });
-    this.drawLine(context, { x: origin.x, y: layout.dividerY + 34 }, { x: origin.x, y: height - 18 });
-    this.drawText(context, 'Z', origin.x + 5, layout.dividerY + 34, '#525861', 10, '600');
-    this.drawText(context, 'X', 8, origin.y - 5, '#525861', 10, '600');
-    this.drawText(context, 'Y', origin.x + 5, height - 10, '#525861', 10, '600');
+    this.drawLine(context, { x: layout.projectionLeft + 10, y: origin.y },
+      { x: layout.projectionLeft + layout.projectionWidth - 10, y: origin.y });
+    this.drawLine(context, { x: origin.x, y: layout.projectionTop + 34 },
+      { x: origin.x, y: layout.projectionTop + layout.projectionHeight - 18 });
+    this.drawText(context, 'Z', origin.x + 5, layout.projectionTop + 34, '#525861', 10, '600');
+    this.drawText(context, 'X', layout.projectionLeft + 8, origin.y - 5, '#525861', 10, '600');
+    this.drawText(context, 'Y', origin.x + 5, layout.projectionTop + layout.projectionHeight - 10, '#525861', 10, '600');
 
     if (this.data.mode === 'section') {
-      this.drawText(context, '立体三视图与截交线', 12, layout.dividerY + 23, '#3b4654', 11, '600');
+      this.drawText(context, '立体三视图与截交线', layout.projectionLeft + 12, layout.projectionTop + 23, '#3b4654', 11, '600');
       context.restore();
       return;
     }
 
     const projectionTitle = this.data.mode === 'line' ? '直线三面投影 · 拖动端点' : (this.data.mode === 'plane' ? '平面三面投影 · 拖动顶点' : (this.data.mode === 'solid' ? '基本立体三视图' : '三面投影展开 · 拖动红点'));
-    this.drawText(context, projectionTitle, 12, layout.dividerY + 23, '#3b4654', 11, '600');
+    this.drawText(context, projectionTitle, layout.projectionLeft + 12, layout.projectionTop + 23, '#3b4654', 11, '600');
     if (this.data.mode !== 'point') {
       context.restore();
       return;

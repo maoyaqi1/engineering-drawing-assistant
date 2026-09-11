@@ -9,6 +9,7 @@
     "pages/ruler/ruler"
   ],
   "lazyCodeLoading": "requiredComponents",
+  "resizable": true,
   "window": {
     "navigationBarTitleText": "工程制图学习助手",
     "navigationBarBackgroundColor": "#f4f7fb",

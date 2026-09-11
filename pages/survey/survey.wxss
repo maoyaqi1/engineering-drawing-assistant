@@ -113,3 +113,21 @@
   color: #245a75;
   font-size: 26rpx;
 }
+
+/* ---- 宽屏适配（PAD / 折叠屏 / 横屏）：文字与控件保持与手机等大 ----
+   rpx 会随窗口宽度放大，这里按 1rpx = 0.5px 换算成 px，使大屏上的字号、间距、按钮与手机一致。 */
+@media (min-width: 500px) {
+  .survey-shell { padding: 12px 12px calc(20px + env(safe-area-inset-bottom)); }
+  .survey-card { padding: 14px; border-radius: 12px; box-shadow: 0 4px 12px rgba(36, 55, 82, 0.07); }
+  .survey-title { font-size: 17px; }
+  .survey-note { margin-top: 4px; font-size: 12px; }
+  .question { margin-top: 16px; }
+  .q-label { font-size: 13.5px; }
+  .options { gap: 7px; margin-top: 9px; }
+  .option { flex: 0 0 calc((100% - 14px) / 3); min-height: 32px; padding: 6px 4px; border: 0.5px solid #aeb3ba; border-radius: 5px; font-size: 12px; }
+  .options.multi .option { flex: 0 0 calc((100% - 14px) / 3); }
+  .na-note { margin-top: 9px; padding: 7px 9px; border-radius: 5px; font-size: 12px; }
+  .textarea { min-height: 75px; margin-top: 8px; padding: 8px; border: 0.5px solid #d4d8de; border-radius: 6px; font-size: 13px; }
+  .submit-button { margin-top: 22px; height: 42px; line-height: 42px; border-radius: 21px; font-size: 15px; }
+  .back-button { margin-top: 9px; height: 36px; line-height: 36px; border-radius: 18px; font-size: 13px; }
+}

@@ -136,3 +136,17 @@
   color: #0b7a45;
   font-weight: 700;
 }
+
+/* ---- 宽屏适配（PAD / 折叠屏 / 横屏）：文字与控件保持与手机等大 ----
+   rpx 会随窗口宽度放大，这里按 1rpx = 0.5px 换算成 px，使大屏上的字号、间距、按钮与手机一致。 */
+@media (min-width: 500px) {
+  .canvas-wrap { margin: 6px 8px 4px; border-radius: 8px; box-shadow: 0 3px 10px rgba(36, 55, 82, 0.08); }
+  .status-bar { top: 6px; left: 7px; right: 7px; padding: 4px 8px; border-radius: 5px; font-size: 11px; }
+  .player-bar { left: 7px; right: 7px; bottom: 7px; gap: 6px; padding: 5px 6px; border-radius: 6px; box-shadow: 0 2px 7px rgba(36, 55, 82, 0.15); }
+  .player-btn { min-width: 48px; height: 28px; padding: 0 6px; border-radius: 5px; font-size: 12px; }
+  .player-count { font-size: 12px; }
+  .player-desc { font-size: 11px; margin-top: 1px; }
+  .hint { margin: 0 8px 4px; font-size: 10.5px; }
+  .toolbar { gap: 6px; padding: 6px 8px calc(7px + env(safe-area-inset-bottom)); border-top: 0.5px solid #dde3eb; }
+  .tool { flex: 0 0 calc((100% - 18px) / 4); height: 33px; border-radius: 6px; border: 0.5px solid #c3ccd8; font-size: 13px; }
+}

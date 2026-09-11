@@ -1,4 +1,4 @@
-<view class="page-shell">
+<view class="page-shell mode-{{mode}}">
   <view class="app-toolbar">
     <view class="profile-entry" bindtap="goProfile">
       <text class="profile-avatar">👤</text>
@@ -58,71 +58,80 @@
       <button wx:for="{{solidTypes}}" wx:key="index" class="solid-type-chip {{solidTypeIndex === index ? 'active' : ''}}" data-type="{{index}}" bindtap="handleBasicSolidType">{{item}}</button>
     </view>
 
-    <text class="solid-group-label">尺寸</text>
-    <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid'}}">
-      <text class="param-name">棱数</text>
-      <view class="stepper">
-        <button class="step-btn" data-delta="-1" bindtap="handleSidesStep">−</button>
-        <text class="step-val">{{solid.sides}}</text>
-        <button class="step-btn" data-delta="1" bindtap="handleSidesStep">＋</button>
+    <view class="solid-group">
+      <text class="solid-group-label">尺寸</text>
+      <view class="solid-size-row">
+        <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid'}}">
+          <text class="param-name">棱数</text>
+          <view class="stepper">
+            <button class="step-btn" data-delta="-1" bindtap="handleSidesStep">−</button>
+            <text class="step-val">{{solid.sides}}</text>
+            <button class="step-btn" data-delta="1" bindtap="handleSidesStep">＋</button>
+          </view>
+        </view>
+        <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid' || solid.type === 'cylinder' || solid.type === 'cone' || solid.type === 'sphere'}}">
+          <text class="param-name">半径</text>
+          <slider class="param-slider" min="0.5" max="3" step="0.1" value="{{solid.radius}}" data-key="radius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+          <text class="param-val">{{solid.radius}}</text>
+        </view>
+        <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid' || solid.type === 'cylinder' || solid.type === 'cone'}}">
+          <text class="param-name">高度</text>
+          <slider class="param-slider" min="1" max="6" step="0.1" value="{{solid.height}}" data-key="height" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+          <text class="param-val">{{solid.height}}</text>
+        </view>
+        <view class="slider-row" wx:if="{{solid.type === 'torus'}}">
+          <text class="param-name">大圆半径</text>
+          <slider class="param-slider" min="1" max="2.5" step="0.1" value="{{solid.majorRadius}}" data-key="majorRadius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+          <text class="param-val">{{solid.majorRadius}}</text>
+        </view>
+        <view class="slider-row" wx:if="{{solid.type === 'torus'}}">
+          <text class="param-name">小圆半径</text>
+          <slider class="param-slider" min="0.2" max="1" step="0.1" value="{{solid.minorRadius}}" data-key="minorRadius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
+          <text class="param-val">{{solid.minorRadius}}</text>
+        </view>
       </view>
-    </view>
-    <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid' || solid.type === 'cylinder' || solid.type === 'cone' || solid.type === 'sphere'}}">
-      <text class="param-name">半径</text>
-      <slider class="param-slider" min="0.5" max="3" step="0.1" value="{{solid.radius}}" data-key="radius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
-      <text class="param-val">{{solid.radius}}</text>
-    </view>
-    <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid' || solid.type === 'cylinder' || solid.type === 'cone'}}">
-      <text class="param-name">高度</text>
-      <slider class="param-slider" min="1" max="6" step="0.1" value="{{solid.height}}" data-key="height" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
-      <text class="param-val">{{solid.height}}</text>
-    </view>
-    <view class="slider-row" wx:if="{{solid.type === 'torus'}}">
-      <text class="param-name">大圆半径</text>
-      <slider class="param-slider" min="1" max="2.5" step="0.1" value="{{solid.majorRadius}}" data-key="majorRadius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
-      <text class="param-val">{{solid.majorRadius}}</text>
-    </view>
-    <view class="slider-row" wx:if="{{solid.type === 'torus'}}">
-      <text class="param-name">小圆半径</text>
-      <slider class="param-slider" min="0.2" max="1" step="0.1" value="{{solid.minorRadius}}" data-key="minorRadius" bindchanging="handleSizeSliderLive" bindchange="handleSizeSlider" activeColor="#1684ff" block-size="16" />
-      <text class="param-val">{{solid.minorRadius}}</text>
     </view>
 
-    <text class="solid-group-label">姿态</text>
-    <view class="pose-tabs">
-      <button wx:for="{{poseTabs}}" wx:key="index" class="pose-tab {{poseTabIndex === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handlePoseTab">{{item}}</button>
+    <view class="solid-group">
+      <text class="solid-group-label">姿态</text>
+      <view class="pose-line">
+        <view class="pose-tabs">
+          <button wx:for="{{poseTabs}}" wx:key="index" class="pose-tab {{poseTabIndex === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handlePoseTab">{{item}}</button>
+        </view>
+        <block wx:if="{{poseTabIndex === 0 || poseTabIndex === 1}}">
+          <view class="axis-row">
+            <text class="param-name">坐标轴</text>
+            <button wx:for="{{axisLabels}}" wx:key="index" class="axis-chip {{(poseTabIndex === 0 ? rotationAxisIndex : translationAxisIndex) === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handleAxisChip">{{item}}</button>
+            <button class="rot90-chip" bindtap="handleRotate90">旋转90°</button>
+          </view>
+          <view class="slider-row">
+            <text class="param-name">{{poseTabIndex === 0 ? '旋转角度' : '平移量'}}</text>
+            <slider wx:if="{{poseTabIndex === 0}}" class="param-slider" min="0" max="360" step="1" value="{{rotationValue}}" bindchanging="handleRotationAngleLive" bindchange="handleRotationAngle" activeColor="#e04f54" block-size="16" />
+            <slider wx:else class="param-slider" min="{{translationAxis === 'z' ? (solid.type === 'torus' ? solid.minorRadius : (solid.type === 'sphere' ? solid.radius : solid.height / 2)) : (solid.type === 'torus' ? (solid.majorRadius + solid.minorRadius) : solid.radius)}}" max="{{translationAxis === 'z' ? (8 - (solid.type === 'torus' ? solid.minorRadius : (solid.type === 'sphere' ? solid.radius : solid.height / 2))) : (8 - (solid.type === 'torus' ? (solid.majorRadius + solid.minorRadius) : solid.radius))}}" step="0.1" value="{{translationValue}}" bindchanging="handleTranslationLive" bindchange="handleTranslation" activeColor="#1684ff" block-size="16" />
+            <text class="param-val">{{poseTabIndex === 0 ? (rotationValue + '°') : translationValue}}</text>
+          </view>
+        </block>
+      </view>
     </view>
-
-    <block wx:if="{{poseTabIndex === 0 || poseTabIndex === 1}}">
-      <view class="axis-row">
-        <text class="param-name">坐标轴</text>
-        <button wx:for="{{axisLabels}}" wx:key="index" class="axis-chip {{(poseTabIndex === 0 ? rotationAxisIndex : translationAxisIndex) === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handleAxisChip">{{item}}</button>
-      </view>
-      <view class="slider-row">
-        <text class="param-name">{{poseTabIndex === 0 ? '旋转角度' : '平移量'}}</text>
-        <slider wx:if="{{poseTabIndex === 0}}" class="param-slider" min="0" max="360" step="1" value="{{rotationValue}}" bindchanging="handleRotationAngleLive" bindchange="handleRotationAngle" activeColor="#e04f54" block-size="16" />
-        <slider wx:else class="param-slider" min="{{translationAxis === 'z' ? (solid.type === 'torus' ? solid.minorRadius : (solid.type === 'sphere' ? solid.radius : solid.height / 2)) : (solid.type === 'torus' ? (solid.majorRadius + solid.minorRadius) : solid.radius)}}" max="{{translationAxis === 'z' ? (8 - (solid.type === 'torus' ? solid.minorRadius : (solid.type === 'sphere' ? solid.radius : solid.height / 2))) : (8 - (solid.type === 'torus' ? (solid.majorRadius + solid.minorRadius) : solid.radius))}}" step="0.1" value="{{translationValue}}" bindchanging="handleTranslationLive" bindchange="handleTranslation" activeColor="#1684ff" block-size="16" />
-        <text class="param-val">{{poseTabIndex === 0 ? (rotationValue + '°') : translationValue}}</text>
-        <button wx:if="{{poseTabIndex === 0}}" class="rot90-chip" bindtap="handleRotate90">旋转90°</button>
-      </view>
-    </block>
   </view>
 
   <view class="type-panel" wx:else>
-    <text class="type-label">立体</text>
-    <view class="type-toolbar solid-toolbar">
-      <button class="type-chip {{section.solidType === 'triangularPyramid' ? 'active' : ''}}" data-type="triangularPyramid" bindtap="handleSolidType">三棱锥</button>
-      <button class="type-chip {{section.solidType === 'pentagonalPrism' ? 'active' : ''}}" data-type="pentagonalPrism" bindtap="handleSolidType">五棱柱</button>
-      <button class="type-chip {{section.solidType === 'cylinder' ? 'active' : ''}}" data-type="cylinder" bindtap="handleSolidType">圆柱</button>
-      <button class="type-chip {{section.solidType === 'cone' ? 'active' : ''}}" data-type="cone" bindtap="handleSolidType">圆锥</button>
-      <button class="type-chip {{section.solidType === 'sphere' ? 'active' : ''}}" data-type="sphere" bindtap="handleSolidType">圆球</button>
-      <button class="type-chip {{section.solidType === 'torus' ? 'active' : ''}}" data-type="torus" bindtap="handleSolidType">圆环</button>
-    </view>
-    <text class="type-label section-plane-label">截平面</text>
-    <view class="type-toolbar section-plane-toolbar">
-      <button class="type-chip {{section.planeType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handleSectionPlaneType">水平面</button>
-      <button class="type-chip {{section.planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleSectionPlaneType">正垂面</button>
-      <button class="type-chip {{section.planeType === 'profile' ? 'active' : ''}}" data-type="profile" bindtap="handleSectionPlaneType">侧平面</button>
+    <view class="section-type-line">
+      <text class="type-label">立体</text>
+      <view class="type-toolbar solid-toolbar">
+        <button class="type-chip {{section.solidType === 'triangularPyramid' ? 'active' : ''}}" data-type="triangularPyramid" bindtap="handleSolidType">三棱锥</button>
+        <button class="type-chip {{section.solidType === 'pentagonalPrism' ? 'active' : ''}}" data-type="pentagonalPrism" bindtap="handleSolidType">五棱柱</button>
+        <button class="type-chip {{section.solidType === 'cylinder' ? 'active' : ''}}" data-type="cylinder" bindtap="handleSolidType">圆柱</button>
+        <button class="type-chip {{section.solidType === 'cone' ? 'active' : ''}}" data-type="cone" bindtap="handleSolidType">圆锥</button>
+        <button class="type-chip {{section.solidType === 'sphere' ? 'active' : ''}}" data-type="sphere" bindtap="handleSolidType">圆球</button>
+        <button class="type-chip {{section.solidType === 'torus' ? 'active' : ''}}" data-type="torus" bindtap="handleSolidType">圆环</button>
+      </view>
+      <text class="type-label section-plane-label">截平面</text>
+      <view class="type-toolbar section-plane-toolbar">
+        <button class="type-chip {{section.planeType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handleSectionPlaneType">水平面</button>
+        <button class="type-chip {{section.planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleSectionPlaneType">正垂面</button>
+        <button class="type-chip {{section.planeType === 'profile' ? 'active' : ''}}" data-type="profile" bindtap="handleSectionPlaneType">侧平面</button>
+      </view>
     </view>
     <view class="section-controls">
       <view class="section-control">
