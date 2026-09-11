@@ -2,14 +2,14 @@
 
 > 范围：小程序（学生端）**界面布局与样式层**。本记录冻结的是"页面怎么排"，不改变几何真值、投影公式与业务逻辑。
 > 依据：`AGENTS.md` §C7 / §C8，`.agents/skills/engineering-drawing-assistant/references/frozen-modules.md`（F1–F8）。
-> 本记录**不含任何提交动作**：未 commit、未 push。
+> 提交状态：本记录的 12 个文件包含在提交 `edd05fb`（v0.7.0 的小程序 UI 提交）中，随 v0.7.0 推送到 `origin/master`。
 
 ## 1. 冻结基线
 
 | 项 | 值 |
 | --- | --- |
 | Git 基线提交 | `2438fa3`（`feat(teacher-web): 未入册学生设置班级改为下拉选择已有班级`） |
-| 冻结形态 | 工作区（未提交）快照，位于上述提交之上 |
+| 冻结形态 | 已提交：`edd05fb`（`feat(miniprogram): PAD/手机布局适配与参数面板合并，冻结 v0.7.0`） |
 | 冻结日期 | 2026-09-11 |
 | 核验方式 | `git hash-object <文件>`，与下表 blob 前 10 位比对 |
 
