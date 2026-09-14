@@ -9,12 +9,10 @@
     ensureSession() {
       if (!api) return;
       const app = getApp();
+      // R32/D17：首页只要求「已登录」（未注册游客也能用互动功能）；
+      // 填资料（学校/姓名/学号）不再是进入互动的前提——它只影响 AI 与问卷。
       if (!app.globalData.user) {
         wx.redirectTo({ url: '/pages/login/login' });
-        return;
-      }
-      if (!app.globalData.user.student_id) {
-        wx.redirectTo({ url: '/pages/register/register' });
         return;
       }
       this._sessionStart = Date.now();

@@ -32,6 +32,14 @@ Page({
     submitted: false
   },
 
+  onLoad() {
+    // R32/D17：问卷页必须先登录（未登录跳登录页）；是否可提交由服务端按名册判定（D15）
+    const app = getApp();
+    if (!app.globalData.user) {
+      wx.redirectTo({ url: '/pages/login/login' });
+    }
+  },
+
   pickSingle(event) {
     const key = event.currentTarget.dataset.key;
     const value = Number(event.currentTarget.dataset.value);
@@ -75,7 +83,13 @@ Page({
         this.setData({ submitted: true });
         wx.showToast({ title: '已提交，感谢反馈', icon: 'success' });
       } else {
-        wx.showToast({ title: (res && res.msg) || '提交失败，请重试', icon: 'none' });
+        const reasons = {
+          SURVEY_NOT_IN_ROSTER: '问卷面向在册学生，你的资料还不在老师名册中',
+          SURVEY_NO_PROFILE: '请先完善学校、姓名和学号',
+          ACCESS_CHECK_FAILED: '系统繁忙，请稍后重试'
+        };
+        const title = (res && reasons[res.code]) || (res && res.msg) || '提交失败，请重试';
+        wx.showToast({ title, icon: 'none' });
       }
     }).catch(() => {
       this.setData({ submitting: false });

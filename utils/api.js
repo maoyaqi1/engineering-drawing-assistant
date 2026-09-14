@@ -30,21 +30,8 @@ function rosterStatus() {
   return callApi('roster.status');
 }
 
-function rosterImport(studentIds) {
-  return callApi('roster.import', { student_ids: studentIds });
-}
-
-function rosterList() {
-  return callApi('roster.list');
-}
-
-function rosterRemove(studentId) {
-  return callApi('roster.remove', { _id: studentId });
-}
-
-function rosterClear() {
-  return callApi('roster.clear');
-}
+// 说明：roster.import / roster.list / roster.remove / roster.clear 已随白名单集合 roster 下线
+// （REQ-003 D16）——名册只由教师端维护，学生端不再有任何名册写入口。
 
 function startSession(module) {
   return callApi('session.start', { module });
@@ -102,10 +89,6 @@ module.exports = {
   login,
   register,
   rosterStatus,
-  rosterImport,
-  rosterList,
-  rosterRemove,
-  rosterClear,
   startSession,
   endSession,
   recordEvent,
