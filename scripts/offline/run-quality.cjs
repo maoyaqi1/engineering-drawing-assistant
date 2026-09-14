@@ -167,7 +167,14 @@ const t3Call = (p) => teacherFn.main(Object.assign({ token: 'tok-t3' }, p));
   // ---------- 5. 人工标记 ----------
   const badQuality = await superCall({ action: 'data.markQuality', user_ids: ['U5'], quality: 'prod' });
   check('5a 非法标记被拒', badQuality.ok === false && badQuality.code === 'BAD_QUALITY', JSON.stringify(badQuality.code));
+  const u5Before = JSON.stringify({ q: user('U5').data_quality, s: user('U5').data_quality_source });
   check('5b 非超管不能人工标记', (await t2Call({ action: 'data.markQuality', user_ids: ['U5'], quality: 'test' })).code === 'FORBIDDEN');
+  check('5b2 被拒后目标账号的标记未被改动（403 不是"先写后拒"）',
+    JSON.stringify({ q: user('U5').data_quality, s: user('U5').data_quality_source }) === u5Before
+    && user('U5').data_quality !== 'test',
+    JSON.stringify({ before: u5Before, after: { q: user('U5').data_quality, s: user('U5').data_quality_source } }));
+  check('5b3 未登录 / 无效 token 也不能标记（UNAUTHORIZED）',
+    (await teacherFn.main({ action: 'data.markQuality', user_ids: ['U5'], quality: 'test' })).code === 'UNAUTHORIZED');
   const mark = await superCall({ action: 'data.markQuality', user_ids: ['U5'], quality: 'test' });
   check('5c 人工标记成功并写 manual', mark.ok === true && user('U5').data_quality === 'test' && user('U5').data_quality_source === 'manual',
     JSON.stringify({ q: user('U5').data_quality, s: user('U5').data_quality_source }));

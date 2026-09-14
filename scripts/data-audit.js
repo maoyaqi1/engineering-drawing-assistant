@@ -66,6 +66,7 @@ const SIGNATURES = [
   { name: 'learning_sessions', test: (d) => 'start_time' in d || ('module' in d && 'is_valid' in d) },
   { name: 'classes', test: (d) => 'owner_teacher_id' in d && 'status' in d && !('student_no' in d) },
   { name: 'students', test: (d) => 'student_no' in d },
+  // 说明：AI 白名单集合 roster 已下线（REQ-003 D16）。若导出里仍能看到它，说明还没执行"删集合"这一步。
   { name: 'roster', test: (d) => 'student_id' in d && !('openid' in d) && !('profile_completed' in d) },
   { name: 'users', test: (d) => 'openid' in d && ('role' in d || 'profile_completed' in d || 'student_id' in d) }
 ];
@@ -188,7 +189,8 @@ NAMES.forEach((name) => {
 });
 const otherCollections = Object.keys(db).filter((k) => NAMES.indexOf(k) < 0);
 if (otherCollections.length) item('代码未使用的其它集合', otherCollections.join('、'), 'warn');
-const critical = ['users', 'students', 'classes', 'roster', 'learning_sessions', 'learning_records'];
+// roster 已下线（D16），不再算关键集合；它的存在与否另有一条提示
+const critical = ['users', 'students', 'classes', 'learning_sessions', 'learning_records'];
 const missingCritical = critical.filter((name) => db[name] === undefined);
 item('关键集合没有导出文件', missingCritical.length
   ? missingCritical.join('、') + '（控制台里确认这集合是真的空，还是导出时漏掉了）'
@@ -216,7 +218,6 @@ users.forEach((u) => {
 const classById = new Map(classes.map((c) => [text(c._id), c]));
 const teacherById = new Map(teachersList.map((t) => [text(t._id), t]));
 const userKeys = new Set(users.map((u) => key(u.student_id, u.name)).filter((k) => k !== '|'));
-const rosterKeys = new Set(roster.map((r) => key(r.student_id, r.name)).filter((k) => k !== '|'));
 const studentKeys = new Set(students.map((s) => key(s.student_no, s.name)).filter((k) => k !== '|'));
 
 // ---------- users ----------
@@ -231,18 +232,69 @@ item('注册资料完成度', groupCount(users, (u) => (text(u.student_id) && te
   users.some((u) => (text(u.student_id) ? 1 : 0) + (text(u.name) ? 1 : 0) === 1) ? 'warn' : '');
 item('僵尸字段 nickname / avatar', 'nickname 非空 ' + users.filter((u) => text(u.nickname)).length + ' 条，avatar 非空 ' + users.filter((u) => text(u.avatar)).length + ' 条（代码从不写这两个字段，非空说明是历史数据）');
 
-// ---------- 名册 vs 白名单 vs 账号 ----------
-head('名册（students）/ 白名单（roster）/ 账号（users）三方一致性');
-const rosterOrphan = roster.filter((r) => text(r.name) && !studentKeys.has(key(r.student_id, r.name)));
-item('白名单有、名册没有（孤儿白名单）', rosterOrphan.length ? sample(rosterOrphan.map((r) => text(r.student_id) + ' ' + text(r.name))) : '无', rosterOrphan.length ? 'error' : '');
-const legacyRoster = roster.filter((r) => !text(r.name));
-item('白名单里「无姓名」的历史行', legacyRoster.length ? legacyRoster.length + ' 条（不参与放行，可用 data.legacyRoster 清理）：' + sample(legacyRoster.map((r) => text(r.student_id) + '@' + text(r.source))) : '无', legacyRoster.length ? 'warn' : '');
-const studentsWithoutRoster = students.filter((s) => !rosterKeys.has(key(s.student_no, s.name)));
-item('名册有、白名单没有（这些人拿不到 AI 权限）', studentsWithoutRoster.length ? sample(studentsWithoutRoster.map((s) => text(s.student_no) + ' ' + text(s.name))) : '无', studentsWithoutRoster.length ? 'error' : '');
-const rosterNotRegistered = roster.filter((r) => text(r.name) && !userKeys.has(key(r.student_id, r.name)));
-item('白名单里但还没有人用该「学号+姓名」注册', rosterNotRegistered.length ? sample(rosterNotRegistered.map((r) => text(r.student_id) + ' ' + text(r.name))) : '无');
-const registeredNotInRoster = users.filter((u) => text(u.student_id) && text(u.name) && !rosterKeys.has(key(u.student_id, u.name)));
-item('已注册但不在白名单（游客状态）', registeredNotInRoster.length + ' 人（含老师尚未录入与姓名学号填错两类）');
+// ---------- 名册（students）vs 账号（users）----------
+// REQ-003 D16：判定源已经是 students，白名单 roster 已下线，这里不再做三方一致性。
+head('名册（students）/ 账号（users）一致性（roster 白名单已下线）');
+if (roster.length) {
+  item('导出里仍有 roster 白名单行', roster.length + ' 条 —— 该集合已废弃，确认新代码部署后可在控制台删除集合',
+    'warn');
+}
+const studentsNotRegistered = students.filter((s) => !userKeys.has(key(s.student_no, s.name)));
+item('名册里但还没有人用该「学号+姓名」注册（新生未注册属正常）', studentsNotRegistered.length
+  ? studentsNotRegistered.length + ' 人，例：' + sample(studentsNotRegistered.map((s) => text(s.student_no) + ' ' + text(s.name)))
+  : '无');
+const registeredNotInRoster = users.filter((u) => text(u.student_id) && text(u.name) && !studentKeys.has(key(u.student_id, u.name)));
+item('已注册但不在名册（游客状态，不能使用 AI）',
+  registeredNotInRoster.length + ' 人（含老师尚未录入与姓名/学号填错两类）');
+const inRosterArchived = students.filter((s) => {
+  const cls = classById.get(text(s.class_id));
+  return !!cls && text(cls.status) === 'archived';
+});
+item('名册命中但班级已停用（不能使用 AI，互动可用）', inRosterArchived.length
+  ? inRosterArchived.length + ' 人：' + sample(inRosterArchived.map((s) => text(s.student_no) + ' ' + text(s.name)))
+  : '无');
+const inRosterNoClass = students.filter((s) => !text(s.class_id));
+item('名册命中但未分班（不能使用 AI，需老师分班）', inRosterNoClass.length
+  ? inRosterNoClass.length + ' 人：' + sample(inRosterNoClass.map((s) => text(s.student_no) + ' ' + text(s.name)))
+  : '无');
+
+// ---------- 四态分布（按新判定规则模拟，对应 REQ-003 §3 与上线门禁 G1）----------
+head('四态分布（按 students + classes 判定规则模拟，用于上线门禁 G1）');
+const rosterNoByName = new Map();
+students.forEach((s) => {
+  const n = normNo(s.student_no);
+  if (!n) return;
+  if (!rosterNoByName.has(n)) rosterNoByName.set(n, []);
+  rosterNoByName.get(n).push(s);
+});
+const stateOfUser = (u) => {
+  const no = normNo(u.student_id);
+  const nm = text(u.name);
+  if (!no || !nm) return 'no_profile';
+  const hits = (rosterNoByName.get(no) || []).filter((s) => text(s.name) === nm);
+  if (!hits.length) return 'not_in_roster';
+  const row = hits[0];
+  if (!text(row.class_id)) return 'no_class';
+  const cls = classById.get(text(row.class_id));
+  if (!cls) return 'no_class';
+  return text(cls.status) === 'archived' ? 'class_archived' : 'ok';
+};
+const stateCounts = groupCount(users, stateOfUser);
+stateCounts.forEach(([state, n]) => {
+  const label = {
+    ok: '在册学生（可用 AI）',
+    no_profile: '未注册游客（仅互动）',
+    not_in_roster: '已注册游客（仅互动）',
+    class_archived: '班级停用（仅互动）',
+    no_class: '未分班（仅互动）'
+  }[state] || state;
+  item(label, n + ' 人', state === 'ok' ? '' : '');
+});
+const totalUsers = users.length;
+const sumStates = stateCounts.reduce((sum, [, n]) => sum + n, 0);
+item('四态求和 = users 总数', sumStates + ' / ' + totalUsers, sumStates === totalUsers ? '' : 'error');
+item('切换后的"在册学情"人数', String((stateCounts.find(([s]) => s === 'ok') || [, 0])[1])
+  + ' 人（上线初期为 0 属预期：两个新生班尚未注册、教师组为演示班，见 REQ-003 §12-7）');
 
 // ---------- 班级双轨 ----------
 head('班级关联双轨（students.class_id 权威 / class_name 快照）');

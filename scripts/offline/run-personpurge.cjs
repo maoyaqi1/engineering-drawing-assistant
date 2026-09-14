@@ -89,7 +89,8 @@ const behaviorScope = { behavior: true, roster: false, account: false };
     && jia.counts.ai_conversations === 1 && jia.counts.ai_messages === 2
     && jia.counts.survey_responses === 1 && jia.counts.survey_invites === 1,
     JSON.stringify(jia.counts));
-  check('T2c 列表带名册归属与白名单标记', jia.in_class_roster === true && jia.in_roster === true && jia.owner_teacher_name === '任课教师');
+  check('T2c 列表带名册归属标记（白名单已下线，D16）',
+    jia.in_class_roster === true && jia.owner_teacher_name === '任课教师');
   check('T2e 阶段划分正确（甲=已入册）+ 带 openid 与登录时间',
     jia.stage === '已入册' && jia.openid === 'openid-a' && !!jia.created_at,
     JSON.stringify({ stage: jia.stage, openid: jia.openid }));
@@ -120,23 +121,22 @@ const behaviorScope = { behavior: true, roster: false, account: false };
     rows('ai_messages').length === 1 && rows('ai_messages')[0].conversation_id === 'CVB',
     JSON.stringify(rows('ai_messages').map((m) => m.conversation_id)));
   check('T5d 乙的问卷作答完好', rows('survey_responses').length === 1 && rows('survey_responses')[0].user_id === 'UB');
-  check('T5e 只清行为数据时，名册/白名单/账号都不动',
-    size('students') === 3 && size('roster') === 3 && size('users') === 3 && size('teacher_notes') === 2,
-    JSON.stringify({ students: size('students'), roster: size('roster'), users: size('users'), notes: size('teacher_notes') }));
+  check('T5e 只清行为数据时，名册/账号都不动',
+    size('students') === 3 && size('users') === 3 && size('teacher_notes') === 2,
+    JSON.stringify({ students: size('students'), users: size('users'), notes: size('teacher_notes') }));
 
   // T6 连带删名册、白名单与账号：同样只影响甲
   const t6 = await superCall({
     action: 'data.personPurge', user_ids: ['UA'],
     scope: { behavior: false, roster: true, account: true }, dry_run: false, confirm_count: 1
   });
-  check('T6 连带删除条数正确（名册1/白名单1/备注1/账号1）',
-    t6.ok === true && t6.removed.students === 1 && t6.removed.roster === 1
+  check('T6 连带删除条数正确（名册1/备注1/账号1）',
+    t6.ok === true && t6.removed.students === 1
     && t6.removed.teacher_notes === 1 && t6.removed.users === 1,
     JSON.stringify(t6.removed));
-  check('T6b 乙丙的名册/白名单/账号完好',
-    size('students') === 2 && size('roster') === 2 && size('users') === 2
+  check('T6b 乙丙的名册/账号完好',
+    size('students') === 2 && size('users') === 2
     && rows('students').every((s) => s.student_no !== 'A001')
-    && rows('roster').every((r) => r.student_id !== 'A001')
     && rows('users').every((u) => u.student_id !== 'A001'),
     JSON.stringify({ students: rows('students').map((s) => s.student_no), users: rows('users').map((u) => u.student_id) }));
   check('T6c 乙的教师备注未被误删', size('teacher_notes') === 1 && rows('teacher_notes')[0]._id === 'NB');
@@ -161,77 +161,53 @@ const behaviorScope = { behavior: true, roster: false, account: false };
   seed('students', [
     { _id: 'SA_LEFT', student_no: 'A001', name: '甲', school: 'A校', owner_teacher_id: 'TA', owner_teacher_name: '任课教师', created_at: T0 }
   ]);
-  seed('roster', [{ _id: 'RA_LEFT', student_id: 'A001', name: '甲', created_at: T0 }]);
   seed('learning_records', [
     { _id: 'LR_LEFT', student_id: 'A001', student_name: '甲', event_type: 'chapter_enter', created_at: T0 }
   ]);
   const t9 = await superCall({ action: 'data.personList' });
   const left = (t9.items || []).find((i) => i.student_no === 'A001') || {};
-  check('T9 仅名册/白名单残留也能被列出（带 key 与来源标记）',
-    left.key === 'name:A001|甲' && left.has_account === false && left.in_class_roster === true && left.in_roster === true,
-    JSON.stringify({ key: left.key, account: left.has_account, roster: left.in_class_roster, white: left.in_roster }));
+  check('T9 仅名册残留也能被列出（账号已删，带 key 与来源标记）',
+    left.key === 'name:A001|甲' && left.has_account === false && left.in_class_roster === true,
+    JSON.stringify({ key: left.key, account: left.has_account, roster: left.in_class_roster }));
   check('T9b 残留记录会统计出其按「学号+姓名」写的行为记录',
     left.counts && left.counts.learning_records === 1, JSON.stringify(left.counts));
   check('T9c 无账号但有名册记录 → 阶段为「名册已录入·未注册」（不能误标为残留垃圾）',
     left.stage === '名册已录入·未注册', JSON.stringify(left.stage));
 
-  // T10 清理这个残留（只清名册+白名单+行为记录），乙丙不受影响
+  // T10 清理这个残留（只清名册 + 行为记录），乙丙不受影响
   const t10 = await superCall({
     action: 'data.personPurge',
     targets: ['name:A001|甲'],
     scope: { behavior: true, roster: true, account: false },
     dry_run: false, confirm_count: 1
   });
-  check('T10 残留记录可被清理（名册1/白名单1/行为记录1）',
-    t10.ok === true && t10.removed.students === 1 && t10.removed.roster === 1 && t10.removed.learning_records === 1,
+  check('T10 残留记录可被清理（名册1/行为记录1）',
+    t10.ok === true && t10.removed.students === 1 && t10.removed.learning_records === 1,
     JSON.stringify(t10.removed));
-  check('T10b 乙丙的名册与白名单完好',
-    size('students') === 2 && size('roster') === 2
-    && rows('students').every((s) => s.student_no !== 'A001') && rows('roster').every((r) => r.student_id !== 'A001'),
-    JSON.stringify({ students: rows('students').map((s) => s.student_no), roster: rows('roster').map((r) => r.student_id) }));
+  check('T10b 乙丙的名册完好',
+    size('students') === 2 && rows('students').every((s) => s.student_no !== 'A001'),
+    JSON.stringify(rows('students').map((s) => s.student_no)));
   const t10c = await superCall({ action: 'data.personList' });
   check('T10c 清理后列表只剩乙丙（可重新录入甲）',
     (t10c.items || []).length === 2 && !(t10c.items || []).some((i) => i.student_no === 'A001'),
     JSON.stringify((t10c.items || []).map((i) => i.student_no)));
 
-  // T11 历史遗留：只有学号、没有姓名的白名单记录（早期按学号批量导入）
+  // T11 白名单（roster）已下线：清理列表只认 users ∪ students，旧的 roster 残留不再参与
   seed('roster', [
     { _id: 'LG1', student_id: '076005', name: '', source: 'legacy_import', created_at: T0 },
-    { _id: 'LG2', student_id: '20260303010120', name: '', source: 'legacy_import', created_at: T0 },
-    { _id: 'LG3', student_id: '23210010119', name: '', source: 'legacy_import', created_at: T0 },
-    { _id: 'RB', student_id: 'B001', name: '乙', created_at: T0 }
+    { _id: 'LG2', student_id: '20260303010120', name: '', source: 'legacy_import', created_at: T0 }
   ]);
   const t11 = await superCall({ action: 'data.personList' });
-  const lg = (t11.items || []).find((i) => i.student_no === '076005') || {};
-  check('T11 无姓名的旧白名单能被列出并标注',
-    lg.key === 'name:076005|' && lg.nameless_roster === true && lg.has_account === false && lg.in_roster === true,
-    JSON.stringify({ key: lg.key, nameless: lg.nameless_roster }));
-
-  // T12 逐条清理（选中该残留记录）
-  const t12 = await superCall({
-    action: 'data.personPurge', targets: ['name:076005|'],
-    scope: { behavior: false, roster: true, account: false }, dry_run: false, confirm_count: 1
-  });
-  check('T12 无姓名的白名单记录可逐条清理',
-    t12.ok === true && t12.removed.roster === 1 && !rows('roster').some((r) => r._id === 'LG1'),
-    JSON.stringify(t12.removed));
-  check('T12b 具名白名单记录（乙）未被误删', rows('roster').some((r) => r._id === 'RB'));
-
-  // T13 一键清理全部无姓名的旧白名单
-  const t13pre = await superCall({ action: 'data.legacyRoster', dry_run: true });
-  check('T13 旧白名单预览统计正确（剩 2 条，来源 legacy_import）',
-    t13pre.ok === true && t13pre.total === 2 && t13pre.by_source.legacy_import === 2,
-    JSON.stringify({ total: t13pre.total, by: t13pre.by_source }));
-  const t13bad = await superCall({ action: 'data.legacyRoster', dry_run: false, confirm_count: 99 });
-  check('T13b confirm_count 不一致被拒', t13bad.ok === false && t13bad.code === 'CONFIRM_MISMATCH', JSON.stringify(t13bad.code));
-  const t13 = await superCall({ action: 'data.legacyRoster', dry_run: false, confirm_count: 2 });
-  check('T13c 一键清理成功且具名记录（乙、丙）完好',
-    t13.ok === true && t13.removed === 2
-    && rows('roster').length === 2
-    && rows('roster').every((r) => !!String(r.name || '').trim()),
-    JSON.stringify({ removed: t13.removed, left: rows('roster').map((r) => r.name) }));
-  check('T13d 普通教师不能执行该清理',
-    (await teacherCall({ action: 'data.legacyRoster', dry_run: true })).code === 'FORBIDDEN');
+  check('T11 roster 残留不再出现在清理列表（判定源只剩 users ∪ students）',
+    t11.ok === true && !(t11.items || []).some((i) => i.student_no === '076005'),
+    JSON.stringify((t11.items || []).map((i) => i.student_no)));
+  const rosterBefore = rows('roster').length;
+  const t12 = await superCall({ action: 'data.legacyRoster', dry_run: true });
+  check('T12 data.legacyRoster 已下线 → ACTION_RETIRED（旧白名单随 roster 废弃）',
+    t12.ok === false && t12.code === 'ACTION_RETIRED', JSON.stringify(t12.code));
+  check('T12b 下线调用后 roster 残留未被物理删除（保留待人工/控制台处理）',
+    rows('roster').length === rosterBefore && rosterBefore > 0,
+    JSON.stringify({ after: rows('roster').length, before: rosterBefore }));
 
   // T14 空账号（已登录但从未注册）：无学号、无姓名
   seed('users', [
@@ -245,20 +221,22 @@ const behaviorScope = { behavior: true, roster: false, account: false };
     empties.every((e) => e.stage === '仅登录未注册' && !!e.openid),
     JSON.stringify(empties.map((e) => ({ s: e.stage, o: e.openid }))));
 
+  // T14b 空账号批量清理已下线：未注册空账号是产品触达数据，用过滤隐藏而不是删除
   const t14pre = await superCall({ action: 'data.emptyAccounts', dry_run: true });
-  check('T14b 空账号预览统计正确（2 条）', t14pre.ok === true && t14pre.total === 2, JSON.stringify(t14pre.total));
-  const t14bad = await superCall({ action: 'data.emptyAccounts', dry_run: false, confirm_count: 1 });
-  check('T14c confirm_count 不一致被拒', t14bad.ok === false && t14bad.code === 'CONFIRM_MISMATCH', JSON.stringify(t14bad.code));
-  check('T14d 普通教师不能清理空账号',
-    (await teacherCall({ action: 'data.emptyAccounts', dry_run: true })).code === 'FORBIDDEN');
-
-  const t14 = await superCall({ action: 'data.emptyAccounts', dry_run: false, confirm_count: 2 });
-  check('T14e 空账号清理成功（2 条）且已完成注册的学生账号完好',
-    t14.ok === true && t14.removed === 2
+  check('T14b data.emptyAccounts 已下线 → ACTION_RETIRED',
+    t14pre.ok === false && t14pre.code === 'ACTION_RETIRED', JSON.stringify(t14pre.code));
+  check('T14c 下线调用后空账号仍在（不物理删除触达数据）',
+    rows('users').some((u) => u._id === 'UE1') && rows('users').some((u) => u._id === 'UE2'),
+    JSON.stringify(rows('users').map((u) => u._id)));
+  const t14d = await superCall({
+    action: 'data.personPurge', targets: ['user:UE1', 'user:UE2'],
+    scope: { behavior: true, account: true, roster: false }, dry_run: false, confirm_count: 2
+  });
+  check('T14d 合规按人通道仍可显式删除指定空账号（留痕）',
+    t14d.ok === true && t14d.removed.users === 2
     && !rows('users').some((u) => u._id === 'UE1' || u._id === 'UE2')
-    && rows('users').length === 2
     && rows('users').every((u) => !!String(u.student_id || '').trim()),
-    JSON.stringify({ removed: t14.removed, left: rows('users').map((u) => u.student_id) }));
+    JSON.stringify({ removed: t14d.removed, left: rows('users').map((u) => u.student_id) }));
 
   const failed = results.filter((r) => !r.pass);
   results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));

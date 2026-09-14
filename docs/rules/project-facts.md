@@ -34,6 +34,13 @@
 
 ## 现状核对（核对日期 2026-09-11，基准提交 `ddca4f8` + 工作区未提交改动）
 
+> **2026-09-14 事实更新（REQ-003 第二阶段，已实施待部署）**：学生端 AI 放行判定源已从 `roster` 白名单改为
+> `students` 名册（按键查询）+ `classes` 状态；`roster` 集合与 `roster.import/list/remove/clear` 已下线（仅保留
+> `roster.status` action 名）；`roster.backfill`、`data.reset`、`data.emptyAccounts`、`data.legacyRoster`、
+> `student.purge` 均已下线并回 `ACTION_RETIRED`；`api` 与 `teacher` 云函数新增环境变量 `INTERNAL_OPENIDS`。
+> 详见 `docs/requirements/REQ-003-phase2-plan.md` 与 `docs/用户与鉴权模型.md`。
+> （以下 09-11 各节为当次核对记录，凡与上述更新冲突处，以上述更新与代码为准。）
+
 ### 1. 小程序页面清单
 
 `app.json` 的 `pages` 数组当前注册 7 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/ruler/ruler`。`pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除。

@@ -1,6 +1,15 @@
 // 离线自测桩：仅实现 cloudfunctions/teacher/index.js 在 class.* 路径上用到的 wx-server-sdk 能力。
 // 只在本地临时目录使用，不属于项目代码，也不入库。
 const store = new Map();
+// 故障注入（仅离线用例用）：把某个集合的读取改成抛错，用来验证 fail closed 行为
+const faults = new Set();
+
+function failIfInjected(name) {
+  if (!faults.has(name)) return;
+  const err = new Error('simulated read failure: ' + name);
+  err.errCode = -502000;
+  throw err;
+}
 
 function collectionMap(name) {
   if (!store.has(name)) store.set(name, new Map());
@@ -31,6 +40,7 @@ function makeQuery(name, cond, opts) {
     limit(n) { return makeQuery(name, cond, Object.assign({}, state, { limit: n })); },
     orderBy(field, dir) { return makeQuery(name, cond, Object.assign({}, state, { order: { field, dir } })); },
     async get() {
+      failIfInjected(name);
       let rows = Array.from(collectionMap(name).values()).filter((d) => match(d, cond));
       if (state.order) {
         const { field, dir } = state.order;
@@ -39,6 +49,7 @@ function makeQuery(name, cond, opts) {
       return { data: rows.slice(state.skip, state.skip + state.limit).map((d) => Object.assign({}, d)) };
     },
     async count() {
+      failIfInjected(name);
       const rows = Array.from(collectionMap(name).values()).filter((d) => match(d, cond));
       return { total: rows.length };
     },
@@ -108,6 +119,10 @@ const command = {
 module.exports = {
   DYNAMIC_CURRENT_ENV: 'DYNAMIC_CURRENT_ENV',
   init() {},
+  // 离线用例专用：__fault('classes', true) 让该集合的读取抛错（验证 fail closed）
+  __fault(name, on) {
+    if (on) faults.add(name); else faults.delete(name);
+  },
   getWXContext() { return { OPENID: global.__CURRENT_OPENID || 'self-test-openid', UNIONID: null }; },
   database() {
     return {

@@ -1,5 +1,5 @@
-// 名单权威性自测：以老师录入的名册/白名单为准。
-// 学生自己改错学号或姓名 → 自己就不在白名单（老师不需要管）；学生自己改回与老师一致 → 自动恢复。
+// 名册权威性自测：以老师录入的名册（students，判定源）+ 班级状态为准（REQ-003 R3/D16）。
+// 学生自己改错学号或姓名 → 自己就不再命中名册（老师不需要管）；改回与老师一致 → 自动恢复。
 const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
 enableOfflineSdkStub();
 const sdk = require('wx-server-sdk');
@@ -16,7 +16,6 @@ function table(name) {
   return sdk.__store.get(name);
 }
 function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-function rosterRows(no) { return Array.from(table('roster').values()).filter((r) => r.student_id === no); }
 function studentRows(no) { return Array.from(table('students').values()).filter((r) => r.student_no === no); }
 
 const results = [];
@@ -29,12 +28,15 @@ seed('teacher_sessions', [{ _id: 'sa', token: 'tok-a', teacher_id: 'TA', expires
 const teacherCall = (p) => teacherFn.main(Object.assign({ token: 'tok-a' }, p));
 
 (async () => {
-  // 老师在班级页录入学生 → 名册 + 白名单
-  const created = await teacherCall({ action: 'student.create', school: '安徽建筑大学', name: '毛亚岐', student_no: '500450', class_name: '教师组' });
-  check('T1 老师录入学生成功（名册 + 自动开通 AI 白名单）',
-    created.ok === true && studentRows('500450').length === 1 && rosterRows('500450').length === 1,
-    JSON.stringify({ students: studentRows('500450').length, roster: rosterRows('500450').length }));
-  const rosterSnapshot = JSON.stringify(rosterRows('500450').map((r) => r.name));
+  // 老师建班 + 录入学生 → 只写名册（没有白名单副本）
+  const cls = await teacherCall({ action: 'class.create', name: '教师组', school: '安徽建筑大学' });
+  const classId = cls && cls.class && cls.class.id;
+  const created = await teacherCall({
+    action: 'student.create', school: '安徽建筑大学', name: '毛亚岐', student_no: '500450', class_id: classId
+  });
+  check('T1 老师录入学生成功（只写名册，白名单已下线）',
+    created.ok === true && studentRows('500450').length === 1 && table('roster').size === 0,
+    JSON.stringify({ students: studentRows('500450').length, roster: table('roster').size }));
   const studentSnapshot = JSON.stringify(studentRows('500450').map((r) => r.name));
 
   // 学生用与老师一致的信息注册 → 在白名单
@@ -51,13 +53,12 @@ const teacherCall = (p) => teacherFn.main(Object.assign({ token: 'tok-a' }, p));
     wrong.ok === true && s2.ok === true && s2.in_roster === false, JSON.stringify({ ok: wrong.ok, in: s2.in_roster }));
 
   // 关键：老师端数据完全没被这次改名影响（老师不需要管）
-  check('T4 学生改名不影响老师的名册与白名单（老师无需处理）',
-    JSON.stringify(studentRows('500450').map((r) => r.name)) === studentSnapshot
-    && JSON.stringify(rosterRows('500450').map((r) => r.name)) === rosterSnapshot,
-    JSON.stringify({ students: studentRows('500450').map((r) => r.name), roster: rosterRows('500450').map((r) => r.name) }));
-  check('T4b 白名单里没有产生"毛亚奇"这条多余记录',
-    rosterRows('500450').every((r) => r.name === '毛亚岐'),
-    JSON.stringify(rosterRows('500450').map((r) => r.name)));
+  check('T4 学生改名不影响老师的名册（老师无需处理）',
+    JSON.stringify(studentRows('500450').map((r) => r.name)) === studentSnapshot,
+    JSON.stringify(studentRows('500450').map((r) => r.name)));
+  check('T4b 名册没有被学生改名改写（仍是老师录入的名字，且不产生多余记录）',
+    studentRows('500450').length === 1 && studentRows('500450').every((r) => r.name === '毛亚岐'),
+    JSON.stringify(studentRows('500450').map((r) => r.name)));
 
   // 学生自己改回与老师一致 → 自动恢复
   const back = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '毛亚岐', studentId: '500450' });

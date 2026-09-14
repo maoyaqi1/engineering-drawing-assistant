@@ -1,10 +1,12 @@
-// 学生鉴权模型自测（游客 / 正式学生）。对应 docs/用户与鉴权模型.md 与本次需求的 DoD：
-//   1. 教师是名册唯一录入端，学生端不能写名册；
-//   2. 匹配键 = 学号 + 姓名；学校不参与放行；禁止学号-only 放行；
-//   3. 游客可正常使用互动功能与埋点（session / record.event / statistics 不被拒）；
-//   4. AI 相关 action 服务端强制校验，且区分 NO_PROFILE 与 NOT_IN_ROSTER；
-//   5. 名册被删除后，服务端再次校验立即收回权限；
-//   6. register 只写 users，不写名册。
+// 学生鉴权模型自测（游客 / 在册学生）。对应 docs/requirements/REQ-003.md 与 DoD：
+//   1. 教师是名册唯一录入端，学生端不能写名册（roster.* 写入口已下线）；
+//   2. 判定源 = students 名册（按键查询）+ classes 状态；
+//   3. 匹配键 = 学号 + 姓名（规范化：去空白 + 全角转半角）；学校不参与放行；禁止学号-only 放行；
+//   4. 游客可正常使用互动功能与埋点（session / record.event / statistics 不被拒）；
+//   5. AI 相关 action 服务端强制校验，且区分 NO_PROFILE 与 NOT_IN_ROSTER；
+//   6. 名册被删除后，服务端再次校验立即收回权限（不依赖前端缓存）；
+//   7. register 只写 users，不写名册。
+// 说明：班级停用 / 未分班 / 读库失败 / 快照 / 问卷 / 权限收窄见 run-access2.cjs。
 // 运行：node scripts/offline/run-access.cjs（或 node scripts/run-all.js 统一运行）
 const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
 enableOfflineSdkStub();
@@ -37,7 +39,7 @@ function table(name) {
   return sdk.__store.get(name);
 }
 function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-function rosterRows(no) { return Array.from(table('roster').values()).filter((r) => r.student_id === no); }
+function studentRows(no) { return Array.from(table('students').values()).filter((r) => r.student_no === no); }
 function studentRow(no) { return Array.from(table('students').values()).find((r) => r.student_no === no); }
 
 const results = [];
@@ -73,20 +75,29 @@ const teacherCall = (payload) => teacherFn.main(Object.assign({ token: 'tok-a' }
     start.ok === true && end.ok === true && event.ok === true && stats.ok === true,
     JSON.stringify({ start: start.ok, end: end.ok, event: event.ok, stats: stats.ok }));
 
-  const rosterSizeBefore = table('roster').size;
+  const studentsSizeBefore = table('students').size;
   const studentImport = await api({ action: 'roster.import', student_ids: ['700001'] });
-  check('A5 学生端不能写名册（roster.import → FORBIDDEN）',
-    studentImport.ok === false && studentImport.code === 'FORBIDDEN', JSON.stringify(studentImport.code));
-  check('A5b 学生端操作后名册条数不变', table('roster').size === rosterSizeBefore,
-    table('roster').size + '/' + rosterSizeBefore);
+  check('A5 学生端不能写名册（roster.import → ACTION_RETIRED）',
+    studentImport.ok === false && studentImport.code === 'ACTION_RETIRED', JSON.stringify(studentImport.code));
+  check('A5b 学生端操作后名册条数不变', table('students').size === studentsSizeBefore,
+    table('students').size + '/' + studentsSizeBefore);
+  const rosterWrites = ['roster.list', 'roster.remove', 'roster.clear'];
+  const retired = [];
+  for (const action of rosterWrites) {
+    // eslint-disable-next-line no-await-in-loop
+    const r = await api({ action });
+    retired.push(action + ':' + (r && r.code));
+  }
+  check('A5c 其余 roster 写入口同样下线（list / remove / clear 全部 ACTION_RETIRED）',
+    retired.every((s) => s.endsWith(':ACTION_RETIRED')), retired.join(','));
 
   // ---------- B. 已填资料但不在名册：游客，可互动，AI 被拒且原因为 not_in_roster ----------
   asOpenid('openid-not-in-roster');
   const reg = await api({ action: 'register', school: '安徽建筑大学', name: '张三', studentId: '700001' });
   const statusNotIn = await api({ action: 'roster.status' });
   check('B1 注册成功且名册未增加记录（register 只写 users）',
-    reg.ok === true && table('roster').size === rosterSizeBefore,
-    JSON.stringify({ ok: reg.ok, roster: table('roster').size }));
+    reg.ok === true && table('students').size === studentsSizeBefore,
+    JSON.stringify({ ok: reg.ok, students: table('students').size }));
   check('B2 资料已填但不在名册：level=guest / reason=not_in_roster / profile_completed=true',
     statusNotIn.level === 'guest' && statusNotIn.reason === 'not_in_roster'
     && statusNotIn.in_roster === false && statusNotIn.profile_completed === true,
@@ -103,15 +114,21 @@ const teacherCall = (payload) => teacherFn.main(Object.assign({ token: 'tok-a' }
     !!reg.access && reg.access.level === 'guest' && reg.access.reason === 'not_in_roster',
     JSON.stringify(reg.access));
 
-  // ---------- C. 教师录入后成为正式学生 ----------
-  const created = await teacherCall({ action: 'student.create', school: '安徽建筑大学', name: '张三', student_no: '700001', class_name: '教师组' });
+  // ---------- C. 教师录入 + 分到活动班级后成为在册学生 ----------
+  const cls = await teacherCall({ action: 'class.create', name: '教师组', school: '安徽建筑大学' });
+  const classId = cls && cls.class && cls.class.id;
+  check('C0 教师建班成功（后续判定需要活动班级）', !!classId, JSON.stringify(cls));
+  const created = await teacherCall({
+    action: 'student.create', school: '安徽建筑大学', name: '张三', student_no: '700001', class_id: classId
+  });
   const statusStudent = await api({ action: 'roster.status' });
-  check('C1 教师录入学生成功（名册 + 白名单）',
-    created.ok === true && rosterRows('700001').length === 1 && !!studentRow('700001'),
-    JSON.stringify({ ok: created.ok, roster: rosterRows('700001').length }));
-  check('C2 录入后：level=student / reason=ok / in_roster=true',
-    statusStudent.level === 'student' && statusStudent.reason === 'ok' && statusStudent.in_roster === true,
-    JSON.stringify({ level: statusStudent.level, reason: statusStudent.reason }));
+  check('C1 教师录入学生成功（只写名册 students，不再有白名单副本）',
+    created.ok === true && studentRows('700001').length === 1 && !table('roster').size,
+    JSON.stringify({ ok: created.ok, students: studentRows('700001').length, roster: table('roster').size }));
+  check('C2 录入并分班后：level=student / reason=ok / in_roster=true / class_name 回显',
+    statusStudent.level === 'student' && statusStudent.reason === 'ok' && statusStudent.in_roster === true
+    && statusStudent.class_name === '教师组',
+    JSON.stringify({ level: statusStudent.level, reason: statusStudent.reason, class_name: statusStudent.class_name }));
   const askStudent = await api({ action: 'ai.ask', message: '什么是截交线？' });
   check('C3 正式学生：ai.ask 放行并真正进入 AI 模块',
     askStudent.ok === true && aiCalls.length === 1, JSON.stringify({ ok: askStudent.ok, aiCalls: aiCalls.length }));
@@ -124,7 +141,7 @@ const teacherCall = (payload) => teacherFn.main(Object.assign({ token: 'tok-a' }
     sameIdStatus.in_roster === false && sameIdStatus.reason === 'not_in_roster',
     JSON.stringify({ in_roster: sameIdStatus.in_roster, reason: sameIdStatus.reason }));
 
-  await teacherCall({ action: 'student.create', school: '安徽建筑大学', name: '周七', student_no: '700004', class_name: '教师组' });
+  await teacherCall({ action: 'student.create', school: '安徽建筑大学', name: '周七', student_no: '700004', class_id: classId });
   asOpenid('openid-diff-school');
   const regDiffSchool = await api({ action: 'register', school: '某某职业技术学院', name: '周七', studentId: '700004' });
   const diffSchoolStatus = await api({ action: 'roster.status' });
@@ -132,15 +149,16 @@ const teacherCall = (payload) => teacherFn.main(Object.assign({ token: 'tok-a' }
     regDiffSchool.ok === true && diffSchoolStatus.in_roster === true && diffSchoolStatus.level === 'student',
     JSON.stringify({ in_roster: diffSchoolStatus.in_roster, level: diffSchoolStatus.level }));
 
-  // 名册里姓名带首尾空格（模拟历史脏数据）→ 学生按规范化后的姓名填写应放行
-  table('roster').set('manual-padded', {
-    _id: 'manual-padded', student_id: '700005', name: '  王五  ', source: 'manual-seed', created_at: nowIso
+  // 名册里姓名带首尾空格（模拟历史脏数据）→ 两端规范化后应放行
+  table('students').set('manual-padded', {
+    _id: 'manual-padded', student_no: '700005', name: '  王五  ', class_id: classId, class_name: '教师组',
+    owner_teacher_id: 'TA', owner_teacher_name: '任课教师', source: 'teacher', created_at: nowIso
   });
   asOpenid('openid-padded-name');
   await api({ action: 'register', school: '安徽建筑大学', name: '王五', studentId: '700005' });
   const paddedStatus = await api({ action: 'roster.status' });
   check('D3 姓名两端空格被归一化（名册"  王五  " 与填写"王五"匹配）',
-    paddedStatus.in_roster === true, JSON.stringify(paddedStatus.reason));
+    paddedStatus.in_roster === true && paddedStatus.level === 'student', JSON.stringify(paddedStatus.reason));
 
   // ---------- E. 名册删除后：服务端再次校验立即收回 ----------
   const targetDoc = studentRow('700001');

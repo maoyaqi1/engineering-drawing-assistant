@@ -35,10 +35,14 @@ seed('students', [
   { _id: 'S3', school: '安徽建筑大学', class_name: '', name: '丙', student_no: '2025003', owner_teacher_id: 'T1', owner_teacher_name: '教师一', source: 'teacher', created_at: T0, updated_at: T0 },
   { _id: 'S9', school: '合肥大学', class_name: '车辆2401', name: '丁', student_no: '2099001', owner_teacher_id: 'T2', owner_teacher_name: '教师二', source: 'teacher', created_at: T0, updated_at: T0 }
 ]);
-seed('users', [{ _id: 'U1', openid: 'o1', role: 'student', student_id: '2099009', name: '戊', school: '合肥大学', created_at: T0 }]);
+seed('users', [
+  { _id: 'U1', openid: 'o1', role: 'student', student_id: '2099009', name: '戊', school: '合肥大学', created_at: T0 },
+  { _id: 'U2', openid: 'o2', role: 'student', student_id: '2099008', name: '己二', school: '合肥大学', created_at: T0 }
+]);
 
 const t1 = (p) => teacherFn.main(Object.assign({ token: 'tok-t1' }, p));
 const t2 = (p) => teacherFn.main(Object.assign({ token: 'tok-t2' }, p));
+const tSuper = (p) => teacherFn.main(Object.assign({ token: 'tok-super' }, p));
 
 (async () => {
   // M1 新增学生：班级名与已有班级同名 → 归入该班实体
@@ -69,9 +73,26 @@ const t2 = (p) => teacherFn.main(Object.assign({ token: 'tok-t2' }, p));
   const m5 = await t1({ action: 'student.update', doc_id: 'S1', class_name: '别的班' });
   check('M5 编辑改班级名仍归入唯一班级', m5.ok === true && m5.student.class_id === 'C1', JSON.stringify(m5.student || m5));
 
-  // M6 收编未入册学生：带班级名 → class_id 同步
-  const m6 = await t1({ action: 'student.adopt', user_id: 'U1', class_name: '机械2401' });
-  check('M6 收编时写入 class_id', m6.ok === true && m6.student.class_id === 'C1', JSON.stringify(m6.student || m6));
+  // M6 收编未入册学生（R19）：教师只能手动输入学号 + 姓名，收编到自己负责的班
+  const m6 = await t1({ action: 'student.adopt', student_no: '2099009', name: '戊', school: '合肥大学', class_name: '机械2401' });
+  check('M6 教师手动收编：写入 class_id 且归属教师本人',
+    m6.ok === true && m6.student.class_id === 'C1' && m6.student.owner_teacher_id === 'T1',
+    JSON.stringify(m6.student || m6));
+  // M6b 教师不提供学号姓名（想按账号收编）→ 拒绝
+  const m6b = await t1({ action: 'student.adopt', user_id: 'U1', class_name: '机械2401' });
+  check('M6b 教师按 user_id 收编被拒（未入册列表是超管能力，R19）',
+    m6b.ok === false && m6b.code === 'FORBIDDEN', JSON.stringify(m6b.code));
+  // M6c 超管从「未入册列表」按账号收编到指定班：owner 写目标班负责教师（A4），并留审计
+  const m6c = await tSuper({ action: 'student.adopt', user_id: 'U2', class_id: 'C1' });
+  const adoptedU2 = Array.from(table('students').values()).find((s) => s.student_no === '2099008');
+  const adoptLogs = Array.from(table('maintenance_logs').values()).filter((l) => l.action === 'student.adopt');
+  check('M6c 超管收编：owner=目标班负责教师（不是超管本人），并写审计',
+    m6c.ok === true && !!adoptedU2 && adoptedU2.owner_teacher_id === 'T1' && adoptLogs.length === 1,
+    JSON.stringify({ owner: adoptedU2 && adoptedU2.owner_teacher_id, logs: adoptLogs.length }));
+  // M6d 同一「学号+姓名」再收编 → 明确冲突（D23：本期不支持跨教师转班）
+  const m6d = await tSuper({ action: 'student.adopt', user_id: 'U2', class_id: 'C1' });
+  check('M6d 重复收编同一「学号+姓名」被拒（ALREADY_IN_ROSTER）',
+    m6d.ok === false && m6d.code === 'ALREADY_IN_ROSTER', JSON.stringify(m6d.code));
 
   // M7 历史名册并入：同名 → 匹配
   // 先造两条"历史遗留"：同名未关联、名称不一致未关联（模拟从学生页录入的旧数据）

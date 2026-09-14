@@ -28,6 +28,19 @@
 
 以下条目只是“现在是什么”，不构成强制要求；规范类约束见上表。
 
+> **2026-09-14 更新（REQ-003 第二阶段）**：`teacher` 云函数已按"教师 = 名册唯一录入端 / 超管只读"收窄——
+> ① 删除 `grantAiAccess` / `revokeAiAccess`（白名单同步，roster 已下线）；
+> ② `student.purge`、`roster.backfill`、`data.reset`、`data.emptyAccounts`、`data.legacyRoster` 下线，统一回 `ACTION_RETIRED`；
+> ③ `student.update` / `student.delete` / `note.add` / `note.delete` / `class.update` / `class.members.*` / `class.syncMembers`
+> 改为**仅班级或名册归属教师本人**（超管 403）；超管唯一例外是"恢复已停用班级"（R15）；
+> ④ 停用教师前校验其名下无 `active` 班级（R17）；恢复班级前校验负责人在职（B1）；
+> ⑤ `student.adopt` 重写：教师手动输入「学号 + 姓名」收编本班，超管按账号收编到指定班且 `owner_teacher_id` 写目标班负责教师（A4）；
+> ⑥ `student.list` 的 `source=registered`（未入册用户）改为包含未注册游客，并支持 `profile` 筛选；
+> ⑦ 新增 action：`data.backfillQuality`、`data.markQuality`（第一阶段）。
+> ⑧ 数据标记权限：`data.markQuality`（人工标 production / test / unknown）与 `data.backfillQuality` **仅超管可调**（普通教师 403）；
+> 教师网页的「数据标记」下拉只在超管的「未入册用户」页出现，非超管渲染为纯文本。
+> 详见 `docs/requirements/REQ-003-phase1-plan.md`、`docs/requirements/REQ-003-phase2-plan.md`。
+
 1. `teacher-web/` 为原生静态页面：`index.html`、`css/`、`js/`、`README.md`，经 CloudBase HTTP 网关调用 `teacher` 云函数（`docs/交接说明.md` 第 4 节）。
 2. `cloudfunctions/teacher/` 含 `index.js`（1,240 行）与 `package.json`。
 3. `teacher` 云函数的分发入口为 `action` 分支，2026-09-11 检索到的 action 共 20 个：`login`、`logout`、`me`、`teacher.list`、`teacher.create`、`teacher.update`、`teacher.delete`、`dashboard`、`student.list`、`student.create`、`student.update`、`student.import`、`student.delete`、`student.adopt`、`student.records`、`student.detail`、`note.add`、`note.delete`、`learning.list`、`ai.questions`（与 `docs/交接说明.md` 第 8 节一致）。

@@ -83,6 +83,43 @@ const bCall = (p) => teacherFn.main(Object.assign({ token: 'tok-b' }, p));
   check('T12 超管可以恢复他人负责的班级', superTry.ok === true && superTry.class.status === 'active',
     JSON.stringify({ ok: superTry.ok, status: superTry.class && superTry.class.status, code: superTry.code }));
 
+  // ---- T13 起：REQ-003 第二阶段的权限收窄与班级不变量 ----
+  // 超管只能「恢复」，不能「停用」教师班级，也不能改班级业务字段（R21）
+  const superArchive = await superCall({ action: 'class.archive', class_id: bClass.class.id, archived: true });
+  check('T13 超管停用教师班级 → 403（R21：只读，例外仅恢复）',
+    superArchive.ok === false && superArchive.code === 'FORBIDDEN', JSON.stringify(superArchive.code));
+  const superRename = await superCall({ action: 'class.update', class_id: bClass.class.id, name: '被改名' });
+  check('T13b 超管改班级名称 → 403，班级名未变',
+    superRename.ok === false && superRename.code === 'FORBIDDEN'
+    && table('classes').get(bClass.class.id).name === 'B班', JSON.stringify(superRename.code));
+  const superMemo = await superCall({ action: 'class.members.add', class_id: bClass.class.id, doc_ids: ['SX'] });
+  check('T13c 超管增删班级成员 → 403（R21）',
+    superMemo.ok === false && superMemo.code === 'FORBIDDEN', JSON.stringify(superMemo.code));
+
+  // R17：停用教师账号前，其名下不能有 active 班级
+  const disableA = await superCall({ action: 'teacher.update', teacher_id: 'TA', status: 'inactive' });
+  check('T14 名下有活动班级时停用教师 → 被拒（TEACHER_HAS_ACTIVE_CLASS）',
+    disableA.ok === false && disableA.code === 'TEACHER_HAS_ACTIVE_CLASS', JSON.stringify(disableA.code));
+  check('T14b 被拒后教师仍是启用状态', table('teachers').get('TA').status === 'active', table('teachers').get('TA').status);
+
+  // 把 A 老师名下班级全部停用后，才允许停用账号
+  await aCall({ action: 'class.archive', class_id: c1.class.id });
+  await aCall({ action: 'class.archive', class_id: dup.class.id });
+  const disableA2 = await superCall({ action: 'teacher.update', teacher_id: 'TA', status: 'inactive' });
+  check('T15 班级全部停用后可停用教师账号', disableA2.ok === true && disableA2.teacher.status === 'inactive',
+    JSON.stringify(disableA2.code || disableA2.teacher));
+
+  // B1/R15：负责人已停用时，恢复班级被拒（保持"停用教师不得持有 active 班"）
+  const restoreWithInactive = await superCall({ action: 'class.archive', class_id: c1.class.id, archived: false });
+  check('T16 负责人已停用时恢复班级 → 被拒（OWNER_INACTIVE）',
+    restoreWithInactive.ok === false && restoreWithInactive.code === 'OWNER_INACTIVE',
+    JSON.stringify(restoreWithInactive.code));
+  await superCall({ action: 'teacher.update', teacher_id: 'TA', status: 'active' });
+  const restoreAfterEnable = await superCall({ action: 'class.archive', class_id: c1.class.id, archived: false });
+  check('T16b 先启用教师后恢复班级 → 成功',
+    restoreAfterEnable.ok === true && restoreAfterEnable.class.status === 'active',
+    JSON.stringify(restoreAfterEnable.code || restoreAfterEnable.class));
+
   const failed = results.filter((r) => !r.pass);
   results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
   console.log('---');

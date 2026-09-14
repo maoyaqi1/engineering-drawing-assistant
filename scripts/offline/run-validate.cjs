@@ -76,28 +76,32 @@ const teacherCall = (p) => teacherFn.main(Object.assign({ token: 'tok-t1' }, p))
   check('V8 导入提交只写入合法行', v8.ok === true && v8.added === 2 && table('students').size === beforeImport + 2,
     JSON.stringify({ added: v8.added, size: table('students').size }));
 
-  // ---- 按勾选删除 ----
+  // ---- 名册删除：批量通道已下线，只保留归属教师行级删除（REQ-003 R21/R24）----
+  const rosterBefore = table('roster').size;
+  const studentsBefore = table('students').size;
   const p1 = await superCall({ action: 'student.purge', doc_ids: ['A1', 'A2', 'A3'], dry_run: false });
-  check('P1 按勾选删除成功', p1.ok === true && p1.removed_students === 3 && p1.selection === 3, JSON.stringify({ removed: p1.removed_students, sel: p1.selection }));
-  check('P1b 白名单同步撤销', p1.revoked_roster === 2 && !table('roster').has('R1') && !table('roster').has('R2'), 'revoked=' + p1.revoked_roster);
-  check('P1c 他人记录未受影响', table('students').has('B1') && table('roster').has('R3'), Array.from(table('students').keys()).join(','));
+  check('P1 student.purge（按勾选批量删除）已下线 → ACTION_RETIRED，名册条数不变',
+    p1.ok === false && p1.code === 'ACTION_RETIRED' && table('students').size === studentsBefore,
+    JSON.stringify({ code: p1.code, size: table('students').size }));
 
-  const p2 = await superCall({ action: 'student.purge', doc_ids: ['B1', 'NOT_EXIST'], dry_run: true });
-  check('P2 勾选含不存在 id 时只匹配存在的', p2.ok === true && p2.matched === 1 && p2.not_found === undefined || p2.ok === true, JSON.stringify({ matched: p2.matched, selection: p2.selection }));
+  const p2 = await teacherCall({ action: 'student.delete', doc_id: 'A1' });
+  check('P2 教师删除自己录入的学生 → 成功', p2.ok === true && !table('students').has('A1'), JSON.stringify(p2));
+  const p3 = await teacherCall({ action: 'student.delete', doc_id: 'A2' });
+  check('P3 再次删除自己录入的学生 → 成功（行级删除不受批量下线影响）',
+    p3.ok === true && !table('students').has('A2'), JSON.stringify(p3));
 
-  const p3 = await superCall({ action: 'student.purge', doc_ids: ['B1'], dry_run: false });
-  check('P3 勾选模式不要求 confirm_count', p3.ok === true && p3.removed_students === 1 && p3.not_found === 0, JSON.stringify({ removed: p3.removed_students, not_found: p3.not_found }));
-  check('P3b 删除他人教师的记录后白名单也同步', !table('roster').has('R3'), table('roster').size);
+  const p4 = await teacherCall({ action: 'student.delete', doc_id: 'B1' });
+  check('P4 教师删除他人名册 → 403，记录仍在',
+    p4.ok === false && p4.code === 'FORBIDDEN' && table('students').has('B1'), p4.code);
 
-  const p4 = await teacherCall({ action: 'student.purge', doc_ids: ['A9'], dry_run: false });
-  check('P4 普通教师不能用批量删除', p4.ok === false && p4.code === 'FORBIDDEN', p4.code);
+  const p5 = await superCall({ action: 'student.delete', doc_id: 'A3' });
+  check('P5 超管删除教师名册 → 403（R21），记录仍在',
+    p5.ok === false && p5.code === 'FORBIDDEN' && table('students').has('A3'), p5.code);
 
-  seed('students', [{ _id: 'C1', school: 'X', name: '己', student_no: '2027001', owner_teacher_id: 'T1', created_at: T0, updated_at: T0 }]);
-  const p5 = await superCall({ action: 'student.purge', doc_ids: ['C1'], school: '别的学校', dry_run: true });
-  check('P5 勾选与筛选条件取交集', p5.matched === 0, p5.matched);
-
-  const p6 = await superCall({ action: 'student.purge', dry_run: true });
-  check('P6 无勾选也无筛选仍被拒', p6.ok === false && p6.code === 'NO_FILTER', p6.code);
+  const p6 = await teacherCall({ action: 'student.delete', doc_id: 'NOT_EXIST' });
+  check('P6 删除不存在的记录 → NOT_FOUND', p6.ok === false && p6.code === 'NOT_FOUND', p6.code);
+  check('P7 roster 残留不被任何删除通道触碰（D16：集合另行下线）',
+    table('roster').size === rosterBefore, table('roster').size);
 
   const failed = results.filter((r) => !r.pass);
   results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
