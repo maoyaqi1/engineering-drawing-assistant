@@ -52,7 +52,7 @@
     <view class="quick-chip" data-text="请把这题的作图步骤一步一步讲清楚" bindtap="onSuggestion">讲解步骤</view>
   </view>
 
-  <view wx:if="{{!canAsk}}" class="notice">{{notice}}</view>
+  <view wx:if="{{!canAsk}}" class="notice" bindtap="handleNoticeTap">{{notice}}</view>
 
   <view class="image-preview" wx:if="{{enableImage && imageDataUrl}}">
     <image class="preview-img" src="{{imageDataUrl}}" mode="widthFix" />

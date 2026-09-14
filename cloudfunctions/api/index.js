@@ -22,10 +22,42 @@ async function ensureCollections() {
   await Promise.all(COLLECTIONS.map((name) => db.createCollection(name).catch(() => null)));
 }
 
+// 同一 openid 出现多条时的"保留优先级"：填过资料的优先 → 更新时间最新 → 创建时间最早
+function pickPrimaryUser(list) {
+  return list.slice().sort((a, b) => {
+    const pa = a && a.profile_completed ? 1 : 0;
+    const pb = b && b.profile_completed ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+    const ua = String((a && (a.updated_at || a.last_login_at)) || '');
+    const ub = String((b && (b.updated_at || b.last_login_at)) || '');
+    if (ua !== ub) return ub.localeCompare(ua);
+    return String((a && a.created_at) || '').localeCompare(String((b && b.created_at) || ''));
+  })[0];
+}
+
+// 自愈：同一 openid 只保留 keepId 这一条，其余删除（用于兜住并发登录可能产生的重复账号）
+async function removeDuplicateUsers(openid, keepId) {
+  let removed = 0;
+  for (let round = 0; round < 20; round += 1) {
+    const res = await db.collection('users')
+      .where({ openid, _id: db.command.neq(keepId) })
+      .remove()
+      .catch(() => ({ stats: { removed: 0 } }));
+    const n = (res && res.stats && res.stats.removed) || 0;
+    removed += n;
+    if (n <= 0) break;
+  }
+  return removed;
+}
+
 async function ensureUser(openid, unionid) {
   const existing = await db.collection('users').where({ openid }).get();
   if (existing.data.length) {
-    const user = existing.data[0];
+    const user = pickPrimaryUser(existing.data);
+    // 若历史上出现了同 openid 的多条（并发登录等），这里顺手收敛为一条
+    if (existing.data.length > 1) {
+      await removeDuplicateUsers(openid, user._id);
+    }
     await db.collection('users').doc(user._id).update({ data: { last_login_at: now() } });
     return user;
   }
@@ -41,6 +73,13 @@ async function ensureUser(openid, unionid) {
     last_login_at: now()
   };
   const added = await db.collection('users').add({ data: record });
+  // 并发兜底：插入后再查一次，若同 openid 出现多条，只保留一条
+  const after = await db.collection('users').where({ openid }).get();
+  if (after.data.length > 1) {
+    const primary = pickPrimaryUser(after.data);
+    await removeDuplicateUsers(openid, primary._id);
+    return primary;
+  }
   return Object.assign({ _id: added._id }, record);
 }
 
@@ -94,6 +133,27 @@ async function isInRoster(studentId, name) {
   return set.pairs.has(sid + '|' + nm);
 }
 
+// 统一鉴权入口：需要「名册权益」的能力（AI 教师相关 action）都在此判定，
+// 避免各处复制匹配逻辑导致语义分叉。学校字段不参与放行，匹配键恒为「学号 + 姓名」。
+//   level  = 'student' 名册内的正式学生 | 'guest' 游客
+//   reason = 'no_profile' 还没填姓名/学号 | 'not_in_roster' 填了但不在名册 | 'ok'
+// 注意：游客仍可正常使用点/线/面等互动功能与学习埋点（session / record.event / statistics 不做鉴权）。
+async function resolveAccess(user) {
+  const studentId = normalizeStudentId(user && user.student_id);
+  const name = String((user && user.name) || '').trim();
+  if (!studentId || !name) return { level: 'guest', reason: 'no_profile', in_roster: false };
+  if (!(await isInRoster(studentId, name))) return { level: 'guest', reason: 'not_in_roster', in_roster: false };
+  return { level: 'student', reason: 'ok', in_roster: true };
+}
+
+// 非正式学生调用 AI 相关 action 时的统一拒绝结果（code 区分「没填资料」与「不在名册」）
+function accessDeniedResult(access) {
+  if (access && access.reason === 'no_profile') {
+    return { ok: false, code: 'NO_PROFILE', msg: '请先填写学校、姓名和学号，之后才能使用 AI 教师提问' };
+  }
+  return { ok: false, code: 'NOT_IN_ROSTER', msg: '老师还没把你的「姓名 + 学号」录入名册，暂时无法提问' };
+}
+
 function isAdmin(openid) {
   return ADMIN_OPENIDS.includes(openid);
 }
@@ -140,17 +200,22 @@ exports.main = async (event) => {
         updated_at: now()
       }});
       const updated = await db.collection('users').doc(user._id).get();
-      return { ok: true, user: updated.data, registered: true };
+      // 带上本次鉴权结果：前端可立即提示「已录入名册」还是「仍是游客」
+      return { ok: true, user: updated.data, registered: true, access: await resolveAccess(updated.data) };
     }
 
     if (action === 'roster.status') {
       const user = await ensureUser(OPENID, UNIONID);
-      const registered = !!user.student_id;
+      const access = await resolveAccess(user);
       return {
         ok: true,
-        registered,
+        registered: access.reason !== 'no_profile', // 兼容既有字段：是否已填姓名 + 学号
+        profile_completed: !!user.profile_completed,
         student_id: user.student_id || '',
-        in_roster: registered ? await isInRoster(user.student_id, user.name) : false,
+        name: user.name || '',
+        level: access.level,
+        reason: access.reason,
+        in_roster: access.in_roster,
         admin: isAdmin(OPENID)
       };
     }
@@ -344,10 +409,8 @@ exports.main = async (event) => {
     if (action === 'ai.ask') {
       await ai.ensureCollections();
       const user = await ensureUser(OPENID, UNIONID);
-      const canAsk = user.student_id ? await isInRoster(user.student_id, user.name) : false;
-      if (!canAsk) {
-        return { ok: false, code: 'NOT_IN_ROSTER', msg: '你不在名单中，暂时无法使用提问' };
-      }
+      const access = await resolveAccess(user);
+      if (access.level !== 'student') return accessDeniedResult(access);
       return { ok: true, ...(await ai.answerQuestion({
         openid: OPENID,
         conversationId: (event && event.conversation_id) || null,
@@ -359,11 +422,15 @@ exports.main = async (event) => {
 
     if (action === 'ai.list') {
       await ai.ensureCollections();
+      const access = await resolveAccess(await ensureUser(OPENID, UNIONID));
+      if (access.level !== 'student') return accessDeniedResult(access);
       return { ok: true, conversations: await ai.listConversations({ openid: OPENID }) };
     }
 
     if (action === 'ai.detail') {
       await ai.ensureCollections();
+      const access = await resolveAccess(await ensureUser(OPENID, UNIONID));
+      if (access.level !== 'student') return accessDeniedResult(access);
       const detail = await ai.getConversationDetail({ openid: OPENID, conversationId: (event && event.conversation_id) || '' });
       if (!detail) return { ok: false, code: 'NOT_FOUND', msg: '对话不存在' };
       return { ok: true, conversation: detail };
@@ -371,6 +438,8 @@ exports.main = async (event) => {
 
     if (action === 'ai.feedback') {
       await ai.ensureCollections();
+      const access = await resolveAccess(await ensureUser(OPENID, UNIONID));
+      if (access.level !== 'student') return accessDeniedResult(access);
       const result = await ai.recordFeedback({
         openid: OPENID,
         messageId: (event && event.message_id) || '',
