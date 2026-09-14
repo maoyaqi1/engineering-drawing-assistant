@@ -190,6 +190,8 @@
 | **C 冻结：需用户明确授权** | `pages/index/index.js`、`index.wxml`、`index.wxss`、`pages/index/section-geometry.js`、`pages/index/basic-solid.js`、`pages/login/`、`pages/register/`、`utils/geo.js`、`cloudfunctions/api/` 全部（含 `ai/`、`knowledge/`、`prompts/`）、已通过真机验证的核心交互 | 只有两种情形可改，见下方 |
 | **D 禁止改动 / 禁止提交** | `geogebra-offline/`、`screen/`、`node_modules/`、`.env` / `.env.*`、`project.private.config.json`、`web-release/`、任何真实密钥值 | 不得修改、不得提交；确需变动先问用户 |
 
+> 版本冻结注记（2026-09-14）：`teacher-web/` 自 **`teacher-web-v1.0.0` 起冻结**——虽仍列在 A 级，实际改动需"用户明确要求 + 可复现的真实缺陷"，并重新发布预览仓、更新 `?v=` 版本号。冻结基线、哈希、权限语义与回滚方式见 `docs/freeze-teacher-web-2026-09-14.md`。其余 A 级范围（`cloudfunctions/teacher/`、`docs/` 等）不受此注记影响。
+
 C 级（冻结）允许改动的两种情形，缺一不可：
 
 1. 用户在当前任务中明确要求修改该模块。

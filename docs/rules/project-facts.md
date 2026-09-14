@@ -41,6 +41,12 @@
 > 详见 `docs/requirements/REQ-003-phase2-plan.md` 与 `docs/用户与鉴权模型.md`。
 > （以下 09-11 各节为当次核对记录，凡与上述更新冲突处，以上述更新与代码为准。）
 
+> **2026-09-14 事实更新（教师后台版本冻结）**：`teacher-web/`（主仓）与发布仓库 `maoyaqi1/hfjh-teacher-preview`（`main`）
+> 已冻结为 **`teacher-web-v1.0.0`**：主仓基线 `a853878`（教师网页最后改动在 `6242b48`）、预览仓发布提交 `2caa5d8`、
+> 脚本缓存版本 `?v=20260914b`，两仓 6 个文件的 blob 哈希逐字节一致。此后改动需"用户明确要求 + 可复现的真实缺陷"，
+> 并重新发布预览仓、更新 `?v=` 与冻结记录哈希。基线、权限语义与回滚见 `docs/freeze-teacher-web-2026-09-14.md`。
+> 数据库侧 `roster` 集合已于 2026-09-14 由用户删除。
+
 ### 1. 小程序页面清单
 
 `app.json` 的 `pages` 数组当前注册 7 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/ruler/ruler`。`pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除。
