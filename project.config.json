@@ -27,6 +27,10 @@
         "type": "folder"
       },
       {
+        "value": "scripts",
+        "type": "folder"
+      },
+      {
         "value": "teacher-web",
         "type": "folder"
       },

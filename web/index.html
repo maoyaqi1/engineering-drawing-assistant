@@ -118,17 +118,54 @@
     </section>
   </main>
 
-  <script>var module = { exports: {} };</script>
-  <script src="../pages/index/section-geometry.js"></script>
+  <!--
+    轻量 CommonJS 垫片：页面逻辑已拆成 pages/index/ 下的多个模块（2026-09-13，
+    见 docs/refactor-2026-09-13-index-split.md）。这里按「相对路径 → 导出对象」注册，
+    require() 按相对路径查找，等价于小程序的模块解析；脚本顺序即模块依赖顺序：
+    新增或调整 pages/index/ 模块依赖时，必须同步这里的顺序与注册行。
+  -->
   <script>
-    window.SectionGeometryModule = module.exports;
-    window.require = function () { return window.SectionGeometryModule; };
+    var module = { exports: {} };
+    var geometryModules = {};
+    function registerGeometryModule(path) {
+      geometryModules[path] = module.exports;
+      module = { exports: {} };
+    }
+    window.require = function (path) { return geometryModules[path]; };
     window.Page = function (definition) { window.geometryPage = definition; };
     window.wx = {
       getWindowInfo: function () { return { pixelRatio: window.devicePixelRatio || 1 }; },
       setNavigationBarTitle: function (options) { if (options && options.title) document.title = options.title; }
     };
   </script>
+  <script src="../pages/index/constants.js"></script>
+  <script>registerGeometryModule('./constants.js');</script>
+  <script src="../pages/index/section-geometry.js"></script>
+  <script>registerGeometryModule('./section-geometry.js');</script>
+  <script src="../pages/index/basic-solid.js"></script>
+  <script>registerGeometryModule('./basic-solid.js');</script>
+  <script src="../pages/index/presets.js"></script>
+  <script>registerGeometryModule('./presets.js');</script>
+  <script src="../pages/index/math-utils.js"></script>
+  <script>registerGeometryModule('./math-utils.js');</script>
+  <script src="../pages/index/projection.js"></script>
+  <script>registerGeometryModule('./projection.js');</script>
+  <script src="../pages/index/session.js"></script>
+  <script>registerGeometryModule('./session.js');</script>
+  <script src="../pages/index/touch.js"></script>
+  <script>registerGeometryModule('./touch.js');</script>
+  <script src="../pages/index/draw-helpers.js"></script>
+  <script>registerGeometryModule('./draw-helpers.js');</script>
+  <script src="../pages/index/render-scene.js"></script>
+  <script>registerGeometryModule('./render-scene.js');</script>
+  <script src="../pages/index/section-math.js"></script>
+  <script>registerGeometryModule('./section-math.js');</script>
+  <script src="../pages/index/section-render.js"></script>
+  <script>registerGeometryModule('./section-render.js');</script>
+  <script src="../pages/index/solid-projection.js"></script>
+  <script>registerGeometryModule('./solid-projection.js');</script>
+  <script src="../pages/index/ui-handlers.js"></script>
+  <script>registerGeometryModule('./ui-handlers.js');</script>
   <script src="../pages/index/index.js"></script>
   <script src="runtime.js"></script>
 </body>

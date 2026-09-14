@@ -28,3 +28,8 @@ project.private.config.json
 
 # 日志文件
 *.log
+
+# 云数据库导出（含真实学生姓名/学号与教师账号哈希，禁止入库）
+teacher-web/output/
+data-export/
+db-export/
