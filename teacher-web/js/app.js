@@ -7,7 +7,7 @@
   const routes = {
     dashboard: { title: '教学驾驶舱', sub: '学生如何学习点线面与 AI 教师' },
     classes: { title: '班级管理', sub: '班级列表与学生归属' },
-    unrostered: { title: '未入册学生', sub: '白名单以外：自主注册但未进入任何班级' },
+    unrostered: { title: '未入册用户', sub: '名册以外：已登录但未进入任何班级名册（含未注册游客）' },
     learning: { title: '学习记录', sub: '全体学生的学习行为事件流' },
     plp: { title: '点线面分析', sub: '点 / 线 / 面互动使用情况' },
     ai: { title: 'AI 教师分析', sub: '学生提问记录与高频知识点' },
@@ -45,6 +45,17 @@
   function isSuper() {
     const t = currentTeacher || loadTeacher();
     return !!(t && t.role === 'super_admin');
+  }
+
+  // 当前登录教师的 id（用于判断"这个班/这条名册是不是我负责的"）
+  function myTeacherId() {
+    const t = currentTeacher || loadTeacher();
+    return (t && t.id) || '';
+  }
+
+  // R21：超管对教师业务数据只读——不是自己负责的班级/名册只展示，不给写入口
+  function canWriteClass(c) {
+    return !isSuper() || (c && c.owner_teacher_id === myTeacherId());
   }
 
   async function handleLogin() {
@@ -149,23 +160,6 @@
   }
 
   // ---- 设置页：个人信息 + 数据维护（仅超管）----
-  const RESET_COLLECTION_LABELS = {
-    learning_sessions: '学习会话',
-    learning_records: '学习行为事件',
-    ai_conversations: 'AI 会话',
-    ai_messages: 'AI 消息',
-    survey_responses: '问卷作答',
-    survey_invites: '问卷邀请'
-  };
-
-  function resetRowsHtml(counts) {
-    let html = '';
-    Object.keys(counts || {}).forEach((key) => {
-      html += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eef1f6">' +
-        '<span>' + esc(RESET_COLLECTION_LABELS[key] || key) + '</span><b>' + (counts[key] || 0) + ' 条</b></div>';
-    });
-    return html;
-  }
 
   async function renderSettings(container) {
     const me = currentTeacher || {};
@@ -177,7 +171,7 @@
       // 按人清理：测试数据通常是特定几个人产生的，按人核对最稳
       html += '<div class="card"><div class="card-title">数据维护 · 按人清理（仅超级管理员）</div>' +
         '<div class="hint">测试数据通常是<b>特定几个人</b>产生的。这里按人清理：勾选具体的人，只删这些人的数据，' +
-        '<b>其他人的数据一条都不会动</b>。默认只清行为数据；注册账号、名册与 AI 白名单需要你显式勾选才会一并删除。' +
+        '<b>其他人的数据一条都不会动</b>。默认只清行为数据；注册账号与名册记录需要你显式勾选才会一并删除。' +
         '<br>列表里的 openid 是"微信登录标识"（<b>不是微信号</b>，同一微信号在不同小程序里不同），用来区分"来过几个人、何时来过"，' +
         '所以<b>未注册的账号也是触达数据，建议保留</b>，只在需要干净列表时用过滤隐藏。</div>' +
         '<div class="filter-row">' +
@@ -194,36 +188,23 @@
             '<option value="已注册未入册">已注册未入册</option>' +
             '<option value="已入册">已入册</option>' +
             '<option value="名册已录入·未注册">名册已录入·未注册（待激活的学生）</option>' +
-            '<option value="旧白名单残留·无姓名">旧白名单残留·无姓名</option>' +
-            '<option value="白名单残留·无名册">白名单残留·无名册</option>' +
           '</select>' +
         '</div>' +
         '<div id="personList"></div>' +
         '<div class="hint" style="margin-top:12px">清理范围（可多选）：</div>' +
         '<div class="filter-row">' +
           '<label style="font-size:13px"><input type="checkbox" id="scopeBehavior" checked /> 行为数据（学习会话 / 行为事件 / AI 会话与消息 / 问卷）</label>' +
-          '<label style="font-size:13px"><input type="checkbox" id="scopeRoster" /> 名册与 AI 白名单（含这些学生的教师备注）</label>' +
+          '<label style="font-size:13px"><input type="checkbox" id="scopeRoster" /> 名册记录（含这些学生的教师备注）</label>' +
           '<label style="font-size:13px"><input type="checkbox" id="scopeAccount" /> 注册账号（删除后该微信号需重新注册；只对"有账号"的行生效）</label>' +
         '</div>' +
         '<div class="tool-row">' +
           '<button class="mini-btn" id="personPreviewBtn">预览选中人的数据</button>' +
           '<button class="mini-btn danger" id="personPurgeBtn">清理选中的人…</button>' +
-          '<button class="mini-btn" id="legacyRosterBtn">清理无姓名的旧白名单…</button>' +
-          '<button class="mini-btn" id="emptyAccountsBtn">清理未注册空账号（会丢触达记录）…</button>' +
         '</div>' +
         '<div id="personResult"></div></div>';
-
-      // 整表清理：收进折叠区（无法按人核对，容易误伤，默认不展开）
-      html += '<div class="card"><div class="card-title">整表清理（高级，一般不需要）</div>' +
-        '<div class="hint">把 6 张过程表<b>整体清空</b>（不分人）。因为无法按人核对、可能误伤真实数据，' +
-        '请只在确认库里全是测试数据时才使用。</div>' +
-        '<details><summary style="cursor:pointer;font-size:13px;color:var(--text-soft)">展开整表清理</summary>' +
-          '<div class="tool-row" style="margin-top:10px">' +
-            '<button class="mini-btn" id="resetPreviewBtn">预览待清理数据</button>' +
-            '<button class="mini-btn danger" id="resetRunBtn">清空过程数据…</button>' +
-          '</div>' +
-          '<div id="resetResult"></div>' +
-        '</details></div>';
+      html += '<div class="hint" style="margin-top:10px">说明：整表清空与批量物理删除已下线（REQ-003 D5）——' +
+        '测试数据改用 <b>内部账号 / 演示班 / 数据标记</b> 三条线隔离，不再物理删除；' +
+        '这里只保留「按人清理」这一条合规通道。</div>';
     }
     container.innerHTML = html;
 
@@ -240,12 +221,8 @@
       });
       $('personPreviewBtn').addEventListener('click', () => previewPersonPurge(false));
       $('personPurgeBtn').addEventListener('click', () => previewPersonPurge(true));
-      $('legacyRosterBtn').addEventListener('click', legacyRosterFlow);
-      $('emptyAccountsBtn').addEventListener('click', emptyAccountsFlow);
       $('hideEmptyAccounts').addEventListener('change', applyPersonFilter);
       $('stageFilter').addEventListener('change', applyPersonFilter);
-      $('resetPreviewBtn').addEventListener('click', previewResetData);
-      $('resetRunBtn').addEventListener('click', confirmResetData);
       await loadPersonList(false);
     }
   }
@@ -259,7 +236,7 @@
     survey_responses: '问卷作答',
     survey_invites: '问卷邀请'
   };
-  const PURGE_EXTRA_LABELS = { students: '名册记录', roster: 'AI 白名单', users: '注册账号', teacher_notes: '教师备注' };
+  const PURGE_EXTRA_LABELS = { students: '名册记录', roster: '名册（旧白名单字段）', users: '注册账号', teacher_notes: '教师备注' };
   let personRows = [];
   let personRowsAll = [];
   const personSelected = new Set();
@@ -282,7 +259,7 @@
   function purgeScopeText(scope) {
     const parts = [];
     if (scope.behavior) parts.push('行为数据');
-    if (scope.roster) parts.push('名册与 AI 白名单（含备注）');
+    if (scope.roster) parts.push('名册记录（含备注）');
     if (scope.account) parts.push('注册账号');
     return parts.length ? parts.join(' + ') : '（未选择）';
   }
@@ -318,7 +295,7 @@
 
   // 触达概览：用列表数据现算各阶段人数（不额外请求接口）
   function touchOverviewHtml() {
-    const stages = ['仅登录未注册', '已注册未入册', '已入册', '名册已录入·未注册', '旧白名单残留·无姓名'];
+    const stages = ['仅登录未注册', '已注册未入册', '已入册', '名册已录入·未注册'];
     const counts = {};
     stages.forEach((s) => { counts[s] = 0; });
     personRowsAll.forEach((r) => {
@@ -355,7 +332,6 @@
       const sourceTags = [];
       sourceTags.push(r.has_account ? '账号' : '无账号');
       if (r.in_class_roster) sourceTags.push('名册');
-      if (r.in_roster) sourceTags.push('白名单');
       if (r.nameless_roster) sourceTags.push('旧记录·无姓名');
       const lastLogin = r.last_login_at ? fmtDate(r.last_login_at) : '—';
       html += '<tr>' +
@@ -424,9 +400,9 @@
       : '';
     const warning = scope.account || scope.roster
       ? '<div class="form-err" style="margin-top:10px">注意：本次还会删除' +
-        (scope.roster ? ' <b>名册记录与 AI 白名单</b>' : '') +
+        (scope.roster ? ' <b>名册记录</b>' : '') +
         (scope.account ? ' <b>注册账号</b>' : '') + '，该操作不可恢复。</div>'
-      : '<div class="hint" style="margin-top:10px">仅清理行为数据，名册、白名单与注册账号保持不变。</div>';
+      : '<div class="hint" style="margin-top:10px">仅清理行为数据，名册与注册账号保持不变。</div>';
     openModal('确认按人清理',
       '<div class="hint">即将清理以下 <b>' + count + '</b> 人的数据：</div>' +
       (pre.people || []).map((p) => '<div style="padding:4px 0;font-size:13px">· ' +
@@ -454,162 +430,12 @@
       let html = '<div class="hint">已清理 <b>' + res.people_count + '</b> 人：</div>';
       Object.keys(res.removed || {}).forEach((key) => {
         html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eef1f6"><span>' +
-          esc(PERSON_COUNT_LABELS[key] || PURGE_EXTRA_LABELS[key] || RESET_COLLECTION_LABELS[key] || key) + '</span><b>' + (res.removed[key] || 0) + ' 条</b></div>';
+          esc(PERSON_COUNT_LABELS[key] || PURGE_EXTRA_LABELS[key] || key) + '</span><b>' + (res.removed[key] || 0) + ' 条</b></div>';
       });
       html += '<div class="hint" style="margin-top:10px">已记入 maintenance_logs；回到「驾驶舱」刷新可见新的统计口径。</div>';
       out.innerHTML = html;
       personSelected.clear();
       await loadPersonList(false);
-    });
-  }
-
-  // 清理"已登录但从未注册"的空账号（无学号 / 无姓名）
-  async function emptyAccountsFlow() {
-    const out = $('personResult');
-    out.innerHTML = '<div class="hint">正在统计…</div>';
-    const pre = await api.emptyAccountsCleanup({ dry_run: true });
-    if (!pre || !pre.ok) {
-      out.innerHTML = '<div class="form-err">统计失败：' + esc((pre && pre.msg) || '未知错误') + '</div>';
-      return;
-    }
-    const total = pre.total || 0;
-    if (!total) {
-      out.innerHTML = '<div class="hint">没有空账号（学生都已完成注册）。</div>';
-      return;
-    }
-    const sampleDates = (pre.sample || [])
-      .map((s) => String(s.created_at || '').slice(0, 10))
-      .filter(Boolean);
-    out.innerHTML = '<div class="hint">待清理空账号 <b>' + total + '</b> 条' +
-      (sampleDates.length ? '（示例时间：' + esc(sampleDates.slice(0, 8).join('、')) + '）' : '') + '</div>';
-    openModal('确认清理空账号',
-      '<div class="hint">将删除 <b>' + total + '</b> 条"已登录但从未注册"的账号（无学校 / 无姓名 / 无学号）。' +
-      '<br>⚠️ 这类记录本身是<b>小程序触达/吸引度的原始数据</b>（能反映"有多少人打开过、什么时间来"），删掉后就统计不回来了。' +
-      '它们不属于名册、不在白名单、没有学习数据；一般建议<b>保留</b>，只在需要干净列表时用上面的过滤隐藏。' +
-      '<br>删除后该微信号下次打开小程序会重新生成一条空账号，属正常现象。' +
-      '<br><b>已完成注册的学生账号不会被删除。</b></div>' +
-      '<div class="hint" style="margin:12px 0 6px">请输入条数 <b>' + total + '</b> 以确认：</div>' +
-      '<div class="fld"><input class="filter-input" id="emptyConfirmInput" placeholder="输入 ' + total + '" /></div>',
-      '<button class="mini-btn" id="emptyCancelBtn">取消</button>' +
-      '<button class="mini-btn danger" id="emptyConfirmBtn">确认清理</button>');
-    $('emptyCancelBtn').addEventListener('click', closeModal);
-    $('emptyConfirmBtn').addEventListener('click', async () => {
-      const el = $('emptyConfirmInput');
-      if (String((el && el.value) || '').trim() !== String(total)) {
-        alert('输入的条数与待清理条数不一致（应为 ' + total + '），已取消');
-        return;
-      }
-      const res = await api.emptyAccountsCleanup({ dry_run: false, confirm_count: total });
-      closeModal();
-      const box = $('personResult');
-      if (!res || !res.ok) {
-        box.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
-        return;
-      }
-      box.innerHTML = '<div class="hint">已清理 <b>' + (res.removed || 0) + '</b> 条空账号，已记入 maintenance_logs。</div>';
-      personSelected.clear();
-      await loadPersonList(false);
-    });
-  }
-
-  // 清理"只有学号、没有姓名"的历史白名单记录（早期按学号批量导入产生，现在已无放行作用）
-  async function legacyRosterFlow() {
-    const out = $('personResult');
-    out.innerHTML = '<div class="hint">正在统计…</div>';
-    const pre = await api.legacyRosterCleanup({ dry_run: true });
-    if (!pre || !pre.ok) {
-      out.innerHTML = '<div class="form-err">统计失败：' + esc((pre && pre.msg) || '未知错误') + '</div>';
-      return;
-    }
-    const total = pre.total || 0;
-    if (!total) {
-      out.innerHTML = '<div class="hint">没有无姓名的旧白名单记录。</div>';
-      return;
-    }
-    const bySource = Object.keys(pre.by_source || {}).map((k) => esc(k) + '：' + pre.by_source[k] + ' 条').join('　');
-    out.innerHTML = '<div class="hint">待清理 <b>' + total + '</b> 条无姓名的旧白名单记录（' + bySource + '）' +
-      '<br>示例学号：' + esc((pre.sample || []).slice(0, 12).join('、')) + '</div>';
-    openModal('确认清理无姓名的旧白名单',
-      '<div class="hint">将删除 <b>' + total + '</b> 条"只有学号、没有姓名"的白名单记录（' + bySource + '）。' +
-      '这类记录来自早期的按学号批量导入，在当前"学号 + 姓名"核对规则下不再有任何放行作用，删除不会影响任何学生正常提问。</div>' +
-      '<div class="hint" style="margin:12px 0 6px">请输入条数 <b>' + total + '</b> 以确认：</div>' +
-      '<div class="fld"><input class="filter-input" id="legacyConfirmInput" placeholder="输入 ' + total + '" /></div>',
-      '<button class="mini-btn" id="legacyCancelBtn">取消</button>' +
-      '<button class="mini-btn danger" id="legacyConfirmBtn">确认清理</button>');
-    $('legacyCancelBtn').addEventListener('click', closeModal);
-    $('legacyConfirmBtn').addEventListener('click', async () => {
-      const el = $('legacyConfirmInput');
-      if (String((el && el.value) || '').trim() !== String(total)) {
-        alert('输入的条数与待清理条数不一致（应为 ' + total + '），已取消');
-        return;
-      }
-      const res = await api.legacyRosterCleanup({ dry_run: false, confirm_count: total });
-      closeModal();
-      const box = $('personResult');
-      if (!res || !res.ok) {
-        box.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
-        return;
-      }
-      box.innerHTML = '<div class="hint">已清理 <b>' + (res.removed || 0) + '</b> 条旧白名单记录，已记入 maintenance_logs。</div>';
-      personSelected.clear();
-      await loadPersonList(false);
-    });
-  }
-
-  async function previewResetData() {
-    const box = $('resetResult');
-    box.innerHTML = '<div class="hint">正在统计…</div>';
-    const res = await api.resetData({ dry_run: true });
-    if (!res || !res.ok) {
-      box.innerHTML = '<div class="form-err">预览失败：' + esc((res && res.msg) || '未知错误') + '</div>';
-      return;
-    }
-    box.innerHTML = resetRowsHtml(res.counts) +
-      '<div class="hint" style="margin:10px 0 0">合计 <b>' + (res.total || 0) + '</b> 条待清理</div>';
-  }
-
-  async function confirmResetData() {
-    const box = $('resetResult');
-    box.innerHTML = '<div class="hint">正在统计…</div>';
-    const pre = await api.resetData({ dry_run: true });
-    if (!pre || !pre.ok) {
-      box.innerHTML = '<div class="form-err">统计失败：' + esc((pre && pre.msg) || '未知错误') + '</div>';
-      return;
-    }
-    const total = pre.total || 0;
-    box.innerHTML = '';
-    if (!total) {
-      box.innerHTML = '<div class="hint">当前没有可清理的过程数据（0 条）。</div>';
-      return;
-    }
-    openModal('确认清空过程数据',
-      resetRowsHtml(pre.counts) +
-      '<div class="hint" style="margin:12px 0 6px">该操作<b>不可恢复</b>。请输入合计条数 <b>' + total + '</b> 以确认：</div>' +
-      '<div class="fld"><input class="filter-input" id="resetConfirmInput" placeholder="输入 ' + total + '" /></div>',
-      '<button class="mini-btn" id="resetCancelBtn">取消</button>' +
-      '<button class="mini-btn danger" id="resetConfirmBtn">确认清空</button>');
-    $('resetCancelBtn').addEventListener('click', closeModal);
-    $('resetConfirmBtn').addEventListener('click', async () => {
-      const el = $('resetConfirmInput');
-      const input = String((el && el.value) || '').trim();
-      if (input !== String(total)) {
-        alert('输入的条数与合计不一致（应为 ' + total + '），已取消本次操作');
-        return;
-      }
-      const res = await api.resetData({ dry_run: false, confirm_count: total });
-      closeModal();
-      const out = $('resetResult');
-      if (!res || !res.ok) {
-        out.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
-        return;
-      }
-      let html = '<div class="hint">已清理 <b>' + (res.total || 0) + '</b> 条：</div>';
-      Object.keys(res.removed || {}).forEach((key) => {
-        html += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eef1f6">' +
-          '<span>' + esc(RESET_COLLECTION_LABELS[key] || key) + '</span><b>' + (res.removed[key] || 0) + ' 条</b></div>';
-      });
-      html += '<div class="hint" style="margin:10px 0 0">回「驾驶舱」刷新即应从 0 开始；本次操作已记入 maintenance_logs。</div>';
-      out.innerHTML = html;
     });
   }
 
@@ -760,26 +586,36 @@
   let studentItemsCache = [];
   let studentShowOwner = false;
 
-  // 未入册学生 = 白名单以外的人：已用微信注册，但没有被任何老师录进班级名册。
-  // 他们可以使用互动工具，不能用 AI 提问；由对应老师在自己班级里录入后自动开通。
+  // 未入册用户（REQ-003 D7）= 名册以外的人：Users 里存在、但没有被任何老师录进班级名册。
+  // 含两类：① 已注册游客（填了姓名 + 学号）；② 未注册游客（只登录过，未填资料）。
+  // 他们都可以使用互动工具，不能用 AI 提问；由老师录入名册（或超管收编到指定班）后自动开通。
   async function renderUnrostered(container) {
     studentFilter.source = 'registered';
     studentFilter.class_name = '';
     studentFilter.registered = '';
     studentFilter.owner_teacher_id = '';
+    if (studentFilter.profile === undefined) studentFilter.profile = '';
 
     container.innerHTML =
-      '<div class="page-title">未入册学生</div>' +
+      '<div class="page-title">未入册用户</div>' +
       '<div class="page-sub" id="stuSumLine">—</div>' +
       '<div class="card">' +
-        '<div class="hint" style="margin:0 0 8px">这些学生已经用微信注册（能正常使用互动工具），但还没有被任何老师录入班级名册，' +
-          '因此不能使用 AI 教师提问。由对应老师在「班级」页录入该学生（学号与姓名需与本人填写的一致）后，权限会自动开通。</div>' +
-        '<div class="hint" style="margin:0 0 8px">「数据标记」用于把测试数据从真实学情里剔除（production = 真实，test = 测试，unknown = 待定）——' +
-          '标记只影响报表口径，不影响学生能否使用 AI 教师。</div>' +
-        '<div class="tool-row"><button class="mini-btn" id="stuBackfill">一键回填数据标记…</button></div>' +
+        '<div class="hint" style="margin:0 0 8px">这些人已经登录过小程序（能正常使用互动工具），但还没有被任何老师录入班级名册，' +
+          '因此不能使用 AI 教师提问。由老师在「班级」页录入（学号与姓名需与本人填写的一致）后，权限会自动开通。</div>' +
+        '<div class="hint" style="margin:0 0 8px">「数据标记」用于区分真实数据与测试数据（production = 真实，test = 测试，unknown = 待定）：' +
+          '标为 <b>test</b> 的账号 = <b>测试账号</b>，可以使用全部功能（AI 教师、问卷、互动），' +
+          '但它的使用<b>不计入真实学情</b>（统计里归到"测试"这条线）；' +
+          'production / unknown 不影响功能，只影响报表口径。</div>' +
+        '<div class="tool-row"><button class="mini-btn" id="stuBackfill">一键回填数据标记…</button>' +
+          '<button class="mini-btn" id="stuAdopt">收编到班级…</button></div>' +
         '<div class="filter-row">' +
           '<input id="stuKeyword" class="filter-input" placeholder="搜索姓名或学号" />' +
           '<select id="stuSchool" class="filter-select"></select>' +
+          '<select id="stuProfile" class="filter-select">' +
+            '<option value="">全部身份</option>' +
+            '<option value="已注册">已注册未入册</option>' +
+            '<option value="未注册">未注册游客（仅登录）</option>' +
+          '</select>' +
           '<button id="stuSearch" class="login-btn filter-btn">搜索</button>' +
         '</div>' +
         '<table id="stuTable" style="width:100%;border-collapse:collapse"></table>' +
@@ -787,13 +623,17 @@
       '</div>';
 
     $('stuKeyword').value = studentFilter.keyword;
+    $('stuProfile').value = studentFilter.profile || '';
     $('stuSearch').addEventListener('click', () => {
       studentFilter.keyword = $('stuKeyword').value.trim();
       studentFilter.school = $('stuSchool').value;
+      studentFilter.profile = $('stuProfile').value;
       loadStudents();
     });
     $('stuKeyword').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('stuSearch').click(); });
     $('stuSchool').addEventListener('change', () => $('stuSearch').click());
+    $('stuProfile').addEventListener('change', () => $('stuSearch').click());
+    $('stuAdopt').addEventListener('click', adoptUnrosteredFlow);
 
     $('stuBackfill').addEventListener('click', async () => {
       const pre = await api.backfillQuality({ dry_run: true });
@@ -827,14 +667,15 @@
     }
 
     const superUser = isSuper();
-    // 录入教师列：超管可见（白名单以外的人显示「无」）
+    // 录入教师列：超管可见（名册以外的人显示「无」）
     studentShowOwner = superUser;
 
     fillSelect($('stuSchool'), res.schools || [], '全部学校', studentFilter.school);
 
     const sum = res.summary || { total: 0, registered: 0, unregistered: 0 };
-    $('stuSumLine').innerHTML = '白名单以外（自主注册，未入任何班级）<b>' + sum.total + '</b> 人　·　' +
-      '他们可以使用互动工具，但不能使用 AI 教师提问；由对应老师在自己的班级里录入该学生后，AI 提问权限会自动开通';
+    $('stuSumLine').innerHTML = '名册以外（未进入任何班级名册）<b>' + (sum.total || 0) + '</b> 人　·　' +
+      '已注册未入册 <b>' + (sum.registered || 0) + '</b> 人　·　未注册游客 <b>' + (sum.unregistered || 0) + '</b> 人　·　' +
+      '他们可以使用互动工具，但不能使用 AI 教师提问';
 
     studentItemsCache = res.items || [];
     studentPage.page = 1;
@@ -850,9 +691,14 @@
     return { items: studentItemsCache.slice(start, start + studentPage.size), total, pages, start };
   }
 
-  // 数据标记下拉（第一阶段）：production / test / unknown；未标记时显示占位项
+  // 数据标记下拉（第一阶段）：production / test / unknown；未标记时显示占位项。
+  // 只有超级管理员能标记（标 test = 测试账号：全功能开放、不计入真实学情）；非超管只显示文字。
   function qualitySelectHtml(s) {
     const current = s.data_quality || '';
+    if (!isSuper()) {
+      const label = { production: '真实', test: '测试', unknown: '待定' }[current] || '未标记';
+      return '<span style="color:#6a7688;font-size:12px">' + esc(label) + '</span>';
+    }
     let html = '<select class="filter-select" data-qid="' + esc(s.id) + '" style="min-width:118px">';
     if (!current) html += '<option value="" selected>未标记</option>';
     [['production', '真实'], ['test', '测试'], ['unknown', '待定']].forEach((pair) => {
@@ -893,17 +739,25 @@
         '<td>' + reg + '</td>' +
         '<td>' + qualitySelectHtml(s) + '</td>' +
         '<td style="color:#6a7688">' + fmtDate(s.last_login_at) + '</td>' +
-        '<td style="text-align:right"><span style="color:#9aa5b2">白名单以外</span></td></tr>';
+        '<td style="text-align:right">' + (s.profile_completed
+          ? '<span style="color:#6a7688">名册以外</span>'
+          : '<span style="color:#9aa5b2">仅登录（未填资料）</span>') + '</td></tr>';
     });
     if (!items.length) {
       html += '<tr><td colspan="' + colCount + '" style="padding:26px;text-align:center;color:#9aa5b2">' +
-        (studentFilter.keyword || studentFilter.school ? '没有匹配的学生' : '没有未入册的自主注册学生') + '</td></tr>';
+        (studentFilter.keyword || studentFilter.school || studentFilter.profile
+          ? '没有匹配的记录' : '没有未入册用户') + '</td></tr>';
     }
     table.innerHTML = html;
 
     // 数据标记：选择后立即保存（仅超管可见本页）
     table.querySelectorAll('select[data-qid]').forEach((el) => {
       el.addEventListener('change', async () => {
+        if (!isSuper()) {
+          alert('只有超级管理员可以标记数据（标 test = 测试账号：全功能开放、不计入真实学情）');
+          renderStudentTable();
+          return;
+        }
         const id = el.getAttribute('data-qid');
         const quality = el.value;
         if (!quality) return;
@@ -919,6 +773,49 @@
       pager.innerHTML = pagerHtml(studentPage.page, pages, total, studentPage.size);
       bindPager(pager, studentPage, () => renderStudentTable());
     }
+  }
+
+  // 收编（仅超管，REQ-003 D4/R20/A4）：
+  // 从「未入册用户列表」把某人写进指定班级的名册；目标班的负责教师即新记录的 owner，
+  // 目标班无负责人 / 已停用时服务端会拒绝。本期不支持跨教师转班（D23）。
+  async function adoptUnrosteredFlow() {
+    const candidates = (studentItemsCache || []).filter((s) => s.registered);
+    if (!candidates.length) {
+      alert('当前筛选结果里没有「已注册未入册」的用户。请先按身份筛选或搜索。');
+      return;
+    }
+    const clsRes = await api.listClasses({ status: 'all', limit: 200 });
+    if (!clsRes || !clsRes.ok) { alert(classErrText(clsRes, '班级列表加载失败')); return; }
+    const classes = (clsRes.items || []).filter((c) => c.status !== 'archived');
+    if (!classes.length) { alert('没有可收编的活动班级。请先建班或恢复已停用的班级。'); return; }
+
+    const userOpts = candidates.slice(0, 200).map((s) =>
+      '<option value="' + esc(s.id) + '">' + esc(s.name) + ' · ' + esc(s.student_no) +
+      (s.school ? ' · ' + esc(s.school) : '') + '</option>').join('');
+    const clsOpts = classes.map((c) =>
+      '<option value="' + esc(c.id) + '">' + esc(c.name) + '（' + esc(c.owner_teacher_name || '无负责教师') + '）</option>').join('');
+    openModal('收编到班级',
+      '<div class="hint">把「名册以外」的用户写进指定班级的名册。收编后该学生即可使用 AI 教师提问；' +
+      '记录的负责教师会写成<b>目标班的负责教师</b>（不是操作人），并记入审计。</div>' +
+      '<div class="fld" style="margin-top:10px"><label>用户（仅已注册）</label>' +
+        '<select class="filter-select" id="adoptUser">' + userOpts + '</select></div>' +
+      '<div class="fld" style="margin-top:10px"><label>目标班级（仅活动班）</label>' +
+        '<select class="filter-select" id="adoptClass">' + clsOpts + '</select></div>' +
+      '<div class="hint" style="margin-top:8px">注意：本期不支持跨教师转班——若该「学号 + 姓名」已在别人名册里，' +
+        '需要先在原教师名下删除，再由目标班老师录入。</div>',
+      '<button class="mini-btn" id="adoptCancel">取消</button>' +
+      '<button class="mini-btn" id="adoptConfirm">确认收编</button>');
+    $('adoptCancel').addEventListener('click', closeModal);
+    $('adoptConfirm').addEventListener('click', async () => {
+      const userId = $('adoptUser').value;
+      const classId = $('adoptClass').value;
+      const res = await api.adoptStudent({ user_id: userId, class_id: classId });
+      closeModal();
+      if (!res || !res.ok) { alert(classErrText(res, '收编失败')); return; }
+      alert('收编成功：' + ((res.student && res.student.name) || '') + ' 已写入 ' +
+        ((res.student && res.student.class_name) || '目标班级') + ' 的名册');
+      loadStudents();
+    });
   }
 
   // 分页控件（学生列表与班级名单共用）
@@ -1380,17 +1277,23 @@
 
     // 教师备注（仅教师端可见，学生端不展示）
     html += '<div class="card"><div class="card-title">教师备注（' + notes.length + ' 条）</div>';
-    html += '<div class="note-add">' +
-      '<textarea id="noteInput" class="filter-input imp-text note-text" placeholder="记录该学生的课堂表现、答疑情况或需要跟进的问题…"></textarea>' +
-      '<button class="login-btn filter-btn" id="noteSave">添加备注</button>' +
-      '</div><div id="noteErr" class="form-err"></div>';
+    // R21：超管不得给教师名册写备注（只读查看）
+    const canNote = canWriteClass({ owner_teacher_id: s.owner_teacher_id });
+    if (canNote) {
+      html += '<div class="note-add">' +
+        '<textarea id="noteInput" class="filter-input imp-text note-text" placeholder="记录该学生的课堂表现、答疑情况或需要跟进的问题…"></textarea>' +
+        '<button class="login-btn filter-btn" id="noteSave">添加备注</button>' +
+        '</div><div id="noteErr" class="form-err"></div>';
+    } else {
+      html += '<div class="hint">超级管理员对本条名册只读：可查看备注，但不能新增或删除。</div>';
+    }
     html += '<div id="noteList">';
     if (notes.length) {
       notes.forEach((n) => {
         html += '<div class="note-item">' +
           '<div class="note-meta"><b>' + esc(n.teacher_name || '教师') + '</b>' +
             '<span class="muted">' + fmtDate(n.created_at) + '</span>' +
-            '<button class="mini-btn danger" data-note-del="' + esc(n.id) + '">删除</button></div>' +
+            (canNote ? '<button class="mini-btn danger" data-note-del="' + esc(n.id) + '">删除</button>' : '') + '</div>' +
           '<div class="note-body">' + esc(n.content).replace(/\n/g, '<br>') + '</div>' +
           '</div>';
       });
@@ -1402,7 +1305,7 @@
     container.innerHTML = html;
     $('detailBack').addEventListener('click', () => { location.hash = '#/classes'; });
 
-    $('noteSave').addEventListener('click', async () => {
+    if ($('noteSave')) $('noteSave').addEventListener('click', async () => {
       const text = ($('noteInput').value || '').trim();
       $('noteErr').textContent = '';
       if (!text) { $('noteErr').textContent = '备注内容不能为空'; return; }
@@ -1439,6 +1342,7 @@
   let classMembersCache = [];
   let classDetailCtx = { classId: '', archived: false };
   let classMemberSelectMode = false;
+  let classOwnerId = '';   // 当前班级详情的负责教师（用于超管只读判断，R21）
   const classMemberSelected = new Set();
   const CLASS_STATUS_TEXT = { active: '进行中', archived: '已停用' };
   const CLASS_ERROR_TEXT = {
@@ -1456,7 +1360,16 @@
     MISSING_CLASS_NAME: '请填写班级名称',
     MISSING_STUDENT_IDS: '请选择学生',
     NO_FILTER: '请至少填写一个筛选条件',
-    CONFIRM_MISMATCH: '匹配条数已变化，请重新预览后再删除'
+    CONFIRM_MISMATCH: '匹配条数已变化，请重新预览后再删除',
+    // REQ-003 第二阶段新增
+    ACTION_RETIRED: '该维护工具已下线（批量物理删除不再支持）',
+    NO_TARGET_CLASS: '请选择要收编到的班级',
+    CLASS_NO_OWNER: '目标班级没有负责教师，无法收编/恢复',
+    OWNER_INACTIVE: '该班负责教师账号已停用，请先启用教师账号',
+    TEACHER_HAS_ACTIVE_CLASS: '该教师名下还有未停用班级，请先停用这些班级',
+    ALREADY_IN_ROSTER: '该「学号 + 姓名」已在名册中（本期不支持跨教师转班）',
+    INCOMPLETE: '该账号还没有填姓名 + 学号，无法收编',
+    SURVEY_NOT_IN_ROSTER: '问卷面向在册学生'
   };
 
   // 服务端返回的 msg 优先；缺失时按 code 给出可读文案，保证错误不被静默吞掉
@@ -1538,15 +1451,21 @@
 
     items.forEach((c) => {
       const archived = c.status === 'archived';
-      let ops = '<button class="mini-btn" data-view="' + esc(c.id) + '">查看</button> ' +
-        '<button class="mini-btn" data-edit="' + esc(c.id) + '" data-name="' + esc(c.name) +
-        '" data-school="' + esc(c.school) + '">编辑</button>';
-      if (!archived) {
+      const mine = canWriteClass(c);
+      let ops = '<button class="mini-btn" data-view="' + esc(c.id) + '">查看</button> ';
+      if (mine) {
+        ops += '<button class="mini-btn" data-edit="' + esc(c.id) + '" data-name="' + esc(c.name) +
+          '" data-school="' + esc(c.school) + '">编辑</button>';
+      }
+      if (mine && !archived) {
         ops += ' <button class="mini-btn danger" data-archive="' + esc(c.id) + '" data-name="' +
           esc(c.name) + '">停用</button>';
-      } else {
+      } else if (archived) {
+        // 恢复是超管的唯一例外（R15）：可以恢复任何已停用班级
         ops += ' <button class="mini-btn" data-restore="' + esc(c.id) + '" data-name="' +
           esc(c.name) + '">恢复</button>';
+      } else {
+        ops += ' <span style="color:#9aa5b2;font-size:12px">超管只读</span>';
       }
       // 已停用的班级置灰显示（仍留在列表里，可查看、可恢复）
       const rowStyle = archived
@@ -1648,7 +1567,7 @@
   // 恢复已停用的班级（后端已支持 archived:false，并会做同名活动班级校验）
   async function restoreClass(classId, name) {
     if (!confirm('确定恢复班级「' + name + '」吗？\n\n· 恢复后重新出现在「进行中」列表\n' +
-      '· 学生名单、白名单与学习数据都在，恢复后立即可用\n' +
+      '· 学生名单与学习数据都在，恢复后立即可用\n' +
       '· 若已存在同名活动班级，需先改名再恢复')) return;
     const res = await api.archiveClass(classId, false);
     if (res && res.ok) {
@@ -1683,6 +1602,10 @@
     const members = res.members || [];
     const archived = c.status === 'archived';
     const unregistered = Math.max(0, (sum.member_count || 0) - (sum.registered_count || 0));
+    // R21：超管对教师班级只读（唯一例外是"恢复已停用班级"）
+    const mine = canWriteClass(c);
+    const canWrite = mine && !archived;
+    classOwnerId = c.owner_teacher_id || '';
 
     container.innerHTML =
       '<div class="page-title">' + esc(c.name || '班级') + '</div>' +
@@ -1697,28 +1620,31 @@
           '　·　未注册：' + unregistered + ' 人</div>' +
         (archived
           ? '<div class="form-err" style="color:#a26a00">该班级已停用：仍可查看名单，但不能添加或移出学生。</div>'
-          : '') +
+          : (mine
+            ? ''
+            : '<div class="form-err" style="color:#a26a00">超级管理员对教师班级只读：可查看名单与标记演示班，' +
+              '但不能录入 / 导入 / 增减成员，也不能停用班级。</div>')) +
       '</div>' +
       '<div class="card">' +
         '<div class="tool-row">' +
-          (archived ? '' : '<button class="login-btn filter-btn" id="cdNew">+ 新录入学生</button>') +
-          (archived ? '' : '<button class="mini-btn" id="cdImport">批量导入到本班</button>') +
-          (archived ? '' : '<button class="mini-btn" id="cdAdd">从名册添加</button>') +
-          (archived ? '' : '<button class="mini-btn" id="cdSync">从名册并入</button>') +
-        (archived ? '' : '<button class="mini-btn" id="cdBatch">批量管理</button>') +
+          (canWrite ? '<button class="login-btn filter-btn" id="cdNew">+ 新录入学生</button>' : '') +
+          (canWrite ? '<button class="mini-btn" id="cdImport">批量导入到本班</button>' : '') +
+          (canWrite ? '<button class="mini-btn" id="cdAdd">从名册添加</button>' : '') +
+          (canWrite ? '<button class="mini-btn" id="cdSync">从名册并入</button>' : '') +
+        (canWrite ? '<button class="mini-btn" id="cdBatch">批量管理</button>' : '') +
         (isSuper() ? '<button class="mini-btn" id="cdDemo">' + (c.is_demo ? '取消演示班标记' : '标记为演示班') + '</button>' : '') +
         (archived ? '<button class="mini-btn" id="cdRestore">恢复本班</button>' : '') +
-          (archived ? '' : '<span class="purge-bar hidden" id="cdBatchBar">已选 <b id="cdSelCount">0</b> 条' +
+          (canWrite ? '<span class="purge-bar hidden" id="cdBatchBar">已选 <b id="cdSelCount">0</b> 条' +
             '<button class="mini-btn" id="cdSelAll">全选本页</button>' +
             '<button class="mini-btn" id="cdSelClear">清空选择</button>' +
             '<button class="mini-btn" id="cdRemoveSel" disabled>移出班级</button>' +
             '<button class="mini-btn danger" id="cdDeleteSel" disabled>从名册删除</button>' +
-            '<button class="mini-btn" id="cdBatchCancel">退出批量管理</button></span>') +
+            '<button class="mini-btn" id="cdBatchCancel">退出批量管理</button></span>' : '') +
           '<button class="mini-btn" id="cdBack">返回班级列表</button>' +
         '</div>' +
-        (archived ? '' : '<div class="hint" style="margin:0 0 8px">录入新学生请用前两个按钮（会自动归入本班并开通 AI 提问权限）；' +
+        (canWrite ? '<div class="hint" style="margin:0 0 8px">录入新学生请用前两个按钮（会自动归入本班并开通 AI 提问权限）；' +
           '「从名册添加」用于把名册里已有的学生选进本班，「从名册并入」用于修复历史数据，' +
-          '「批量管理」可勾选多名学生后统一移出班级或从名册删除。</div>') +
+          '「批量管理」可勾选多名学生后统一移出班级或从名册删除。</div>' : '') +
         '<div class="page-sub" style="margin:0 0 8px">学生名单 <b>' + members.length + '</b> 人</div>' +
         '<table id="cdTable" style="width:100%;border-collapse:collapse"></table>' +
         '<div class="pager" id="cdPager"></div>' +
@@ -1750,7 +1676,7 @@
     if ($('cdRestore')) {
       $('cdRestore').addEventListener('click', async () => {
         if (!confirm('确定恢复班级「' + (c.name || '') + '」吗？\n\n' +
-          '· 恢复后重新出现在「进行中」列表\n· 名单、白名单与学习数据都在，立即可用')) return;
+          '· 恢复后重新出现在「进行中」列表\n· 名单与学习数据都在，立即可用')) return;
         const r = await api.archiveClass(classId, false);
         if (r && r.ok) {
           renderRoute();
@@ -1781,12 +1707,14 @@
     if (classMemberPage.page > pages) classMemberPage.page = pages;
     const start = (classMemberPage.page - 1) * classMemberPage.size;
     const pageItems = classMembersCache.slice(start, start + classMemberPage.size);
-    const selectable = !archived && classMemberSelectMode;
+    // R21：超管对教师班级只读（由 renderClassDetail 解析出的 owner 决定）
+    const canWrite = !archived && canWriteClass({ owner_teacher_id: classOwnerId });
+    const selectable = canWrite && classMemberSelectMode;
 
     let rows = '<tr style="background:var(--panel-soft);text-align:left">' +
       (selectable ? '<th style="padding:10px;width:36px"><input type="checkbox" id="cdPickAll" /></th>' : '') +
       '<th style="padding:10px">姓名</th><th>学号</th><th>学校</th><th>注册状态</th><th>最近登录</th>' +
-      (archived ? '' : '<th style="text-align:right">操作</th>') + '</tr>';
+      (canWrite ? '<th style="text-align:right">操作</th>' : '') + '</tr>';
     pageItems.forEach((m) => {
       rows += '<tr style="border-top:1px solid var(--border)">' +
         (selectable ? '<td style="padding:10px"><input type="checkbox" class="cd-pick" value="' +
@@ -1797,14 +1725,14 @@
         '<td>' + esc(m.school) + '</td>' +
         '<td>' + (m.registered ? '<span class="ok">已注册</span>' : '<span class="pending">未注册</span>') + '</td>' +
         '<td style="color:#6a7688">' + fmtDate(m.last_login_at) + '</td>' +
-        (archived ? '' : '<td style="text-align:right">' +
+        (canWrite ? '<td style="text-align:right">' +
           '<button class="mini-btn" data-edit="' + esc(m.doc_id) + '" data-school="' + esc(m.school) +
             '" data-class="' + esc(m.class_name) + '" data-name="' + esc(m.name) +
             '" data-no="' + esc(m.student_no) + '">编辑</button> ' +
           '<button class="mini-btn" data-remove="' + esc(m.doc_id) + '" data-name="' +
             esc(m.name) + '">移出班级</button> ' +
           '<button class="mini-btn danger" data-del="' + esc(m.doc_id) + '" data-name="' +
-            esc(m.name) + '">从名册删除</button></td>') +
+            esc(m.name) + '">从名册删除</button></td>' : '') +
         '</tr>';
     });
     if (!pageItems.length) {
@@ -1911,7 +1839,7 @@
   async function batchDeleteFromRoster() {
     const ids = Array.from(classMemberSelected);
     if (!ids.length) return;
-    if (!confirm('将从名册中删除选中的 ' + ids.length + ' 名学生，并撤销其 AI 提问白名单。\n\n' +
+    if (!confirm('将从名册中删除选中的 ' + ids.length + ' 名学生（删除后立即失去 AI 提问资格）。\n\n' +
       '不会删除学生的微信注册账号与学习数据；此操作不可撤销。是否继续？')) return;
     let okCount = 0;
     let failCount = 0;
@@ -2039,7 +1967,7 @@
 
     openModal('从名册并入「' + className + '」',
       '<div class="hint">把名册中已存在、但还没关联到本班的学生并进来（常见于先建班级、再从学生页录入或导入的情况）。' +
-      '并入只改班级关联，不动姓名、学号与 AI 白名单。</div>' +
+      '并入只改班级关联，不动姓名、学号与学习数据。</div>' +
       '<label class="pick-sub" style="display:block;margin:0 0 8px">' +
         '<input type="checkbox" id="syncAdoptAll" style="margin-right:6px"' +
         (first.single_class ? '' : ' disabled') + '/>把班级名不一致的学生也并入本班' +

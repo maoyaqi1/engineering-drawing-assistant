@@ -293,6 +293,17 @@ async function updateTeacher(event) {
   if (teacher.role === 'super_admin' && patch.status === 'inactive') {
     throw makeError('CANNOT_DISABLE_SUPER', 400, '不能停用超级管理员');
   }
+  // R17：停用教师前必须其名下没有 active 班级（先把班级全部停用，再停用账号）。
+  // 只有在"从启用改为停用"时校验，避免重复停用被拦。
+  if (patch.status === 'inactive' && teacher.status !== 'inactive') {
+    const all = await fetchAll('classes').catch(() => []);
+    const activeClasses = all.filter((c) => c.owner_teacher_id === id && isClassActive(c));
+    if (activeClasses.length) {
+      const names = activeClasses.slice(0, 10).map((c) => c.name || '(未命名)').join('、');
+      throw makeError('TEACHER_HAS_ACTIVE_CLASS', 409,
+        '该教师名下还有 ' + activeClasses.length + ' 个未停用班级（' + names + '），请先停用这些班级，再停用教师账号');
+    }
+  }
   await db.collection('teachers').doc(id).update({ data: patch });
   const updated = await getTeacherById(id);
   return { ok: true, teacher: publicTeacher(updated) };
@@ -535,12 +546,25 @@ async function dashboard(event) {
 // 教师录入的名册存放在 students 集合；学生微信注册信息存放在 users 集合。
 // 两条路径完全独立：教师录名册，学生自己注册。
 // 匹配 / 判重键 = 学号 + 姓名（不同学校学号可能重复，故不能只按学号判断）。
+// 学号规范化（R11/D14）：trim + 去内部空白 + 全角转半角；大小写敏感。
+// 与 cloudfunctions/api/index.js 的 normalizeStudentId 必须一致（两个云函数独立部署，改动要同时改）。
+function toHalfWidth(v) {
+  return String(v == null ? '' : v)
+    .replace(/[\uFF01-\uFF5E]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/\u3000/g, ' ');
+}
+
 function normalizeStudentNo(v) {
-  return String(v == null ? '' : v).trim().replace(/\s+/g, '');
+  return toHalfWidth(v).trim().replace(/\s+/g, '');
+}
+
+// 姓名规范化：trim + 压缩连续空白（与 api 云函数的 normalizeName 一致）
+function normalizeName(v) {
+  return toHalfWidth(v).trim().replace(/\s+/g, ' ');
 }
 
 function rosterKey(studentNo, name) {
-  return normalizeStudentNo(studentNo) + '|' + String(name == null ? '' : name).trim();
+  return normalizeStudentNo(studentNo) + '|' + normalizeName(name);
 }
 
 // 学号与姓名的格式校验（防止「姓名/学号填反」这类录入错误）。
@@ -551,7 +575,7 @@ const STUDENT_NAME_MAX = 20;
 
 function validateStudentIdentity(studentNo, name) {
   const no = normalizeStudentNo(studentNo);
-  const nm = String(name == null ? '' : name).trim();
+  const nm = normalizeName(name);
   if (!no) return { code: 'MISSING_STUDENT_NO', msg: '请填写学号' };
   if (!/^[0-9]+$/.test(no)) {
     return {
@@ -584,7 +608,7 @@ async function loadRegisteredMap() {
   const map = new Map();
   res.data.forEach((u) => {
     const no = normalizeStudentNo(u.student_id);
-    const name = String(u.name || '').trim();
+    const name = normalizeName(u.name);
     if (!no || !name) return;
     map.set(rosterKey(no, name), u);
   });
@@ -613,7 +637,7 @@ function buildRosterRecord(row, teacher) {
     school: String(row.school || '').trim(),
     class_id: String(row.class_id || '').trim(),
     class_name: String(row.class_name || '').trim(),
-    name: String(row.name || '').trim(),
+    name: normalizeName(row.name),
     student_no: normalizeStudentNo(row.student_no),
     owner_teacher_id: teacher ? teacher._id : '',
     owner_teacher_name: teacher ? (teacher.name || teacher.username || '') : '',
@@ -651,50 +675,20 @@ async function resolveClassForTeacher(teacher, className, classId, noClass) {
   return null;
 }
 
-// ---- AI 教师提问权限（roster 白名单，键 = 学号 + 姓名）----
-// 名册中的学生即为系统已录入的学生，自动获得 AI 教师提问权限。
-// 不同学校的学号规则可能相同，因此判重与撤销一律按「学号 + 姓名」，不能只按学号。
-async function grantAiAccess(studentNo, name) {
-  const no = normalizeStudentNo(studentNo);
-  const nm = String(name == null ? '' : name).trim();
-  if (!no) return false;
-  try {
-    const res = await db.collection('roster').where({ student_id: no }).get();
-    if (res.data.some((r) => String(r.name || '').trim() === nm)) return false;
-    await db.collection('roster').add({
-      data: { student_id: no, name: nm, source: 'teacher_roster', created_at: now() }
-    });
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
+// ---- AI 教师提问权限（REQ-003 D16：白名单 roster 已下线）----
+// 现在的规则是：名册（students）命中 + 班级 active 即为在册学生，自动获得 AI 提问权限；
+// 判定由学生端云函数 api 的 resolveAccess 实时完成，教师端不再维护任何"白名单副本"，
+// 因此录入 / 改名 / 删除名册时不需要同步任何白名单动作。
 
-async function revokeAiAccess(studentNo, name) {
-  const no = normalizeStudentNo(studentNo);
-  const nm = String(name == null ? '' : name).trim();
-  if (!no) return 0;
-  try {
-    const res = await db.collection('roster').where({ student_id: no }).get();
-    let removed = 0;
-    for (const r of res.data) {
-      const recordName = String(r.name || '').trim();
-      // 只撤销「同号同名」；历史记录没有姓名（迁移前的旧数据）按兼容处理一并撤销
-      if (recordName && recordName !== nm) continue;
-      await db.collection('roster').doc(r._id).remove();
-      removed++;
-    }
-    return removed;
-  } catch (e) {
-    return 0;
-  }
-}
-
-// 未入册的自主注册学生（仅超级管理员可见）：已用微信注册、但不在任何教师名册中的学生
+// 未入册用户（仅超级管理员可见，D7）：Users 里存在、但不在任何教师名册中的人。
+// 包含两类：① 已注册游客（填齐姓名 + 学号）；② 未注册游客（只登录过、没填资料）。
+// 入参：profile='全部' | '已注册' | '未注册'（默认全部），school / keyword 过滤同理。
 async function listRegisteredStudents(event, me) {
-  if (!isSuper(me)) throw makeError('FORBIDDEN', 403, '仅超级管理员可查看未入册的自主注册学生');
+  if (!isSuper(me)) throw makeError('FORBIDDEN', 403, '仅超级管理员可查看未入册用户');
   const keyword = String((event && event.keyword) || '').trim().toLowerCase();
   const school = String((event && event.school) || '').trim();
+  const profile = String((event && event.profile) || '').trim(); // '' | '已注册' | '未注册'
+  const includeInternal = !!(event && event.include_internal);
 
   const [usersRes, rosterRes] = await Promise.all([
     db.collection('users').where({ role: 'student' }).limit(1000).get(),
@@ -703,7 +697,17 @@ async function listRegisteredStudents(event, me) {
   const inRoster = new Set(rosterRes.data.map((s) => rosterKey(s.student_no, s.name)));
 
   let items = usersRes.data
-    .filter((u) => u.student_id && u.name && !inRoster.has(rosterKey(u.student_id, u.name)))
+    .filter((u) => {
+      const no = normalizeStudentNo(u.student_id);
+      const nm = normalizeName(u.name);
+      if (no && nm && inRoster.has(rosterKey(no, nm))) return false;
+      // 假设 1：默认不显示 internal 账号，可手动切换
+      if (!includeInternal) {
+        const openid = String(u.openid || '');
+        if (openid && INTERNAL_OPENIDS.indexOf(openid) >= 0) return false;
+      }
+      return true;
+    })
     .map((u) => ({
       id: u._id,
       school: u.school || '',
@@ -711,9 +715,12 @@ async function listRegisteredStudents(event, me) {
       name: u.name || '',
       student_no: u.student_id || '',
       owner_teacher_id: '',
-      // 白名单以外的人：不属于任何教师，界面显示「无」
+      // 名册以外的人：不属于任何教师，界面显示「无」
       owner_teacher_name: '',
-      registered: true,
+      profile_completed: !!(normalizeStudentNo(u.student_id) && normalizeName(u.name)),
+      registered: !!(normalizeStudentNo(u.student_id) && normalizeName(u.name)),
+      stage: (normalizeStudentNo(u.student_id) && normalizeName(u.name)) ? '已注册未入册' : '仅登录未注册',
+      openid: u.openid || '',
       registered_at: u.created_at || '',
       last_login_at: u.last_login_at || '',
       // 数据标记（第一阶段）：production / test / unknown 与来源（auto / manual）
@@ -722,8 +729,16 @@ async function listRegisteredStudents(event, me) {
     }))
     .sort((a, b) => String(b.registered_at || '').localeCompare(String(a.registered_at || '')));
 
+  const summary = {
+    total: items.length,
+    registered: items.filter((s) => s.registered).length,
+    unregistered: items.filter((s) => !s.registered).length
+  };
+
   const schools = Array.from(new Set(items.map((s) => s.school).filter(Boolean))).sort();
   if (school) items = items.filter((s) => s.school === school);
+  if (profile === '已注册') items = items.filter((s) => s.registered);
+  else if (profile === '未注册') items = items.filter((s) => !s.registered);
   if (keyword) {
     items = items.filter((s) =>
       s.name.toLowerCase().includes(keyword) || s.student_no.toLowerCase().includes(keyword));
@@ -737,7 +752,7 @@ async function listRegisteredStudents(event, me) {
     ok: true,
     source: 'registered',
     total: items.length,
-    summary: { total: items.length, registered: items.length, unregistered: 0 },
+    summary,
     items,
     schools,
     classes,
@@ -806,8 +821,9 @@ async function updateStudent(event) {
   const target = await db.collection('students').doc(docId).get().catch(() => null);
   if (!target || !target.data) throw makeError('NOT_FOUND', 404, '名册中没有该学生');
   const current = target.data;
-  if (!isSuper(me) && current.owner_teacher_id !== me._id) {
-    throw makeError('FORBIDDEN', 403, '只能修改自己录入的学生');
+  // R21：超管不得修改教师业务名册（只读查看），名册只有归属教师本人可改
+  if (current.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能修改自己录入的学生（超级管理员对他人名册只读）');
   }
 
   const patch = { updated_at: now() };
@@ -820,7 +836,7 @@ async function updateStudent(event) {
     patch.class_id = cls ? cls._id : '';
     patch.class_name = cls ? cls.name : String(wantedName || '').trim();
   }
-  if (event.name !== undefined) patch.name = String(event.name).trim();
+  if (event.name !== undefined) patch.name = normalizeName(event.name);
   if (event.school !== undefined) patch.school = String(event.school).trim();
   if (event.student_no !== undefined) patch.student_no = normalizeStudentNo(event.student_no);
   if (Object.keys(patch).length <= 1) throw makeError('NO_CHANGE', 400, '没有需要更新的内容');
@@ -837,16 +853,7 @@ async function updateStudent(event) {
   if (dup) throw makeError('DUPLICATE_STUDENT', 409, '名册中已存在同学号同姓名的学生');
 
   await db.collection('students').doc(docId).update({ data: patch });
-  // 学号或姓名变更时同步 AI 白名单（旧的「学号+姓名」撤销、新的开通）
-  const noChanged = patch.student_no !== undefined
-    && normalizeStudentNo(current.student_no) !== patch.student_no;
-  const nameChanged = patch.name !== undefined && String(current.name || '').trim() !== patch.name;
-  if (noChanged || nameChanged) {
-    const nextNo = patch.student_no !== undefined ? patch.student_no : current.student_no;
-    const nextName = patch.name !== undefined ? patch.name : current.name;
-    await revokeAiAccess(current.student_no, current.name);
-    await grantAiAccess(nextNo, nextName);
-  }
+  // 说明：改名 / 改学号后无需同步任何白名单副本——AI 放行由 api 云函数按名册实时判定（D16）。
   const updated = Object.assign({ _id: docId }, current, patch);
   const regMap = await loadRegisteredMap();
   return { ok: true, student: publicRosterStudent(updated, regMap.get(rosterKey(updated.student_no, updated.name))) };
@@ -859,207 +866,25 @@ async function deleteStudent(event) {
   if (!docId) throw makeError('MISSING_ID', 400, '缺少学生记录 ID');
   const target = await db.collection('students').doc(docId).get().catch(() => null);
   if (!target || !target.data) throw makeError('NOT_FOUND', 404, '名册中没有该学生');
-  if (!isSuper(me) && target.data.owner_teacher_id !== me._id) {
-    throw makeError('FORBIDDEN', 403, '只能移除自己录入的学生');
+  // R21：与 student.update 同一口径——名册只有归属教师本人可删
+  if (target.data.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能移除自己录入的学生（超级管理员对他人名册只读）');
   }
-  await revokeAiAccess(target.data.student_no, target.data.name);
   await db.collection('students').doc(docId).remove();
   return { ok: true };
 }
 
-// ---- 白名单姓名补齐（一次性迁移工具，仅超级管理员）----
-// 背景：早期 roster 记录只存学号；白名单改为「学号 + 姓名」后需要补齐姓名，否则跨校同号无法区分。
-// 规则：按学号在名册(students)中反查姓名；唯一命中才补；多命中（歧义）或查不到则保持原样，不静默改动。
-async function backfillRosterNames(event) {
-  await requireSuper(event);
-  const dryRun = !(event && event.dry_run === false);
+// 说明：`roster.backfill`（白名单姓名补齐）随 roster 集合一起下线（REQ-003 D16）——
+// 白名单副本已不存在，名册里的姓名由教师录入端直接保证完整。
 
-  const [rosterAll, students] = await Promise.all([
-    fetchAll('roster').catch(() => []),
-    loadAllStudents()
-  ]);
-  const namesByNo = new Map();
-  students.forEach((s) => {
-    const no = normalizeStudentNo(s.student_no);
-    const nm = String(s.name || '').trim();
-    if (!no || !nm) return;
-    if (!namesByNo.has(no)) namesByNo.set(no, new Set());
-    namesByNo.get(no).add(nm);
-  });
-
-  const fillable = [];
-  const ambiguous = [];
-  const unmatched = [];
-  let alreadyNamed = 0;
-  rosterAll.forEach((r) => {
-    const no = normalizeStudentNo(r.student_id);
-    if (String(r.name || '').trim()) { alreadyNamed += 1; return; }
-    const names = Array.from(namesByNo.get(no) || []);
-    if (names.length === 1) fillable.push({ doc_id: r._id, student_id: no, name: names[0] });
-    else if (names.length > 1) ambiguous.push({ doc_id: r._id, student_id: no, names });
-    else unmatched.push({ doc_id: r._id, student_id: no });
-  });
-
-  if (dryRun) {
-    return {
-      ok: true,
-      mode: 'dry_run',
-      roster_total: rosterAll.length,
-      already_named: alreadyNamed,
-      fillable: fillable.length,
-      ambiguous: ambiguous.length,
-      unmatched: unmatched.length,
-      preview: fillable.slice(0, 50),
-      ambiguous_preview: ambiguous.slice(0, 20),
-      unmatched_preview: unmatched.slice(0, 20),
-      hint: '确认后带 dry_run:false 与 confirm_count=' + fillable.length + ' 再次调用即可补齐姓名'
-    };
-  }
-
-  const confirmCount = Number(event && event.confirm_count);
-  if (!confirmCount || confirmCount !== fillable.length) {
-    throw makeError('CONFIRM_MISMATCH', 400,
-      'confirm_count 必须等于本次可补齐的条数（当前为 ' + fillable.length + '）');
-  }
-
-  let updated = 0;
-  const errors = [];
-  for (const t of fillable) {
-    try {
-      await db.collection('roster').doc(t.doc_id).update({ data: { name: t.name } });
-      updated += 1;
-    } catch (e) {
-      errors.push({ doc_id: t.doc_id, code: 'BACKFILL_FAILED', msg: String((e && e.message) || e) });
-    }
-  }
-  return {
-    ok: true,
-    mode: 'commit',
-    fillable: fillable.length,
-    updated,
-    ambiguous: ambiguous.length,
-    unmatched: unmatched.length,
-    errors
-  };
-}
-
-// ---- 名册批量清理（临时维护工具，仅超级管理员）----
-// 用途：一次性清理误导入／误录入的名册记录，并同步撤销这些学号的 AI 提问白名单。
-// 安全约束：
-// 1) 仅超级管理员可用（requireSuper），前端隐藏不作为安全手段；
-// 2) 必须至少提供一个筛选条件，禁止无条件全量删除；
-// 3) 默认 dry_run=true，只预览不删除；提交时必须回传与预览一致的 confirm_count；
-// 4) 单次最多处理 PURGE_MAX_BATCH 条，未处理完的部分需再次调用（返回 remaining）；
-// 5) 只删除 students（可选 teacher_notes），不触碰 users / learning_records / ai_* / roster 之外的集合。
-const PURGE_DEFAULT_BATCH = 50;
-const PURGE_MAX_BATCH = 100;
+// 说明（REQ-003 D5/R21/R24）：`student.purge`（超管按条件批量物理删除名册）已下线。
+// 名册的删改归名册归属教师本人（student.delete / student.update）；
+// 超管只保留"按人合规清理（data.personPurge）"，且该通道也只用于个人数据删除请求。
 const PURGE_CHUNK = 50;
 
-function matchPurgeFilters(s, f, regMap) {
-  const no = normalizeStudentNo(s.student_no);
-  const name = String(s.name || '').trim();
-  if (f.school && String(s.school || '').trim() !== f.school) return false;
-  if (f.class_name && String(s.class_name || '').trim() !== f.class_name) return false;
-  if (f.owner_teacher_id && String(s.owner_teacher_id || '') !== f.owner_teacher_id) return false;
-  if (f.keyword && !(name.toLowerCase().includes(f.keyword) || no.toLowerCase().includes(f.keyword))) return false;
-  const created = String(s.created_at || '');
-  if (f.created_from && created < f.created_from) return false;
-  if (f.created_to && created > f.created_to) return false;
-  if (f.registered === 'yes' && !regMap.get(rosterKey(no, name))) return false;
-  if (f.registered === 'no' && regMap.get(rosterKey(no, name))) return false;
-  // 未分班：用于把"挂在某位教师名下但没进任何班级"的记录筛出来（例如误收编到超管名下的）
-  if (f.no_class && String(s.class_id || '')) return false;
-  return true;
-}
-
-// ---- 数据维护（仅超级管理员）----
-// 用途：正式发版前清空"测试期产生的过程数据"，让驾驶舱与各分析页从 0 开始。
-// 安全约束：
-//   1. 只有超管可调用（requireSuper）；
-//   2. 只允许清理下面这 6 张过程表，名册与账号类集合（teachers / classes / students /
-//      roster / users / teacher_notes / teacher_sessions / schools）传入即 403；
-//   3. 默认 dry_run（只统计、不删除），真删必须带 dry_run:false 且 confirm_count 与预览一致；
-//   4. 每次清理写入 maintenance_logs 留痕。
-const RESETTABLE_COLLECTIONS = [
-  { key: 'learning_sessions', label: '学习会话' },
-  { key: 'learning_records', label: '学习行为事件' },
-  { key: 'ai_conversations', label: 'AI 会话' },
-  { key: 'ai_messages', label: 'AI 消息' },
-  { key: 'survey_responses', label: '问卷作答' },
-  { key: 'survey_invites', label: '问卷邀请' }
-];
-
-async function resetProcessData(event) {
-  const me = await requireSuper(event);
-  const allowed = new Set(RESETTABLE_COLLECTIONS.map((c) => c.key));
-  const requested = Array.isArray(event && event.collections) && event.collections.length
-    ? event.collections.map((c) => String(c).trim()).filter(Boolean)
-    : RESETTABLE_COLLECTIONS.map((c) => c.key);
-
-  const illegal = requested.filter((c) => !allowed.has(c));
-  if (illegal.length) {
-    throw makeError('FORBIDDEN_COLLECTION', 403,
-      '不允许清理：' + illegal.join('、') + '。只允许清理过程数据：' + Array.from(allowed).join('、'));
-  }
-  const scope = Array.from(new Set(requested));
-
-  // 预览：逐集合统计
-  const counts = {};
-  let total = 0;
-  for (const key of scope) {
-    const res = await db.collection(key).count().catch(() => ({ total: 0 }));
-    counts[key] = res.total || 0;
-    total += counts[key];
-  }
-
-  const dryRun = !(event && event.dry_run === false);
-  if (dryRun) {
-    return {
-      ok: true,
-      mode: 'dry_run',
-      collections: scope,
-      counts,
-      total,
-      labels: RESETTABLE_COLLECTIONS.filter((c) => scope.indexOf(c.key) >= 0),
-      hint: '确认后用相同 collections 再调用一次，带 dry_run:false 与 confirm_count=' + total + ' 即可清理'
-    };
-  }
-
-  const confirmCount = Number(event && event.confirm_count);
-  if (!Number.isFinite(confirmCount) || confirmCount !== total) {
-    throw makeError('CONFIRM_MISMATCH', 400,
-      'confirm_count 必须等于待清理总条数（当前为 ' + total + '）；请先用 dry_run 预览再提交');
-  }
-
-  // 分块清理：服务端 where().remove() 每次有上限，循环到清空为止
-  const removed = {};
-  for (const key of scope) {
-    let done = 0;
-    for (let round = 0; round < 200; round += 1) {
-      const res = await db.collection(key)
-        .where({ _id: db.command.exists(true) })
-        .remove()
-        .catch(() => ({ stats: { removed: 0 } }));
-      const n = (res && res.stats && res.stats.removed) || 0;
-      done += n;
-      if (n <= 0) break;
-    }
-    removed[key] = done;
-  }
-
-  await db.collection('maintenance_logs').add({ data: {
-    action: 'data.reset',
-    operator_id: me._id,
-    operator_name: me.name || '',
-    collections: scope,
-    counts,
-    removed,
-    total,
-    created_at: now()
-  }}).catch(() => null);
-
-  return { ok: true, mode: 'reset', collections: scope, counts, removed, total };
-}
+// 说明（REQ-003 D5/R24）：「整表清理过程数据」（原 data.reset）作为运维型批量物理删除已下线。
+// 测试数据现在靠 is_internal / is_demo / data_quality 三条标记隔离（见 §8 报表口径），不再物理删除。
+// 仍旧保留的删除通道只有：按人合规清理（data.personList / data.personPurge）与教师本人的名册增删。
 
 // ---- 数据维护：按人清理（仅超管）----
 // 背景：测试数据往往是特定几个人（多数是老师自己）产生的，按"人"清理比按表清空精确得多。
@@ -1167,20 +992,16 @@ function countRecordsByName(idx, studentNo, name) {
     && String(r.student_name == null ? '' : r.student_name).trim() === nm).length;
 }
 
-// 列出可清理的人：users 账号 ∪ 名册(students) ∪ 白名单(roster)，
-// 这样即便某人只有名册/白名单残留（账号已删），也能被找到并清掉。
+// 列出可清理的人：users 账号 ∪ 名册(students)，
+// 这样即便某人只剩名册记录（账号已删），也能被找到并清掉。
 async function listPurgeCandidates(event) {
   await requireSuper(event);
   const keyword = String((event && event.keyword) || '').trim().toLowerCase();
-  const [users, students, roster, idx] = await Promise.all([
+  const [users, students, idx] = await Promise.all([
     fetchAll('users').catch(() => []),
     loadAllStudents(),
-    fetchAll('roster').catch(() => []),
     loadBehaviorIndex()
   ]);
-  const rosterKeys = new Set(roster.map((r) => rosterKey(r.student_id, r.name)));
-  const studentMap = new Map(students.map((s) => [rosterKey(s.student_no, s.name), s]));
-
   const byKey = new Map();
   const standalone = [];   // 空账号（无学号无姓名）无法用「学号|姓名」区分，必须各自成行
   const sumCounts = (counts) => Object.keys(counts).reduce((sum, k) => sum + counts[k], 0);
@@ -1203,7 +1024,6 @@ async function listPurgeCandidates(event) {
       student_no: u.student_id || '',
       school: u.school || '',
       registered_at: u.updated_at || u.created_at || '',
-      in_roster: rosterKeys.has(key),
       in_class_roster: false,
       owner_teacher_name: '',
       counts,
@@ -1236,38 +1056,8 @@ async function listPurgeCandidates(event) {
       student_no: s.student_no || '',
       school: s.school || '',
       registered_at: s.created_at || '',
-      in_roster: rosterKeys.has(key),
       in_class_roster: true,
       owner_teacher_name: s.owner_teacher_name || '',
-      counts,
-      total: sumCounts(counts)
-    });
-  });
-
-  // 3) 白名单里的记录（极端情况下名册也没有，只剩白名单）
-  roster.forEach((r) => {
-    const key = rosterKey(r.student_id, r.name);
-    const nameless = !String(r.name || '').trim();
-    const exist = byKey.get(key);
-    if (exist) {
-      exist.in_roster = true;
-      if (nameless) exist.nameless_roster = true;
-      return;
-    }
-    const counts = emptyCounts();
-    counts.learning_records = countRecordsByName(idx, r.student_id, r.name);
-    byKey.set(key, {
-      key: 'name:' + key,
-      user_id: '',
-      has_account: false,
-      nameless_roster: nameless,
-      name: r.name || '',
-      student_no: normalizeStudentNo(r.student_id),
-      school: '',
-      registered_at: r.created_at || '',
-      in_roster: true,
-      in_class_roster: false,
-      owner_teacher_name: '',
       counts,
       total: sumCounts(counts)
     });
@@ -1278,20 +1068,16 @@ async function listPurgeCandidates(event) {
   // 阶段划分（只描述状态，不做"是不是垃圾"的判断——由使用者按实际情况判断）
   //   有账号：仅登录未注册 / 已注册未入册 / 已入册
   //   无账号：名册已录入·未注册（教师已录名单、学生还没登录过，属正常待激活）
-  //           旧白名单残留·无姓名（早期按学号批量导入的 legacy 记录）
-  //           白名单残留·无名册（白名单有、名册没有）
   items.forEach((it) => {
     const no = normalizeStudentNo(it.student_no);
     const nm = String(it.name || '').trim();
     if (it.has_account) {
       if (!no && !nm) it.stage = '仅登录未注册';
-      else if (it.in_class_roster || it.in_roster) it.stage = '已入册';
+      else if (it.in_class_roster) it.stage = '已入册';
       else it.stage = '已注册未入册';
       return;
     }
     if (it.in_class_roster) it.stage = '名册已录入·未注册';
-    else if (it.nameless_roster) it.stage = '旧白名单残留·无姓名';
-    else if (it.in_roster) it.stage = '白名单残留·无名册';
     else it.stage = '未知';
   });
 
@@ -1308,89 +1094,9 @@ async function listPurgeCandidates(event) {
   };
 }
 
-// 空账号清理：已微信登录、但从未完成注册的 users 记录（学年/姓名全空）。
-// 来源：ensureUser(openid) 在任何人打开小程序登录时自动创建；对方没填学校/姓名/学号就留下这种空行。
-// 注意：删除后该微信号下次打开小程序会重新生成一条，因此它更适合"发版前清一次 + 平时用过滤隐藏"。
-async function emptyAccountCleanup(event) {
-  const me = await requireSuper(event);
-  const users = await fetchAll('users').catch(() => []);
-  const empties = users.filter((u) => u && u.role === 'student'
-    && !normalizeStudentNo(u.student_id)
-    && !String(u.name || '').trim());
-  const dryRun = !(event && event.dry_run === false);
-  if (dryRun) {
-    return {
-      ok: true,
-      mode: 'dry_run',
-      total: empties.length,
-      sample: empties.slice(0, 20).map((u) => ({
-        openid_tail: String(u.openid || '').slice(-6),
-        created_at: u.created_at || u.updated_at || ''
-      })),
-      hint: '确认后带 dry_run:false 与 confirm_count=' + empties.length + ' 再次调用即可清理'
-    };
-  }
-  const confirmCount = Number(event && event.confirm_count);
-  if (!Number.isFinite(confirmCount) || confirmCount !== empties.length) {
-    throw makeError('CONFIRM_MISMATCH', 400,
-      'confirm_count 必须等于待清理条数（当前为 ' + empties.length + '）');
-  }
-  const removed = empties.length ? await removeWhereIn('users', '_id', empties.map((u) => u._id)) : 0;
-  await db.collection('maintenance_logs').add({ data: {
-    action: 'data.emptyAccountCleanup',
-    operator_id: me._id,
-    operator_name: me.name || '',
-    removed,
-    total: empties.length,
-    created_at: now()
-  }}).catch(() => null);
-  return { ok: true, mode: 'purge', removed, total: empties.length };
-}
-
-// 历史遗留清理：只有学号、没有姓名的白名单记录。
-// 来源：早期"按学号批量导入名单"入口（api 云函数 roster.import，写入 name:'' 且 source:'legacy_import'）。
-// 在"学号 + 姓名"核对规则下这类记录不再有任何放行作用，属于可安全清除的垃圾数据。
-async function legacyRosterCleanup(event) {
-  const me = await requireSuper(event);
-  const all = await fetchAll('roster').catch(() => []);
-  const legacy = all.filter((r) => !String(r.name || '').trim() && normalizeStudentNo(r.student_id));
-  const bySource = legacy.reduce((acc, r) => {
-    const key = r.source || '(无 source)';
-    acc[key] = (acc[key] || 0) + 1;
-    return acc;
-  }, {});
-
-  const dryRun = !(event && event.dry_run === false);
-  if (dryRun) {
-    return {
-      ok: true,
-      mode: 'dry_run',
-      total: legacy.length,
-      by_source: bySource,
-      sample: legacy.slice(0, 20).map((r) => normalizeStudentNo(r.student_id)),
-      hint: '确认后带 dry_run:false 与 confirm_count=' + legacy.length + ' 再次调用即可清理'
-    };
-  }
-
-  const confirmCount = Number(event && event.confirm_count);
-  if (!Number.isFinite(confirmCount) || confirmCount !== legacy.length) {
-    throw makeError('CONFIRM_MISMATCH', 400,
-      'confirm_count 必须等于待清理条数（当前为 ' + legacy.length + '）');
-  }
-  const removed = legacy.length
-    ? await removeWhereIn('roster', '_id', legacy.map((r) => r._id))
-    : 0;
-  await db.collection('maintenance_logs').add({ data: {
-    action: 'data.legacyRosterCleanup',
-    operator_id: me._id,
-    operator_name: me.name || '',
-    removed,
-    total: legacy.length,
-    by_source: bySource,
-    created_at: now()
-  }}).catch(() => null);
-  return { ok: true, mode: 'purge', removed, total: legacy.length, by_source: bySource };
-}
+// 说明（REQ-003 D5/D16）：`data.emptyAccounts`（批量清理空账号）与 `data.legacyRoster`
+// （清理无姓名的旧白名单）均已下线——未注册空账号是产品触达数据，靠过滤隐藏而不是删除；
+// 旧白名单随 roster 集合一起废弃。
 
 // ---- 数据标记：回填 / 人工修改（第一阶段：标记 + 回填，见 docs/requirements/REQ-003-phase1-plan.md）----
 // 用户确认的显式测试账号（学号 + 姓名，已按 normalizeStudentNo + trim 归一）。
@@ -1632,12 +1338,7 @@ async function purgePersonData(event) {
     });
     removed.students = studentIds.length ? await removeWhereIn('students', '_id', studentIds) : 0;
     removed.teacher_notes = studentIds.length ? await removeWhereIn('teacher_notes', 'doc_id', studentIds) : 0;
-
-    // 白名单按「学号 + 姓名」精确匹配删除
-    const rosterAll = await fetchAll('roster').catch(() => []);
-    const keys = new Set(targets.map((t) => rosterKey(t.student_no, t.name)));
-    const rosterIds = rosterAll.filter((r) => keys.has(rosterKey(r.student_id, r.name))).map((r) => r._id);
-    removed.roster = rosterIds.length ? await removeWhereIn('roster', '_id', rosterIds) : 0;
+    // 说明：白名单副本已下线（D16），这里只删名册记录 students 与相关教师备注。
   }
 
   if (scope.account && userIds.length) {
@@ -1667,186 +1368,95 @@ async function purgePersonData(event) {
   };
 }
 
-async function purgeStudents(event) {
-  await requireSuper(event);
-
-  const filters = {
-    school: String((event && event.school) || '').trim(),
-    class_name: String((event && event.class_name) || '').trim(),
-    owner_teacher_id: String((event && event.owner_teacher_id) || '').trim(),
-    keyword: String((event && event.keyword) || '').trim().toLowerCase(),
-    created_from: String((event && event.created_from) || '').trim(),
-    created_to: String((event && event.created_to) || '').trim(),
-    registered: String((event && event.registered) || '').trim(), // '' | 'yes' | 'no'
-    no_class: !!(event && event.no_class) // true = 只看未分班（挂在教师名下但没进班）
-  };
-  // 显式勾选模式：前端在表格里逐条选中后按 doc_ids 删除；
-  // 该模式下"选择"本身就是预览，因此不要求 confirm_count，也不要求其它筛选条件。
-  const docIds = normalizeDocIds(event && (event.doc_ids || event.doc_id));
-  const idSet = new Set(docIds);
-  const explicitSelection = idSet.size > 0;
-
-  if (!Object.keys(filters).some((k) => !!filters[k]) && !explicitSelection) {
-    throw makeError('NO_FILTER', 400,
-      '必须至少提供一个筛选条件：doc_ids / school / class_name / owner_teacher_id / keyword / created_from / created_to / registered');
-  }
-
-  const batch = Math.min(PURGE_MAX_BATCH, Math.max(1, Number((event && event.limit) || PURGE_DEFAULT_BATCH)));
-  const dryRun = !(event && event.dry_run === false);
-  const revokeRoster = !(event && event.also_revoke_roster === false);
-  const purgeNotes = !!(event && event.purge_notes);
-
-  const [students, regMap] = await Promise.all([loadAllStudents(), loadRegisteredMap()]);
-  const matched = students
-    .filter((s) => (explicitSelection ? idSet.has(s._id) : true) && matchPurgeFilters(s, filters, regMap))
-    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
-  const targets = matched.slice(0, batch);
-
-  const preview = targets.slice(0, 50).map((s) => ({
-    doc_id: s._id,
-    name: s.name || '',
-    student_no: s.student_no || '',
-    school: s.school || '',
-    class_name: s.class_name || '',
-    owner_teacher_name: s.owner_teacher_name || '',
-    registered: !!regMap.get(rosterKey(s.student_no, s.name)),
-    created_at: s.created_at || ''
-  }));
-
-  if (dryRun) {
-    return {
-      ok: true,
-      mode: 'dry_run',
-      matched: matched.length,
-      batch,
-      preview,
-      remaining_after_batch: Math.max(0, matched.length - batch),
-      will_revoke_roster: revokeRoster,
-      purge_notes: purgeNotes,
-      filters,
-      selection: docIds.length,
-      hint: explicitSelection
-        ? '已按勾选结果匹配到 ' + matched.length + ' 条；确认无误后带 dry_run:false 再次调用即可删除'
-        : '确认预览无误后，用相同筛选条件再次调用，并带上 dry_run:false 与 confirm_count=' + matched.length
-    };
-  }
-
-  if (!explicitSelection) {
-    const confirmCount = Number(event && event.confirm_count);
-    if (!confirmCount || confirmCount !== matched.length) {
-      throw makeError('CONFIRM_MISMATCH', 400,
-        'confirm_count 必须等于本次匹配到的条数（当前为 ' + matched.length + '）；请先用 dry_run 预览再提交');
-    }
-  }
-
-  // 批量删除：先取一次白名单快照，再按块用 where(_id in ...).remove() 删除。
-  // 逐条删除 50 名学生约需 150 次数据库往返，会触发云函数超时；改为分块批量后约 5 次。
-  const rosterAll = revokeRoster ? await fetchAll('roster').catch(() => []) : [];
-  const rosterIdsByNo = new Map();
-  rosterAll.forEach((r) => {
-    const no = normalizeStudentNo(r.student_id);
-    if (!no) return;
-    if (!rosterIdsByNo.has(no)) rosterIdsByNo.set(no, []);
-    rosterIdsByNo.get(no).push(r._id);
-  });
-
-  const studentIds = targets.map((s) => s._id);
-  const rosterIds = [];
-  if (revokeRoster) {
-    targets.forEach((s) => {
-      (rosterIdsByNo.get(normalizeStudentNo(s.student_no)) || []).forEach((id) => rosterIds.push(id));
-    });
-  }
-
-  const errors = [];
-  const removedCount = (r, fallback) =>
-    (r && r.stats && typeof r.stats.removed === 'number') ? r.stats.removed : fallback;
-
-  let removedStudents = 0;
-  for (let i = 0; i < studentIds.length; i += PURGE_CHUNK) {
-    const chunk = studentIds.slice(i, i + PURGE_CHUNK);
-    try {
-      const r = await db.collection('students').where({ _id: db.command.in(chunk) }).remove();
-      removedStudents += removedCount(r, chunk.length);
-    } catch (e) {
-      errors.push({ code: 'REMOVE_FAILED', count: chunk.length, msg: String((e && e.message) || e) });
-    }
-  }
-
-  let revokedRoster = 0;
-  for (let i = 0; i < rosterIds.length; i += PURGE_CHUNK) {
-    const chunk = rosterIds.slice(i, i + PURGE_CHUNK);
-    try {
-      const r = await db.collection('roster').where({ _id: db.command.in(chunk) }).remove();
-      revokedRoster += removedCount(r, chunk.length);
-    } catch (e) {
-      errors.push({ code: 'ROSTER_REVOKE_FAILED', count: chunk.length, msg: String((e && e.message) || e) });
-    }
-  }
-
-  let removedNotes = 0;
-  if (purgeNotes && studentIds.length) {
-    for (let i = 0; i < studentIds.length; i += PURGE_CHUNK) {
-      const chunk = studentIds.slice(i, i + PURGE_CHUNK);
-      try {
-        const r = await db.collection('teacher_notes').where({ student_doc_id: db.command.in(chunk) }).remove();
-        removedNotes += removedCount(r, 0);
-      } catch (e) {
-        errors.push({ code: 'NOTE_REMOVE_FAILED', count: chunk.length, msg: String((e && e.message) || e) });
-      }
-    }
-  }
-
-  return {
-    ok: true,
-    mode: 'commit',
-    matched: matched.length,
-    processed: targets.length,
-    selection: docIds.length,
-    not_found: explicitSelection ? Math.max(0, docIds.length - matched.length) : 0,
-    removed_students: removedStudents,
-    removed_student_ids: studentIds,
-    revoked_roster: revokedRoster,
-    removed_notes: removedNotes,
-    remaining: Math.max(0, matched.length - targets.length),
-    hint: Math.max(0, matched.length - targets.length) > 0
-      ? '还有剩余记录未处理，请再次执行（建议重新 dry_run 核对）'
-      : '本次筛选范围内的记录已全部处理',
-    errors
-  };
-}
-
-// 把一名「未入册的已注册学生」收进当前教师的名册，并指定班级
+// 说明：`student.purge` 已随 REQ-003 D5 下线（原实现：超管按条件批量物理删除名册）。
+// 收编：把一名「未入册用户」写进目标班级的名册（REQ-003 D4/R19/R20/A4/D23）。
+//   · 教师：只能收编到自己负责的班级，且必须手动输入「学号 + 姓名」（不提供全校未入册列表）；
+//   · 超管：可以从「未入册用户列表」按 user_id 收编到指定班级，必须写审计；
+//   · owner_teacher_id 一律写**目标班级的负责教师**（不是操作人）——A4，避免产生"孤儿名册行"；
+//   · 目标班没有负责教师 / 班级已停用 → 拒绝；
+//   · 本期不支持跨教师收编（D23）：命中的「学号 + 姓名」已在名册里时返回明确冲突。
 async function adoptStudent(event) {
   const me = await requireAuth(event);
-  const userId = String((event && event.user_id) || '');
+  const superUser = isSuper(me);
+  const userId = String((event && event.user_id) || '').trim();
   const className = String((event && event.class_name) || '').trim();
-  if (!userId) throw makeError('MISSING_ID', 400, '缺少学生记录 ID');
+  const wantClassId = String((event && event.class_id) || '').trim();
 
-  const userRes = await db.collection('users').doc(userId).get().catch(() => null);
-  if (!userRes || !userRes.data) throw makeError('NOT_FOUND', 404, '学生不存在');
-  const u = userRes.data;
-  const no = normalizeStudentNo(u.student_id);
-  const name = String(u.name || '').trim();
-  if (!no || !name) throw makeError('INCOMPLETE', 400, '该学生尚未完成实名注册');
-
-  const all = await db.collection('students').limit(1000).get();
-  if (all.data.some((s) => rosterKey(s.student_no, s.name) === rosterKey(no, name))) {
-    throw makeError('ALREADY_IN_ROSTER', 409, '该学生已在名册中');
+  let school = '';
+  let no = '';
+  let name = '';
+  if (userId) {
+    // 按人收编：入口是超管的「未入册用户列表」，教师拿不到 user_id（R19/D4）
+    if (!superUser) throw makeError('FORBIDDEN', 403, '按账号收编仅超级管理员可用，教师请手动输入学号与姓名');
+    const userRes = await db.collection('users').doc(userId).get().catch(() => null);
+    if (!userRes || !userRes.data) throw makeError('NOT_FOUND', 404, '账号不存在');
+    no = normalizeStudentNo(userRes.data.student_id);
+    name = normalizeName(userRes.data.name);
+    school = String(userRes.data.school || '').trim();
+    if (!no || !name) throw makeError('INCOMPLETE', 400, '该账号还没有填姓名 + 学号，无法收编');
+  } else {
+    // 手动收编（教师本班 / 超管指定班都可用）
+    no = normalizeStudentNo((event && (event.student_no || event.student_id)) || '');
+    name = normalizeName((event && event.name) || '');
+    school = String((event && event.school) || '').trim();
+    if (!no || !name) throw makeError('MISSING_FIELDS', 400, '请填写学号与姓名');
+    const badIdentity = validateStudentIdentity(no, name);
+    if (badIdentity) throw makeError(badIdentity.code, 400, badIdentity.msg);
   }
 
-  // 班级归并：收编时同样把班级名解析到班级实体
-  const cls = await resolveClassForTeacher(me, className, event && event.class_id, !!(event && event.no_class));
+  // 目标班级：教师不指定时按「本班同名 / 只有一个活动班」解析；超管必须显式指定 class_id
+  let cls = null;
+  if (wantClassId) {
+    cls = await getClassById(wantClassId);
+    if (!cls) throw makeError('NOT_FOUND', 404, '目标班级不存在');
+  } else if (!superUser) {
+    cls = await resolveClassForTeacher(me, className, '', !!(event && event.no_class));
+  }
+  if (!cls) throw makeError('NO_TARGET_CLASS', 400, '请指定要收编到的班级');
+  if (!superUser && cls.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能收编到自己负责的班级');
+  }
+  if (!cls.owner_teacher_id) {
+    throw makeError('CLASS_NO_OWNER', 409, '目标班级没有负责教师，无法收编');
+  }
+  if (!isClassActive(cls)) throw makeError('CLASS_ARCHIVED', 409, '目标班级已停用，请先恢复后再收编');
+
+  // 全局唯一键 = 学号 + 姓名（D1/D23：本期不支持跨教师收编）
+  const all = await db.collection('students').limit(1000).get();
+  const exist = all.data.find((s) => rosterKey(s.student_no, s.name) === rosterKey(no, name));
+  if (exist) {
+    const ownerName = exist.owner_teacher_name || '其他教师';
+    throw makeError('ALREADY_IN_ROSTER', 409,
+      '该「学号 + 姓名」已在 ' + ownerName + ' 的名册中（本期不支持跨教师转班，请先在原教师名下删除后再收编）');
+  }
+
+  // A4：owner 写目标班负责教师，而不是操作人（超管收编时尤其重要）
+  const owner = await getTeacherById(cls.owner_teacher_id);
+  if (!owner) throw makeError('CLASS_NO_OWNER', 409, '目标班级的负责教师账号不存在，无法收编');
   const record = buildRosterRecord({
-    school: u.school,
-    class_id: cls ? cls._id : '',
-    class_name: cls ? cls.name : className,
+    school,
+    class_id: cls._id,
+    class_name: cls.name,
     name,
     student_no: no
-  }, me);
+  }, owner);
   const added = await db.collection('students').add({ data: record });
-  await grantAiAccess(no, name);
   const updated = Object.assign({ _id: added._id }, record);
+  // R20：超管收编属治理例外，必须留审计
+  if (superUser) {
+    await db.collection('maintenance_logs').add({ data: {
+      action: 'student.adopt',
+      operator_id: me._id,
+      operator_name: me.name || '',
+      user_id: userId || '',
+      target_class_id: cls._id,
+      target_class_name: cls.name || '',
+      owner_teacher_id: owner._id,
+      student_no: no,
+      name,
+      created_at: now()
+    }}).catch(() => null);
+  }
   const regMap = await loadRegisteredMap();
   return { ok: true, student: publicRosterStudent(updated, regMap.get(rosterKey(no, name))) };
 }
@@ -1902,7 +1512,7 @@ async function createStudent(event) {
     student_no: (event && (event.student_no || event.student_id)) || ''
   };
   if (!String(row.school || '').trim()) throw makeError('MISSING_SCHOOL', 400, '请填写学校');
-  if (!String(row.name || '').trim()) throw makeError('MISSING_NAME', 400, '请填写姓名');
+  if (!normalizeName(row.name)) throw makeError('MISSING_NAME', 400, '请填写姓名');
   if (!normalizeStudentNo(row.student_no)) throw makeError('MISSING_STUDENT_NO', 400, '请填写学号');
   const badIdentity = validateStudentIdentity(row.student_no, row.name);
   if (badIdentity) throw makeError(badIdentity.code, 400, badIdentity.msg);
@@ -1921,7 +1531,6 @@ async function createStudent(event) {
 
   const record = buildRosterRecord(row, me);
   const added = await db.collection('students').add({ data: record });
-  await grantAiAccess(record.student_no, record.name);
   return { ok: true, student: publicRosterStudent(Object.assign({ _id: added._id }, record), null) };
 }
 
@@ -1947,7 +1556,7 @@ async function importStudents(event) {
   rows.forEach((row, index) => {
     const line = index + 2; // 第 1 行是表头
     const no = normalizeStudentNo(row && (row.student_no || row.student_id));
-    const name = String((row && row.name) || '').trim();
+    const name = normalizeName(row && row.name);
     const school = String((row && row.school) || '').trim();
 
     if (!no) { errors.push({ line, field: '学号', reason: '学号为空' }); missing++; return; }
@@ -2034,7 +1643,6 @@ async function importStudents(event) {
   let added = 0;
   for (const r of valid) {
     await db.collection('students').add({ data: buildRosterRecord(r, me) });
-    await grantAiAccess(r.student_no, r.name);
     added++;
   }
   return { ok: true, mode: 'commit', added, summary, errors: errors.slice(0, 100) };
@@ -2050,8 +1658,9 @@ async function addStudentNote(event) {
 
   const rosterDoc = await db.collection('students').doc(docId).get().catch(() => null);
   if (!rosterDoc || !rosterDoc.data) throw makeError('NOT_FOUND', 404, '名册中没有该学生');
-  if (!isSuper(me) && rosterDoc.data.owner_teacher_id !== me._id) {
-    throw makeError('FORBIDDEN', 403, '只能给自己录入的学生写备注');
+  // R21：超管不得修改教师业务数据（含备注），只能给自己名下名册写备注
+  if (rosterDoc.data.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403, '只能给自己录入的学生写备注（超级管理员对他人数据只读）');
   }
 
   const record = {
@@ -2071,7 +1680,8 @@ async function deleteStudentNote(event) {
   if (!noteId) throw makeError('MISSING_ID', 400, '缺少备注 ID');
   const doc = await db.collection('teacher_notes').doc(noteId).get().catch(() => null);
   if (!doc || !doc.data) throw makeError('NOT_FOUND', 404, '备注不存在');
-  if (!isSuper(me) && doc.data.teacher_id !== me._id) {
+  // R21：超管不得删除他人备注
+  if (doc.data.teacher_id !== me._id) {
     throw makeError('FORBIDDEN', 403, '只能删除自己的备注');
   }
   await db.collection('teacher_notes').doc(noteId).remove();
@@ -2527,9 +2137,19 @@ async function getClassById(id) {
   }
 }
 
-// 可见与可管理范围：超级管理员=全部班级；普通教师=自己创建的班级
+// 可见范围（只读）：超级管理员=全部班级；普通教师=自己创建的班级。
+// 写权限另见 requireOwnClass（R21：超管不得修改教师班级）。
 function canManageClass(me, classDoc) {
   return isSuper(me) || classDoc.owner_teacher_id === me._id;
+}
+
+// 写权限（R21）：班级编辑 / 成员增减 / 同步 / 停用只有负责教师本人可做，超管对教师班级只读。
+// 唯一例外是「恢复已停用班级」（R15），由 archiveClass 单独放行超管。
+function requireOwnClass(me, classDoc, what) {
+  if (classDoc.owner_teacher_id !== me._id) {
+    throw makeError('FORBIDDEN', 403,
+      '只能' + (what || '管理') + '自己负责的班级（超级管理员对教师班级只读）');
+  }
 }
 
 async function loadAllStudents() {
@@ -2558,6 +2178,17 @@ function classMemberScope(students, classDoc) {
 
 function isClassActive(classDoc) {
   return (classDoc.status || CLASS_STATUS_ACTIVE) === CLASS_STATUS_ACTIVE;
+}
+
+// B1/R15：恢复班级前校验负责人仍在职，保持"停用教师不得持有活动班级"的不变量
+async function ensureClassOwnerActive(classDoc) {
+  if (!classDoc.owner_teacher_id) {
+    throw makeError('CLASS_NO_OWNER', 409, '该班没有负责教师，无法恢复：请先由超管指定负责人');
+  }
+  const owner = await getTeacherById(classDoc.owner_teacher_id);
+  if (!owner || owner.status !== 'active') {
+    throw makeError('OWNER_INACTIVE', 409, '该班负责教师账号已停用，请先启用教师账号，再恢复班级');
+  }
 }
 
 // 同一负责教师下「班级名 + 学校」在活动班级中必须唯一
@@ -2657,7 +2288,12 @@ async function updateClass(event) {
 
   const current = await getClassById(classId);
   if (!current) throw makeError('NOT_FOUND', 404, '班级不存在');
-  if (!canManageClass(me, current)) throw makeError('FORBIDDEN', 403, '只能管理自己负责的班级');
+  // R21：班级业务字段（名称 / 学校 / 备注）只有负责教师本人可改；
+  // R28：演示班标记 is_demo 是报表治理动作，只有超管可改（对任意班级，且只该字段）。
+  const wantsBusinessFields = !!(event && (event.name !== undefined || event.school !== undefined || event.note !== undefined));
+  const wantsDemoFlag = !!(event && event.is_demo !== undefined);
+  if (wantsBusinessFields) requireOwnClass(me, current, '修改');
+  if (wantsDemoFlag && !isSuper(me)) throw makeError('FORBIDDEN', 403, '只有超级管理员可以标记演示班');
 
   const patch = {};
   if (event && event.name !== undefined) {
@@ -2678,7 +2314,6 @@ async function updateClass(event) {
   }
   // 演示班标记：只有超级管理员可以改（教师连自己的班也不能自行标记，见 docs/requirements/REQ-003.md D20）
   if (event && event.is_demo !== undefined) {
-    if (!isSuper(me)) throw makeError('FORBIDDEN', 403, '只有超级管理员可以标记演示班');
     patch.is_demo = event.is_demo === true;
   }
   if (!Object.keys(patch).length) throw makeError('EMPTY_PATCH', 400, '没有需要修改的内容');
@@ -2797,7 +2432,7 @@ async function addClassMembers(event) {
 
   const current = await getClassById(classId);
   if (!current) throw makeError('NOT_FOUND', 404, '班级不存在');
-  if (!canManageClass(me, current)) throw makeError('FORBIDDEN', 403, '只能管理自己负责的班级');
+  requireOwnClass(me, current, '调整');
   if (!isClassActive(current)) throw makeError('CLASS_ARCHIVED', 409, '班级已停用，请先恢复后再调整成员');
 
   const docIds = normalizeDocIds(event && (event.doc_ids || event.doc_id));
@@ -2846,7 +2481,7 @@ async function removeClassMembers(event) {
 
   const current = await getClassById(classId);
   if (!current) throw makeError('NOT_FOUND', 404, '班级不存在');
-  if (!canManageClass(me, current)) throw makeError('FORBIDDEN', 403, '只能管理自己负责的班级');
+  requireOwnClass(me, current, '调整');
   if (!isClassActive(current)) throw makeError('CLASS_ARCHIVED', 409, '班级已停用，请先恢复后再调整成员');
 
   const docIds = normalizeDocIds(event && (event.doc_ids || event.doc_id));
@@ -2888,7 +2523,7 @@ async function syncClassMembers(event) {
 
   const current = await getClassById(classId);
   if (!current) throw makeError('NOT_FOUND', 404, '班级不存在');
-  if (!canManageClass(me, current)) throw makeError('FORBIDDEN', 403, '只能管理自己负责的班级');
+  requireOwnClass(me, current, '同步');
 
   const dryRun = !(event && event.dry_run === false);
   const adoptUnmatched = !!(event && event.adopt_unmatched);
@@ -2959,15 +2594,17 @@ async function archiveClass(event) {
 
   const current = await getClassById(classId);
   if (!current) throw makeError('NOT_FOUND', 404, '班级不存在');
-  if (!canManageClass(me, current)) throw makeError('FORBIDDEN', 403, '只能管理自己负责的班级');
-
   const archived = !(event && event.archived === false);
+  // 停用：只有负责教师本人可做；恢复：负责教师本人**或超管**可做（R15 的例外，仅改状态）。
+  if (!(isSuper(me) && !archived)) requireOwnClass(me, current, archived ? '停用' : '恢复');
+
   const nextStatus = archived ? CLASS_STATUS_ARCHIVED : CLASS_STATUS_ACTIVE;
   if ((current.status || CLASS_STATUS_ACTIVE) === nextStatus) {
     return { ok: true, unchanged: true, class: publicClass(current) };
   }
 
   if (!archived) {
+    await ensureClassOwnerActive(current);
     const all = await fetchAll('classes').catch(() => []);
     if (findDuplicateClass(all, current.owner_teacher_id, current.name, current.school, classId)) {
       throw makeError('DUPLICATE_CLASS', 409, '已存在同名活动班级，无法恢复');
@@ -2983,6 +2620,15 @@ async function archiveClass(event) {
 // 兼容两种调用方式：
 // 1) 传统 wx.cloud.callFunction / 小程序 SDK 调用：event 直接是对象。
 // 2) HTTP 触发：event 可能是 JSON 字符串、或带 body 的对象、或带 httpMethod 的对象。
+// 已下线的维护 action（REQ-003 D5/D16）：明确回 ACTION_RETIRED，避免前端只看到"未知操作"。
+const RETIRED_ACTIONS = {
+  'student.purge': 'student.purge（超管批量删除名册）已下线：名册删改归名册归属教师本人',
+  'roster.backfill': 'roster.backfill 已下线：AI 白名单 roster 已废弃，放行改由名册实时判定',
+  'data.reset': 'data.reset（整表清空过程数据）已下线：测试数据改用标记隔离，不再物理删除',
+  'data.legacyRoster': 'data.legacyRoster 已下线：AI 白名单 roster 已废弃',
+  'data.emptyAccounts': 'data.emptyAccounts 已下线：未注册空账号是产品触达数据，请用过滤隐藏'
+};
+
 function normalizeEvent(event) {
   if (!event) return {};
   if (typeof event === 'string') {
@@ -3021,8 +2667,6 @@ exports.main = async (event) => {
     else if (action === 'student.create') result = await createStudent(input);
     else if (action === 'student.import') result = await importStudents(input);
     else if (action === 'student.delete') result = await deleteStudent(input);
-    else if (action === 'student.purge') result = await purgeStudents(input);
-    else if (action === 'roster.backfill') result = await backfillRosterNames(input);
     else if (action === 'student.adopt') result = await adoptStudent(input);
     else if (action === 'student.records') result = await studentRecords(input);
     else if (action === 'student.detail') result = await studentDetail(input);
@@ -3039,13 +2683,11 @@ exports.main = async (event) => {
     else if (action === 'class.members.add') result = await addClassMembers(input);
     else if (action === 'class.members.remove') result = await removeClassMembers(input);
     else if (action === 'class.archive') result = await archiveClass(input);
-    else if (action === 'data.reset') result = await resetProcessData(input);
     else if (action === 'data.personList') result = await listPurgeCandidates(input);
     else if (action === 'data.personPurge') result = await purgePersonData(input);
-    else if (action === 'data.legacyRoster') result = await legacyRosterCleanup(input);
-    else if (action === 'data.emptyAccounts') result = await emptyAccountCleanup(input);
     else if (action === 'data.backfillQuality') result = await backfillDataQuality(input);
     else if (action === 'data.markQuality') result = await markDataQuality(input);
+    else if (RETIRED_ACTIONS[action]) result = { ok: false, code: 'ACTION_RETIRED', msg: RETIRED_ACTIONS[action] };
     else result = { ok: false, code: 'UNKNOWN_ACTION', msg: '未知操作' };
 
     return result;

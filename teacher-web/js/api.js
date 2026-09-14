@@ -91,10 +91,8 @@
     listAiQuestions(filter) {
       return callTeacher('ai.questions', filter || {});
     },
-    // 名册批量清理（维护工具，仅超级管理员；默认 dry_run 预览）
-    purgeStudents(payload) {
-      return callTeacher('student.purge', payload || {});
-    },
+    // 说明（REQ-003 D5）：student.purge（超管批量物理删除名册）已下线，
+    // 名册删改归名册归属教师本人（student.update / student.delete）。
     // 班级管理（REQ-002 第一阶段）
     // 说明：class_id 是唯一权威班级关联，class_name 仅为兼容展示快照；
     // 前端只调用这些接口，不直接改写学生的 class_id / class_name。
@@ -126,12 +124,8 @@
     archiveClass(classId, archived) {
       return callTeacher('class.archive', { class_id: classId, archived: archived !== false });
     },
-    // 数据维护（仅超级管理员）：清理"过程数据"（学习会话/行为事件/AI 会话与消息/问卷）。
-    // 默认 dry_run 预览；真删需带 dry_run:false 与 confirm_count。
-    // 名册与账号类集合（teachers/classes/students/roster/users）不在白名单，服务端会拒绝。
-    resetData(payload) {
-      return callTeacher('data.reset', payload || {});
-    },
+    // 说明（REQ-003 D5）：data.reset（整表清空过程数据）已下线——测试数据靠
+    // is_internal / is_demo / data_quality 三条标记隔离，不再物理删除。
     // 数据维护·按人清理（仅超管）：列出可清理的人（带每人数据量）
     listPersonData(payload) {
       return callTeacher('data.personList', payload || {});
@@ -148,14 +142,7 @@
     purgePersonData(payload) {
       return callTeacher('data.personPurge', payload || {});
     },
-    // 历史遗留：清理"只有学号、没有姓名"的旧白名单记录（早期按学号批量导入产生）
-    legacyRosterCleanup(payload) {
-      return callTeacher('data.legacyRoster', payload || {});
-    },
-    // 清理"已登录但从未注册"的空账号（无学号、无姓名）
-    emptyAccountsCleanup(payload) {
-      return callTeacher('data.emptyAccounts', payload || {});
-    },
+    // 说明：data.legacyRoster / data.emptyAccounts 已随 roster 下线与"不物理删除"原则一起下线。
     listTeachers() {
       return callTeacher('teacher.list', {});
     },
