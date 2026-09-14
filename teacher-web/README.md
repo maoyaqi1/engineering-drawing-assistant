@@ -31,7 +31,8 @@
 
 1. 部署 `cloudfunctions/teacher`（微信开发者工具 → 右键云函数 → 上传并部署：**云端安装依赖**）。
 2. 在 CloudBase 控制台确认「HTTP 网关」路由 `/teacher` 指向 `teacher` 云函数，且跨域已授权页面来源域名。
-3. 把本目录内容（`index.html`、`css/`、`js/`）同步到预览仓库 `maoyaqi1/hfjh-teacher-preview` 的 `master` 分支，GitHub Pages 会自动更新。
+3. 把本目录内容（`index.html`、`css/`、`js/`、`README.md`）同步到预览仓库 `maoyaqi1/hfjh-teacher-preview` 的 **`main`** 分支（注意不是 `master`），GitHub Pages 会自动更新。
+   同步后记得更新 `index.html` 里三个脚本的 `?v=` 版本号（Pages 有约 10 分钟缓存）。
 4. 用已配置的超级管理员账号（见下方环境变量）登录。
 5. 首次访问若提示「无法连接服务器」，先点登录页底部的「确认访问」打开网关地址（页面出现 JSON 提示即可），再回来登录。
 

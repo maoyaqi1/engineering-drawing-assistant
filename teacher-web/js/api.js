@@ -126,6 +126,36 @@
     archiveClass(classId, archived) {
       return callTeacher('class.archive', { class_id: classId, archived: archived !== false });
     },
+    // 数据维护（仅超级管理员）：清理"过程数据"（学习会话/行为事件/AI 会话与消息/问卷）。
+    // 默认 dry_run 预览；真删需带 dry_run:false 与 confirm_count。
+    // 名册与账号类集合（teachers/classes/students/roster/users）不在白名单，服务端会拒绝。
+    resetData(payload) {
+      return callTeacher('data.reset', payload || {});
+    },
+    // 数据维护·按人清理（仅超管）：列出可清理的人（带每人数据量）
+    listPersonData(payload) {
+      return callTeacher('data.personList', payload || {});
+    },
+    // 数据标记（仅超管）：把账号标为 production / test / unknown
+    markQuality(payload) {
+      return callTeacher('data.markQuality', payload || {});
+    },
+    // 数据标记回填（仅超管）：dry_run 预览 → confirm_count 确认执行，可重复运行
+    backfillQuality(payload) {
+      return callTeacher('data.backfillQuality', payload || {});
+    },
+    // 数据维护·按人清理：只删勾选这些人的数据（默认 dry_run 预览）
+    purgePersonData(payload) {
+      return callTeacher('data.personPurge', payload || {});
+    },
+    // 历史遗留：清理"只有学号、没有姓名"的旧白名单记录（早期按学号批量导入产生）
+    legacyRosterCleanup(payload) {
+      return callTeacher('data.legacyRoster', payload || {});
+    },
+    // 清理"已登录但从未注册"的空账号（无学号、无姓名）
+    emptyAccountsCleanup(payload) {
+      return callTeacher('data.emptyAccounts', payload || {});
+    },
     listTeachers() {
       return callTeacher('teacher.list', {});
     },

@@ -145,7 +145,472 @@
     else if (key === 'student-detail') await renderStudentDetail(content);
     else if (key === 'plp') renderPlaceholder(content, '点线面分析');
     else if (key === 'ai') await renderAi(content);
-    else renderPlaceholder(content, '系统设置');
+    else await renderSettings(content);
+  }
+
+  // ---- 设置页：个人信息 + 数据维护（仅超管）----
+  const RESET_COLLECTION_LABELS = {
+    learning_sessions: '学习会话',
+    learning_records: '学习行为事件',
+    ai_conversations: 'AI 会话',
+    ai_messages: 'AI 消息',
+    survey_responses: '问卷作答',
+    survey_invites: '问卷邀请'
+  };
+
+  function resetRowsHtml(counts) {
+    let html = '';
+    Object.keys(counts || {}).forEach((key) => {
+      html += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eef1f6">' +
+        '<span>' + esc(RESET_COLLECTION_LABELS[key] || key) + '</span><b>' + (counts[key] || 0) + ' 条</b></div>';
+    });
+    return html;
+  }
+
+  async function renderSettings(container) {
+    const me = currentTeacher || {};
+    let html = '<div class="card"><div class="card-title">个人信息</div>' +
+      '<div class="hint">账号：<b>' + esc(me.username || '') + '</b>　姓名：<b>' + esc(me.name || '') +
+      '</b>　角色：<b>' + (isSuper() ? '超级管理员' : '普通教师') + '</b></div></div>';
+
+    if (isSuper()) {
+      // 按人清理：测试数据通常是特定几个人产生的，按人核对最稳
+      html += '<div class="card"><div class="card-title">数据维护 · 按人清理（仅超级管理员）</div>' +
+        '<div class="hint">测试数据通常是<b>特定几个人</b>产生的。这里按人清理：勾选具体的人，只删这些人的数据，' +
+        '<b>其他人的数据一条都不会动</b>。默认只清行为数据；注册账号、名册与 AI 白名单需要你显式勾选才会一并删除。' +
+        '<br>列表里的 openid 是"微信登录标识"（<b>不是微信号</b>，同一微信号在不同小程序里不同），用来区分"来过几个人、何时来过"，' +
+        '所以<b>未注册的账号也是触达数据，建议保留</b>，只在需要干净列表时用过滤隐藏。</div>' +
+        '<div class="filter-row">' +
+          '<input class="filter-input" id="personKeyword" placeholder="搜索 姓名 / 学号 / 学校" />' +
+          '<button class="mini-btn" id="personSearchBtn">查询</button>' +
+          '<button class="mini-btn" id="personAllBtn">全选本页</button>' +
+          '<button class="mini-btn" id="personClearBtn">清空选择</button>' +
+          '<label style="font-size:13px;display:flex;align-items:center;gap:4px">' +
+            '<input type="checkbox" id="hideEmptyAccounts" /> 只看有信息的（隐藏未注册空账号）' +
+          '</label>' +
+          '<select class="filter-select" id="stageFilter">' +
+            '<option value="">全部阶段</option>' +
+            '<option value="仅登录未注册">仅登录未注册（触达）</option>' +
+            '<option value="已注册未入册">已注册未入册</option>' +
+            '<option value="已入册">已入册</option>' +
+            '<option value="名册已录入·未注册">名册已录入·未注册（待激活的学生）</option>' +
+            '<option value="旧白名单残留·无姓名">旧白名单残留·无姓名</option>' +
+            '<option value="白名单残留·无名册">白名单残留·无名册</option>' +
+          '</select>' +
+        '</div>' +
+        '<div id="personList"></div>' +
+        '<div class="hint" style="margin-top:12px">清理范围（可多选）：</div>' +
+        '<div class="filter-row">' +
+          '<label style="font-size:13px"><input type="checkbox" id="scopeBehavior" checked /> 行为数据（学习会话 / 行为事件 / AI 会话与消息 / 问卷）</label>' +
+          '<label style="font-size:13px"><input type="checkbox" id="scopeRoster" /> 名册与 AI 白名单（含这些学生的教师备注）</label>' +
+          '<label style="font-size:13px"><input type="checkbox" id="scopeAccount" /> 注册账号（删除后该微信号需重新注册；只对"有账号"的行生效）</label>' +
+        '</div>' +
+        '<div class="tool-row">' +
+          '<button class="mini-btn" id="personPreviewBtn">预览选中人的数据</button>' +
+          '<button class="mini-btn danger" id="personPurgeBtn">清理选中的人…</button>' +
+          '<button class="mini-btn" id="legacyRosterBtn">清理无姓名的旧白名单…</button>' +
+          '<button class="mini-btn" id="emptyAccountsBtn">清理未注册空账号（会丢触达记录）…</button>' +
+        '</div>' +
+        '<div id="personResult"></div></div>';
+
+      // 整表清理：收进折叠区（无法按人核对，容易误伤，默认不展开）
+      html += '<div class="card"><div class="card-title">整表清理（高级，一般不需要）</div>' +
+        '<div class="hint">把 6 张过程表<b>整体清空</b>（不分人）。因为无法按人核对、可能误伤真实数据，' +
+        '请只在确认库里全是测试数据时才使用。</div>' +
+        '<details><summary style="cursor:pointer;font-size:13px;color:var(--text-soft)">展开整表清理</summary>' +
+          '<div class="tool-row" style="margin-top:10px">' +
+            '<button class="mini-btn" id="resetPreviewBtn">预览待清理数据</button>' +
+            '<button class="mini-btn danger" id="resetRunBtn">清空过程数据…</button>' +
+          '</div>' +
+          '<div id="resetResult"></div>' +
+        '</details></div>';
+    }
+    container.innerHTML = html;
+
+    if (isSuper()) {
+      $('personSearchBtn').addEventListener('click', () => loadPersonList(true));
+      $('personKeyword').addEventListener('keydown', (e) => { if (e.key === 'Enter') loadPersonList(true); });
+      $('personAllBtn').addEventListener('click', () => {
+        personRows.forEach((r) => personSelected.add(r.key));
+        renderPersonTable();
+      });
+      $('personClearBtn').addEventListener('click', () => {
+        personSelected.clear();
+        renderPersonTable();
+      });
+      $('personPreviewBtn').addEventListener('click', () => previewPersonPurge(false));
+      $('personPurgeBtn').addEventListener('click', () => previewPersonPurge(true));
+      $('legacyRosterBtn').addEventListener('click', legacyRosterFlow);
+      $('emptyAccountsBtn').addEventListener('click', emptyAccountsFlow);
+      $('hideEmptyAccounts').addEventListener('change', applyPersonFilter);
+      $('stageFilter').addEventListener('change', applyPersonFilter);
+      $('resetPreviewBtn').addEventListener('click', previewResetData);
+      $('resetRunBtn').addEventListener('click', confirmResetData);
+      await loadPersonList(false);
+    }
+  }
+
+  // ---- 按人清理：列表 / 预览 / 执行 ----
+  const PERSON_COUNT_LABELS = {
+    learning_sessions: '学习会话',
+    learning_records: '行为事件',
+    ai_conversations: 'AI 会话',
+    ai_messages: 'AI 消息',
+    survey_responses: '问卷作答',
+    survey_invites: '问卷邀请'
+  };
+  const PURGE_EXTRA_LABELS = { students: '名册记录', roster: 'AI 白名单', users: '注册账号', teacher_notes: '教师备注' };
+  let personRows = [];
+  let personRowsAll = [];
+  const personSelected = new Set();
+
+  function personCountsSummary(counts) {
+    const parts = Object.keys(PERSON_COUNT_LABELS)
+      .filter((k) => (counts || {})[k])
+      .map((k) => PERSON_COUNT_LABELS[k] + ' ' + counts[k]);
+    return parts.length ? parts.join('、') : '无行为数据';
+  }
+
+  function currentPurgeScope() {
+    return {
+      behavior: !!($('scopeBehavior') && $('scopeBehavior').checked),
+      roster: !!($('scopeRoster') && $('scopeRoster').checked),
+      account: !!($('scopeAccount') && $('scopeAccount').checked)
+    };
+  }
+
+  function purgeScopeText(scope) {
+    const parts = [];
+    if (scope.behavior) parts.push('行为数据');
+    if (scope.roster) parts.push('名册与 AI 白名单（含备注）');
+    if (scope.account) parts.push('注册账号');
+    return parts.length ? parts.join(' + ') : '（未选择）';
+  }
+
+  async function loadPersonList(keepSelection) {
+    const box = $('personList');
+    box.innerHTML = '<div class="hint">正在加载…</div>';
+    const kwEl = $('personKeyword');
+    const res = await api.listPersonData({ keyword: String((kwEl && kwEl.value) || '').trim() });
+    if (!res || !res.ok) {
+      box.innerHTML = '<div class="form-err">加载失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+      return;
+    }
+    personRowsAll = res.items || [];
+    if (!keepSelection) personSelected.clear();
+    applyPersonFilter(res.total);
+  }
+
+  // 客户端过滤：可选隐藏"已登录但从未注册"的空账号；并支持按阶段筛选。
+  // 注意：默认显示全部——这些记录是"小程序触达/吸引度"的原始数据，删掉就没了。
+  function applyPersonFilter(totalCount) {
+    const hideEl = $('hideEmptyAccounts');
+    const hide = !!(hideEl && hideEl.checked);
+    const stageEl = $('stageFilter');
+    const stage = String((stageEl && stageEl.value) || '');
+    personRows = personRowsAll.filter((r) => {
+      if (hide && !String(r.name || '').trim() && !String(r.student_no || '').trim()) return false;
+      if (stage && String(r.stage || '') !== stage) return false;
+      return true;
+    });
+    renderPersonTable(totalCount);
+  }
+
+  // 触达概览：用列表数据现算各阶段人数（不额外请求接口）
+  function touchOverviewHtml() {
+    const stages = ['仅登录未注册', '已注册未入册', '已入册', '名册已录入·未注册', '旧白名单残留·无姓名'];
+    const counts = {};
+    stages.forEach((s) => { counts[s] = 0; });
+    personRowsAll.forEach((r) => {
+      const key = String(r.stage || '');
+      if (counts[key] === undefined) counts[key] = 0;
+      counts[key] += 1;
+    });
+    return '<div class="stat-grid" style="margin-bottom:10px">' +
+      stages.map((s) => '<div class="stat-card soft"><div class="stat-num">' + counts[s] +
+        '</div><div class="stat-label">' + esc(s) + '</div></div>').join('') +
+      '<div class="stat-card soft"><div class="stat-num">' + personRowsAll.length +
+        '</div><div class="stat-label">合计</div></div>' +
+      '</div>';
+  }
+
+  function renderPersonTable(totalCount) {
+    const box = $('personList');
+    if (!personRows.length) {
+      box.innerHTML = '<div class="hint">没有匹配的学生账号。</div>';
+      return;
+    }
+    const th = 'text-align:left;padding:6px;border-bottom:1px solid #e6ebf2;color:#8794a8;font-weight:600;font-size:12px';
+    let html = touchOverviewHtml() +
+      '<div class="hint">匹配 ' + (totalCount || personRows.length) + ' 人，当前显示 ' + personRows.length +
+      ' 人，已选 <b>' + personSelected.size + '</b> 人（按数据量从多到少排列）</div>' +
+      '<div style="overflow:auto;max-height:420px">' +
+      '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>' +
+        '<th style="' + th + '">选</th><th style="' + th + '">姓名</th><th style="' + th + '">学号</th>' +
+        '<th style="' + th + '">学校</th><th style="' + th + '">阶段</th>' +
+        '<th style="' + th + '">openid（微信登录标识，非微信号）</th><th style="' + th + '">最近登录</th>' +
+        '<th style="' + th + '">数据量</th><th style="' + th + '">来源</th>' +
+      '</tr></thead><tbody>';
+    personRows.forEach((r) => {
+      const sourceTags = [];
+      sourceTags.push(r.has_account ? '账号' : '无账号');
+      if (r.in_class_roster) sourceTags.push('名册');
+      if (r.in_roster) sourceTags.push('白名单');
+      if (r.nameless_roster) sourceTags.push('旧记录·无姓名');
+      const lastLogin = r.last_login_at ? fmtDate(r.last_login_at) : '—';
+      html += '<tr>' +
+        '<td style="padding:6px"><input type="checkbox" data-key="' + esc(r.key) + '"' + (personSelected.has(r.key) ? ' checked' : '') + ' /></td>' +
+        '<td style="padding:6px">' + esc(r.name || '—') + '</td>' +
+        '<td style="padding:6px">' + esc(r.student_no || '—') + '</td>' +
+        '<td style="padding:6px">' + esc(r.school || '—') + '</td>' +
+        '<td style="padding:6px">' + esc(r.stage || '—') + '</td>' +
+        '<td style="padding:6px;font-size:11px;color:#8794a8;word-break:break-all;max-width:220px">' + esc(r.openid || '—') + '</td>' +
+        '<td style="padding:6px">' + esc(lastLogin) + '</td>' +
+        '<td style="padding:6px"><b>' + (r.total || 0) + '</b>　<span style="color:#8794a8">' + esc(personCountsSummary(r.counts)) + '</span></td>' +
+        '<td style="padding:6px">' + esc(sourceTags.join(' · ')) +
+          (r.owner_teacher_name ? '　<span style="color:#8794a8">' + esc(r.owner_teacher_name) + '</span>' : '') + '</td>' +
+      '</tr>';
+    });
+    html += '</tbody></table></div>';
+    box.innerHTML = html;
+    box.querySelectorAll('input[type=checkbox]').forEach((el) => {
+      el.addEventListener('change', () => {
+        const key = el.getAttribute('data-key');
+        if (el.checked) personSelected.add(key); else personSelected.delete(key);
+        const tip = box.querySelector('.hint');
+        if (tip) tip.innerHTML = tip.innerHTML.replace(/已选 <b>\d+<\/b>/, '已选 <b>' + personSelected.size + '</b>');
+      });
+    });
+  }
+
+  async function previewPersonPurge(thenRun) {
+    const out = $('personResult');
+    if (!personSelected.size) {
+      out.innerHTML = '<div class="form-err">请先在上表中勾选要清理的人</div>';
+      return;
+    }
+    const scope = currentPurgeScope();
+    if (!scope.behavior && !scope.roster && !scope.account) {
+      out.innerHTML = '<div class="form-err">请至少选择一项清理范围</div>';
+      return;
+    }
+    out.innerHTML = '<div class="hint">正在统计…</div>';
+    const res = await api.purgePersonData({ targets: Array.from(personSelected), scope, dry_run: true });
+    if (!res || !res.ok) {
+      out.innerHTML = '<div class="form-err">统计失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+      return;
+    }
+    const rows = (res.people || []).map((p) =>
+      '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eef1f6">' +
+        '<span>' + esc(p.name || '—') + '　' + esc(p.student_no || '') + '</span>' +
+        '<span><b>' + (p.total || 0) + '</b> 条　<span style="color:#8794a8">' + esc(personCountsSummary(p.counts)) + '</span></span>' +
+      '</div>').join('');
+    out.innerHTML = '<div class="hint">将清理 <b>' + res.people_count + '</b> 人、共 <b>' + res.total_records +
+      '</b> 条行为数据；范围：<b>' + esc(purgeScopeText(scope)) + '</b></div>' + rows;
+    if (thenRun) openPersonConfirm(res, scope);
+  }
+
+  function openPersonConfirm(pre, scope) {
+    const count = pre.people_count;
+    // 安全提示：选中的是"名册已录入但学生还没注册"的人时，删名册记录等于把学生移出名单
+    const stageOf = (key) => {
+      const hit = personRowsAll.filter((r) => r.key === key)[0];
+      return hit ? String(hit.stage || '') : '';
+    };
+    const pendingCount = (pre.people || []).filter((p) => stageOf(p.key) === '名册已录入·未注册').length;
+    const pendingWarning = (pendingCount && scope.roster)
+      ? '<div class="form-err" style="margin-top:10px">注意：其中 <b>' + pendingCount +
+        '</b> 位是<b>名册中已录入、但学生还没注册</b>的人（正常待激活）。删除名册记录后，他们需要重新录入才能提问。</div>'
+      : '';
+    const warning = scope.account || scope.roster
+      ? '<div class="form-err" style="margin-top:10px">注意：本次还会删除' +
+        (scope.roster ? ' <b>名册记录与 AI 白名单</b>' : '') +
+        (scope.account ? ' <b>注册账号</b>' : '') + '，该操作不可恢复。</div>'
+      : '<div class="hint" style="margin-top:10px">仅清理行为数据，名册、白名单与注册账号保持不变。</div>';
+    openModal('确认按人清理',
+      '<div class="hint">即将清理以下 <b>' + count + '</b> 人的数据：</div>' +
+      (pre.people || []).map((p) => '<div style="padding:4px 0;font-size:13px">· ' +
+        esc(p.name || '—') + '（' + esc(p.student_no || '') + '）　<b>' + (p.total || 0) + '</b> 条</div>').join('') +
+      pendingWarning +
+      warning +
+      '<div class="hint" style="margin:12px 0 6px">请输入要清理的<b>人数 ' + count + '</b> 以确认：</div>' +
+      '<div class="fld"><input class="filter-input" id="personConfirmInput" placeholder="输入 ' + count + '" /></div>',
+      '<button class="mini-btn" id="personCancelBtn">取消</button>' +
+      '<button class="mini-btn danger" id="personConfirmBtn">确认清理</button>');
+    $('personCancelBtn').addEventListener('click', closeModal);
+    $('personConfirmBtn').addEventListener('click', async () => {
+      const el = $('personConfirmInput');
+      if (String((el && el.value) || '').trim() !== String(count)) {
+        alert('输入的数值与人数不一致（应为 ' + count + '），已取消本次操作');
+        return;
+      }
+      const res = await api.purgePersonData({ targets: Array.from(personSelected), scope, dry_run: false, confirm_count: count });
+      closeModal();
+      const out = $('personResult');
+      if (!res || !res.ok) {
+        out.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+        return;
+      }
+      let html = '<div class="hint">已清理 <b>' + res.people_count + '</b> 人：</div>';
+      Object.keys(res.removed || {}).forEach((key) => {
+        html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eef1f6"><span>' +
+          esc(PERSON_COUNT_LABELS[key] || PURGE_EXTRA_LABELS[key] || RESET_COLLECTION_LABELS[key] || key) + '</span><b>' + (res.removed[key] || 0) + ' 条</b></div>';
+      });
+      html += '<div class="hint" style="margin-top:10px">已记入 maintenance_logs；回到「驾驶舱」刷新可见新的统计口径。</div>';
+      out.innerHTML = html;
+      personSelected.clear();
+      await loadPersonList(false);
+    });
+  }
+
+  // 清理"已登录但从未注册"的空账号（无学号 / 无姓名）
+  async function emptyAccountsFlow() {
+    const out = $('personResult');
+    out.innerHTML = '<div class="hint">正在统计…</div>';
+    const pre = await api.emptyAccountsCleanup({ dry_run: true });
+    if (!pre || !pre.ok) {
+      out.innerHTML = '<div class="form-err">统计失败：' + esc((pre && pre.msg) || '未知错误') + '</div>';
+      return;
+    }
+    const total = pre.total || 0;
+    if (!total) {
+      out.innerHTML = '<div class="hint">没有空账号（学生都已完成注册）。</div>';
+      return;
+    }
+    const sampleDates = (pre.sample || [])
+      .map((s) => String(s.created_at || '').slice(0, 10))
+      .filter(Boolean);
+    out.innerHTML = '<div class="hint">待清理空账号 <b>' + total + '</b> 条' +
+      (sampleDates.length ? '（示例时间：' + esc(sampleDates.slice(0, 8).join('、')) + '）' : '') + '</div>';
+    openModal('确认清理空账号',
+      '<div class="hint">将删除 <b>' + total + '</b> 条"已登录但从未注册"的账号（无学校 / 无姓名 / 无学号）。' +
+      '<br>⚠️ 这类记录本身是<b>小程序触达/吸引度的原始数据</b>（能反映"有多少人打开过、什么时间来"），删掉后就统计不回来了。' +
+      '它们不属于名册、不在白名单、没有学习数据；一般建议<b>保留</b>，只在需要干净列表时用上面的过滤隐藏。' +
+      '<br>删除后该微信号下次打开小程序会重新生成一条空账号，属正常现象。' +
+      '<br><b>已完成注册的学生账号不会被删除。</b></div>' +
+      '<div class="hint" style="margin:12px 0 6px">请输入条数 <b>' + total + '</b> 以确认：</div>' +
+      '<div class="fld"><input class="filter-input" id="emptyConfirmInput" placeholder="输入 ' + total + '" /></div>',
+      '<button class="mini-btn" id="emptyCancelBtn">取消</button>' +
+      '<button class="mini-btn danger" id="emptyConfirmBtn">确认清理</button>');
+    $('emptyCancelBtn').addEventListener('click', closeModal);
+    $('emptyConfirmBtn').addEventListener('click', async () => {
+      const el = $('emptyConfirmInput');
+      if (String((el && el.value) || '').trim() !== String(total)) {
+        alert('输入的条数与待清理条数不一致（应为 ' + total + '），已取消');
+        return;
+      }
+      const res = await api.emptyAccountsCleanup({ dry_run: false, confirm_count: total });
+      closeModal();
+      const box = $('personResult');
+      if (!res || !res.ok) {
+        box.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+        return;
+      }
+      box.innerHTML = '<div class="hint">已清理 <b>' + (res.removed || 0) + '</b> 条空账号，已记入 maintenance_logs。</div>';
+      personSelected.clear();
+      await loadPersonList(false);
+    });
+  }
+
+  // 清理"只有学号、没有姓名"的历史白名单记录（早期按学号批量导入产生，现在已无放行作用）
+  async function legacyRosterFlow() {
+    const out = $('personResult');
+    out.innerHTML = '<div class="hint">正在统计…</div>';
+    const pre = await api.legacyRosterCleanup({ dry_run: true });
+    if (!pre || !pre.ok) {
+      out.innerHTML = '<div class="form-err">统计失败：' + esc((pre && pre.msg) || '未知错误') + '</div>';
+      return;
+    }
+    const total = pre.total || 0;
+    if (!total) {
+      out.innerHTML = '<div class="hint">没有无姓名的旧白名单记录。</div>';
+      return;
+    }
+    const bySource = Object.keys(pre.by_source || {}).map((k) => esc(k) + '：' + pre.by_source[k] + ' 条').join('　');
+    out.innerHTML = '<div class="hint">待清理 <b>' + total + '</b> 条无姓名的旧白名单记录（' + bySource + '）' +
+      '<br>示例学号：' + esc((pre.sample || []).slice(0, 12).join('、')) + '</div>';
+    openModal('确认清理无姓名的旧白名单',
+      '<div class="hint">将删除 <b>' + total + '</b> 条"只有学号、没有姓名"的白名单记录（' + bySource + '）。' +
+      '这类记录来自早期的按学号批量导入，在当前"学号 + 姓名"核对规则下不再有任何放行作用，删除不会影响任何学生正常提问。</div>' +
+      '<div class="hint" style="margin:12px 0 6px">请输入条数 <b>' + total + '</b> 以确认：</div>' +
+      '<div class="fld"><input class="filter-input" id="legacyConfirmInput" placeholder="输入 ' + total + '" /></div>',
+      '<button class="mini-btn" id="legacyCancelBtn">取消</button>' +
+      '<button class="mini-btn danger" id="legacyConfirmBtn">确认清理</button>');
+    $('legacyCancelBtn').addEventListener('click', closeModal);
+    $('legacyConfirmBtn').addEventListener('click', async () => {
+      const el = $('legacyConfirmInput');
+      if (String((el && el.value) || '').trim() !== String(total)) {
+        alert('输入的条数与待清理条数不一致（应为 ' + total + '），已取消');
+        return;
+      }
+      const res = await api.legacyRosterCleanup({ dry_run: false, confirm_count: total });
+      closeModal();
+      const box = $('personResult');
+      if (!res || !res.ok) {
+        box.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+        return;
+      }
+      box.innerHTML = '<div class="hint">已清理 <b>' + (res.removed || 0) + '</b> 条旧白名单记录，已记入 maintenance_logs。</div>';
+      personSelected.clear();
+      await loadPersonList(false);
+    });
+  }
+
+  async function previewResetData() {
+    const box = $('resetResult');
+    box.innerHTML = '<div class="hint">正在统计…</div>';
+    const res = await api.resetData({ dry_run: true });
+    if (!res || !res.ok) {
+      box.innerHTML = '<div class="form-err">预览失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+      return;
+    }
+    box.innerHTML = resetRowsHtml(res.counts) +
+      '<div class="hint" style="margin:10px 0 0">合计 <b>' + (res.total || 0) + '</b> 条待清理</div>';
+  }
+
+  async function confirmResetData() {
+    const box = $('resetResult');
+    box.innerHTML = '<div class="hint">正在统计…</div>';
+    const pre = await api.resetData({ dry_run: true });
+    if (!pre || !pre.ok) {
+      box.innerHTML = '<div class="form-err">统计失败：' + esc((pre && pre.msg) || '未知错误') + '</div>';
+      return;
+    }
+    const total = pre.total || 0;
+    box.innerHTML = '';
+    if (!total) {
+      box.innerHTML = '<div class="hint">当前没有可清理的过程数据（0 条）。</div>';
+      return;
+    }
+    openModal('确认清空过程数据',
+      resetRowsHtml(pre.counts) +
+      '<div class="hint" style="margin:12px 0 6px">该操作<b>不可恢复</b>。请输入合计条数 <b>' + total + '</b> 以确认：</div>' +
+      '<div class="fld"><input class="filter-input" id="resetConfirmInput" placeholder="输入 ' + total + '" /></div>',
+      '<button class="mini-btn" id="resetCancelBtn">取消</button>' +
+      '<button class="mini-btn danger" id="resetConfirmBtn">确认清空</button>');
+    $('resetCancelBtn').addEventListener('click', closeModal);
+    $('resetConfirmBtn').addEventListener('click', async () => {
+      const el = $('resetConfirmInput');
+      const input = String((el && el.value) || '').trim();
+      if (input !== String(total)) {
+        alert('输入的条数与合计不一致（应为 ' + total + '），已取消本次操作');
+        return;
+      }
+      const res = await api.resetData({ dry_run: false, confirm_count: total });
+      closeModal();
+      const out = $('resetResult');
+      if (!res || !res.ok) {
+        out.innerHTML = '<div class="form-err">清理失败：' + esc((res && res.msg) || '未知错误') + '</div>';
+        return;
+      }
+      let html = '<div class="hint">已清理 <b>' + (res.total || 0) + '</b> 条：</div>';
+      Object.keys(res.removed || {}).forEach((key) => {
+        html += '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eef1f6">' +
+          '<span>' + esc(RESET_COLLECTION_LABELS[key] || key) + '</span><b>' + (res.removed[key] || 0) + ' 条</b></div>';
+      });
+      html += '<div class="hint" style="margin:10px 0 0">回「驾驶舱」刷新即应从 0 开始；本次操作已记入 maintenance_logs。</div>';
+      out.innerHTML = html;
+    });
   }
 
   async function renderDashboard(container) {
@@ -176,6 +641,25 @@
     });
     html += '</div>';
 
+    // 数据分线（第一阶段口径）：在册学情 / 游客 / 测试（内部账号 + 演示班 + 人工标记）
+    const lines = d.lines || { total: 0, student: 0, guest: 0, test: 0 };
+    const ex = d.excluded || {};
+    const exParts = [];
+    if (ex.sessions) exParts.push('学习会话 ' + ex.sessions + ' 条');
+    if (ex.ai) exParts.push('AI 提问 ' + ex.ai + ' 条');
+    if (ex.demo_roster) exParts.push('演示班名册 ' + ex.demo_roster + ' 人');
+    html += '<div class="card"><div class="card-title">数据分线 · ' + (d.scope === 'me' ? '本范围' : '全局') + '</div>' +
+      '<div class="stat-grid">' +
+        statCardHtml(lines.student, '在册学情') +
+        statCardHtml(lines.guest, '游客') +
+        statCardHtml(lines.test, '测试 / 演示') +
+        statCardHtml(lines.total, '合计') +
+      '</div>' +
+      '<div class="hint" style="margin:8px 0 0">统计口径：AI 提问与学习数据只统计「在册学情」' +
+        '（名册命中、班级未被标记为演示班、非内部账号）；游客、内部账号、演示班与人工标记为 test 的数据不计入学情。' +
+        (exParts.length ? ' 本次已排除 ' + exParts.join('、') + '。' : '') +
+      '</div></div>';
+
     // 学情提醒（按统计规则生成，不做无依据推测）
     const alerts = d.alerts || [];
     if (alerts.length) {
@@ -188,14 +672,19 @@
 
     // 班级概况
     const classes = d.classes || [];
-    html += '<div class="card"><div class="card-title">班级概况</div>';
+    html += '<div class="card"><div class="card-title">班级概况</div>' +
+      '<div class="hint" style="margin:0 0 8px">按班级实体（class_id）统计；被超管标记为演示班的班级（如「教师组」）与其成员不计入本表、名册人数与学情统计。</div>';
     if (classes.length) {
       html += '<table style="width:100%;border-collapse:collapse">' +
         '<tr style="background:var(--panel-soft);text-align:left">' +
         '<th style="padding:8px">班级</th><th>名册人数</th><th>已注册</th><th>未注册</th><th>近7天活跃</th></tr>';
       classes.forEach((c) => {
         html += '<tr style="border-top:1px solid var(--border)">' +
-          '<td style="padding:8px">' + esc(c.class_name) + '</td>' +
+          '<td style="padding:8px">' + esc(c.class_name) +
+            ((c.class_legacy_names && c.class_legacy_names.length)
+              ? ' <span style="color:#a26a00;font-size:12px">（名册里写着「' + esc(c.class_legacy_names.join('、')) + '」，未关联班级）</span>'
+              : '') +
+          '</td>' +
           '<td>' + (c.total || 0) + '</td>' +
           '<td class="ok">' + (c.registered || 0) + '</td>' +
           '<td>' + (c.unregistered ? '<span class="err">' + c.unregistered + '</span>' : '0') + '</td>' +
@@ -285,6 +774,9 @@
       '<div class="card">' +
         '<div class="hint" style="margin:0 0 8px">这些学生已经用微信注册（能正常使用互动工具），但还没有被任何老师录入班级名册，' +
           '因此不能使用 AI 教师提问。由对应老师在「班级」页录入该学生（学号与姓名需与本人填写的一致）后，权限会自动开通。</div>' +
+        '<div class="hint" style="margin:0 0 8px">「数据标记」用于把测试数据从真实学情里剔除（production = 真实，test = 测试，unknown = 待定）——' +
+          '标记只影响报表口径，不影响学生能否使用 AI 教师。</div>' +
+        '<div class="tool-row"><button class="mini-btn" id="stuBackfill">一键回填数据标记…</button></div>' +
         '<div class="filter-row">' +
           '<input id="stuKeyword" class="filter-input" placeholder="搜索姓名或学号" />' +
           '<select id="stuSchool" class="filter-select"></select>' +
@@ -302,6 +794,23 @@
     });
     $('stuKeyword').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('stuSearch').click(); });
     $('stuSchool').addEventListener('change', () => $('stuSearch').click());
+
+    $('stuBackfill').addEventListener('click', async () => {
+      const pre = await api.backfillQuality({ dry_run: true });
+      if (!pre || !pre.ok) { alert(classErrText(pre, '预览失败')); return; }
+      if (!pre.pending) { alert('没有需要回填的账号（数据标记已是最新）。'); return; }
+      const cats = pre.categories || {};
+      if (!confirm('将按规则回填 ' + pre.pending + ' 个账号的数据标记：\n\n' +
+        '· test ' + (cats.test || 0) + ' 个\n' +
+        '· production ' + (cats.production || 0) + ' 个\n' +
+        '· unknown ' + (cats.unknown || 0) + ' 个\n\n' +
+        '内部账号跳过 ' + ((pre.skipped && pre.skipped.internal) || 0) + ' 个；人工标记不会被覆盖。\n' +
+        '只写数据标记，不改动其它字段。是否继续？')) return;
+      const r = await api.backfillQuality({ dry_run: false, confirm_count: pre.pending });
+      if (!r || !r.ok) { alert(classErrText(r, '回填失败')); return; }
+      alert('回填完成：更新 ' + r.updated + ' 个账号。');
+      await loadStudents();
+    });
 
     await loadStudents();
   }
@@ -341,18 +850,31 @@
     return { items: studentItemsCache.slice(start, start + studentPage.size), total, pages, start };
   }
 
+  // 数据标记下拉（第一阶段）：production / test / unknown；未标记时显示占位项
+  function qualitySelectHtml(s) {
+    const current = s.data_quality || '';
+    let html = '<select class="filter-select" data-qid="' + esc(s.id) + '" style="min-width:118px">';
+    if (!current) html += '<option value="" selected>未标记</option>';
+    [['production', '真实'], ['test', '测试'], ['unknown', '待定']].forEach((pair) => {
+      html += '<option value="' + pair[0] + '"' + (current === pair[0] ? ' selected' : '') + '>' + pair[1] + '</option>';
+    });
+    html += '</select>';
+    if (s.data_quality_source === 'manual') html += ' <span style="color:#6a7688;font-size:12px">人工</span>';
+    return html;
+  }
+
   // 渲染学生表格（含分页与批量删除的选择列）
   function renderStudentTable() {
     const table = $('stuTable');
     if (!table) return;
     const { items, total, pages } = currentStudentPageItems();
     const showOwner = studentShowOwner;
-    const colCount = showOwner ? 8 : 7;
+    const colCount = showOwner ? 10 : 9;
 
     let html = '<tr style="background:var(--panel-soft);text-align:left">' +
       '<th style="padding:10px">姓名</th><th>学号</th><th>学校</th><th>班级</th>' +
       (showOwner ? '<th>录入教师</th>' : '') +
-      '<th>注册状态</th><th>最近登录</th><th style="text-align:right">操作</th></tr>';
+      '<th>注册状态</th><th>数据标记</th><th>最近登录</th><th style="text-align:right">操作</th></tr>';
 
     items.forEach((s) => {
       const cls = s.class_name
@@ -369,6 +891,7 @@
         '<td>' + cls + '</td>' +
         (showOwner ? '<td style="color:#6a7688">' + esc(s.owner_teacher_name || '无') + '</td>' : '') +
         '<td>' + reg + '</td>' +
+        '<td>' + qualitySelectHtml(s) + '</td>' +
         '<td style="color:#6a7688">' + fmtDate(s.last_login_at) + '</td>' +
         '<td style="text-align:right"><span style="color:#9aa5b2">白名单以外</span></td></tr>';
     });
@@ -377,6 +900,19 @@
         (studentFilter.keyword || studentFilter.school ? '没有匹配的学生' : '没有未入册的自主注册学生') + '</td></tr>';
     }
     table.innerHTML = html;
+
+    // 数据标记：选择后立即保存（仅超管可见本页）
+    table.querySelectorAll('select[data-qid]').forEach((el) => {
+      el.addEventListener('change', async () => {
+        const id = el.getAttribute('data-qid');
+        const quality = el.value;
+        if (!quality) return;
+        const r = await api.markQuality({ user_ids: [id], quality });
+        if (!r || !r.ok) { alert(classErrText(r, '标记失败')); return; }
+        const item = studentItemsCache.find((x) => x.id === id);
+        if (item) { item.data_quality = quality; item.data_quality_source = 'manual'; }
+      });
+    });
 
     const pager = $('stuPager');
     if (pager) {
@@ -897,7 +1433,8 @@
   // ---- 班级管理（REQ-002 第一阶段）----
   // 数据关系：students.class_id → classes._id 是唯一权威关联；students.class_name 是兼容展示快照。
   // 前端只调用 class.* 接口，不直接改写学生的 class_id / class_name；权限由服务端强制，失败照实显示。
-  const classFilter = { keyword: '', status: '' }; // status: '' = 进行中（服务端默认）| 'archived' | 'all'
+  // 默认看「全部」——停用的班级也要留在列表里（置灰显示），不能直接消失
+  const classFilter = { keyword: '', status: 'all' }; // status: '' = 仅进行中 | 'archived' | 'all'
   const classMemberPage = { page: 1, size: 20 };
   let classMembersCache = [];
   let classDetailCtx = { classId: '', archived: false };
@@ -952,9 +1489,9 @@
         '<div class="filter-row">' +
           '<input id="clsKeyword" class="filter-input" placeholder="搜索班级名称或学校" />' +
           '<select id="clsStatus" class="filter-select">' +
-            '<option value="">进行中</option>' +
-            '<option value="archived">已停用</option>' +
-            '<option value="all">全部</option>' +
+            '<option value="all">全部（含已停用）</option>' +
+            '<option value="">仅进行中</option>' +
+            '<option value="archived">仅已停用</option>' +
           '</select>' +
           '<button id="clsSearch" class="login-btn filter-btn">搜索</button>' +
         '</div>' +
@@ -1007,10 +1544,20 @@
       if (!archived) {
         ops += ' <button class="mini-btn danger" data-archive="' + esc(c.id) + '" data-name="' +
           esc(c.name) + '">停用</button>';
+      } else {
+        ops += ' <button class="mini-btn" data-restore="' + esc(c.id) + '" data-name="' +
+          esc(c.name) + '">恢复</button>';
       }
-      html += '<tr style="border-top:1px solid var(--border)">' +
-        '<td style="padding:10px"><a class="link" href="#/class-detail?id=' + esc(c.id) + '">' +
-          esc(c.name) + '</a></td>' +
+      // 已停用的班级置灰显示（仍留在列表里，可查看、可恢复）
+      const rowStyle = archived
+        ? 'border-top:1px solid var(--border);background:#f7f9fc;color:#9aa5b2'
+        : 'border-top:1px solid var(--border)';
+      html += '<tr style="' + rowStyle + '">' +
+        '<td style="padding:10px"><a class="link" href="#/class-detail?id=' + esc(c.id) + '"' +
+          (archived ? ' style="color:#9aa5b2"' : '') + '>' +
+          esc(c.name) + '</a>' +
+          (c.is_demo ? ' <span style="color:#a26a00;font-size:12px">（演示班）</span>' : '') +
+          (archived ? ' <span style="color:#b3bcc7;font-size:12px">（已停用，可恢复）</span>' : '') + '</td>' +
         '<td>' + (c.school ? esc(c.school) : '<span style="color:#9aa5b2">—</span>') + '</td>' +
         (superUser ? '<td style="color:#6a7688">' + esc(c.owner_teacher_name || '—') + '</td>' : '') +
         '<td>' + (c.member_count || 0) + '</td>' +
@@ -1038,6 +1585,9 @@
     });
     table.querySelectorAll('button[data-archive]').forEach((btn) => {
       btn.addEventListener('click', () => archiveClass(btn.dataset.archive, btn.dataset.name));
+    });
+    table.querySelectorAll('button[data-restore]').forEach((btn) => {
+      btn.addEventListener('click', () => restoreClass(btn.dataset.restore, btn.dataset.name));
     });
   }
 
@@ -1085,12 +1635,26 @@
   // 停用班级（软删除，不删除学生与学习数据）
   async function archiveClass(classId, name) {
     if (!confirm('确定停用班级「' + name + '」吗？\n\n· 班级不再出现在「进行中」列表\n' +
+      '· 在「全部」列表里会置灰显示，随时可以「恢复」\n' +
       '· 学生名单与学习数据不会被删除\n· 学生仍保留在本班，不会被自动改成未分班')) return;
     const res = await api.archiveClass(classId, true);
     if (res && res.ok) {
       await loadClasses();
     } else {
       alert(classErrText(res, '停用失败'));
+    }
+  }
+
+  // 恢复已停用的班级（后端已支持 archived:false，并会做同名活动班级校验）
+  async function restoreClass(classId, name) {
+    if (!confirm('确定恢复班级「' + name + '」吗？\n\n· 恢复后重新出现在「进行中」列表\n' +
+      '· 学生名单、白名单与学习数据都在，恢复后立即可用\n' +
+      '· 若已存在同名活动班级，需先改名再恢复')) return;
+    const res = await api.archiveClass(classId, false);
+    if (res && res.ok) {
+      await loadClasses();
+    } else {
+      alert(classErrText(res, '恢复失败'));
     }
   }
 
@@ -1141,7 +1705,9 @@
           (archived ? '' : '<button class="mini-btn" id="cdImport">批量导入到本班</button>') +
           (archived ? '' : '<button class="mini-btn" id="cdAdd">从名册添加</button>') +
           (archived ? '' : '<button class="mini-btn" id="cdSync">从名册并入</button>') +
-          (archived ? '' : '<button class="mini-btn" id="cdBatch">批量管理</button>') +
+        (archived ? '' : '<button class="mini-btn" id="cdBatch">批量管理</button>') +
+        (isSuper() ? '<button class="mini-btn" id="cdDemo">' + (c.is_demo ? '取消演示班标记' : '标记为演示班') + '</button>' : '') +
+        (archived ? '<button class="mini-btn" id="cdRestore">恢复本班</button>' : '') +
           (archived ? '' : '<span class="purge-bar hidden" id="cdBatchBar">已选 <b id="cdSelCount">0</b> 条' +
             '<button class="mini-btn" id="cdSelAll">全选本页</button>' +
             '<button class="mini-btn" id="cdSelClear">清空选择</button>' +
@@ -1168,7 +1734,31 @@
     if (importBtn) importBtn.addEventListener('click', () => openImportStudents({ id: classId, name: c.name || '' }));
     const syncBtn = $('cdSync');
     if (syncBtn) syncBtn.addEventListener('click', () => openSyncMembers(classId, c.name || ''));
+    // 演示班标记（仅超管）：只影响报表与班级统计，不影响学生能否使用 AI
+    const demoBtn = $('cdDemo');
+    if (demoBtn) {
+      demoBtn.addEventListener('click', async () => {
+        const next = !c.is_demo;
+        if (!confirm(next
+          ? '把「' + (c.name || '') + '」标记为演示班？\n\n· 该班与其成员不再计入班级概况、名册人数与学情统计\n· 不影响学生能否使用 AI 教师'
+          : '取消「' + (c.name || '') + '」的演示班标记？')) return;
+        const r = await api.updateClass({ class_id: classId, is_demo: next });
+        if (r && r.ok) { await renderClassDetail(container); } else alert(classErrText(r, '标记失败'));
+      });
+    }
     if ($('cdBatch')) $('cdBatch').addEventListener('click', () => enterClassBatch(classId, archived));
+    if ($('cdRestore')) {
+      $('cdRestore').addEventListener('click', async () => {
+        if (!confirm('确定恢复班级「' + (c.name || '') + '」吗？\n\n' +
+          '· 恢复后重新出现在「进行中」列表\n· 名单、白名单与学习数据都在，立即可用')) return;
+        const r = await api.archiveClass(classId, false);
+        if (r && r.ok) {
+          renderRoute();
+        } else {
+          alert(classErrText(r, '恢复失败'));
+        }
+      });
+    }
     if ($('cdBatchCancel')) $('cdBatchCancel').addEventListener('click', () => exitClassBatch(classId, archived));
     if ($('cdSelClear')) $('cdSelClear').addEventListener('click', () => { classMemberSelected.clear(); updateClassBatchBar(); renderClassMemberTable(classId, archived); });
     if ($('cdSelAll')) $('cdSelAll').addEventListener('click', () => selectAllClassMembers());

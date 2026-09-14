@@ -16,7 +16,8 @@ const COLLECTIONS = [
   'classes',
   'students',
   'teacher_classes',
-  'teacher_notes'
+  'teacher_notes',
+  'maintenance_logs'
 ];
 
 // ---- 常量 ----
@@ -27,6 +28,14 @@ const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 };
 // 超级管理员：从云函数环境变量读取（部署时配置 TEACHER_USERNAME / TEACHER_PASSWORD）
 const SUPER_USERNAME = (process.env.TEACHER_USERNAME || 'myq').trim();
 const SUPER_PASSWORD = (process.env.TEACHER_PASSWORD || '').trim();
+
+// 内部测试账号（微信 openid，逗号 / 分号 / 空格分隔）。
+// 用途：把开发者与老师本人的自测数据从"真实学情"里剔除（见 docs/requirements/REQ-003.md D21/D22）。
+// 注意：这与小程序端 api 云函数的 ADMIN_OPENIDS 是两套名单，不要混用；人工不可改这里的判定结果。
+const INTERNAL_OPENIDS = (process.env.INTERNAL_OPENIDS || '')
+  .split(/[,，;；\s]+/)
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 // ---- 工具 ----
 function now() {
@@ -304,19 +313,45 @@ async function deleteTeacher(event) {
 
 // ---- 教学驾驶舱统计 ----
 async function dashboard(event) {
-  await requireAuth(event);
+  const me = await requireAuth(event);
+  const superUser = isSuper(me);
 
-  // 学生总数
-  const totalStudents = await countStudents();
+  // ---- 数据分线（见 docs/requirements/REQ-003.md §4）：internal / demo / test 不计入真实学情 ----
+  const idx = await buildLineIndex();
+  let scopeOpenids = null; // null = 全局（超管）
+  if (!superUser) {
+    const ownKeys = new Set(idx.students
+      .filter((s) => s.owner_teacher_id === me._id)
+      .map((s) => rosterKey(s.student_no, s.name)));
+    scopeOpenids = new Set();
+    idx.users.forEach((u) => {
+      if (u.openid && ownKeys.has(rosterKey(u.student_id, u.name))) scopeOpenids.add(String(u.openid));
+    });
+  }
+  const inScope = (record) => {
+    if (!scopeOpenids) return true;
+    const openid = String((record && record.openid) || '');
+    return !!openid && scopeOpenids.has(openid);
+  };
+  const lineOf = (record) => lineOfRecord(idx, record);
 
-  // 近 7 天学习会话（learning_sessions 按 created_at 且 is_valid 为真）
+  // 近 7 天学习会话：只统计「在册学情」（student 线）且在本范围内的数据
   const sevenDaysAgo = daysAgoISO(7);
-  const sessions = await fetchAll('learning_sessions',
+  const allSessions = await fetchAll('learning_sessions',
     db.collection('learning_sessions').where({ created_at: db.command.gte(sevenDaysAgo) }));
+  const scopedSessions = allSessions.filter((s) => inScope(s));
+  const sessions = scopedSessions.filter((s) => lineOf(s) === 'student');
+  const excludedSessionsByLine = { internal: 0, demo: 0, test: 0, guest: 0 };
+  scopedSessions.forEach((s) => {
+    const line = lineOf(s);
+    if (line !== 'student' && excludedSessionsByLine[line] !== undefined) excludedSessionsByLine[line] += 1;
+  });
+  const excludedSessions = scopedSessions.length - sessions.length;
+  const excludedSessionsTest = excludedSessionsByLine.internal + excludedSessionsByLine.demo + excludedSessionsByLine.test;
 
   const todayKey = dayKey(Date.now());
   const todaySessions = sessions.filter((s) => dayKey(new Date(s.created_at).getTime()) === todayKey);
-  const todayActiveUsers = new Set(todaySessions.map((s) => s.openid || s.user_id)).size;
+  const todayActiveUsers = new Set(todaySessions.map((s) => String(s.openid || s.user_id || ''))).size;
 
   // 点线面使用次数：module 属于 point/line/plane
   const plpModules = new Set(['point', 'line', 'plane']);
@@ -344,45 +379,98 @@ async function dashboard(event) {
   });
   const moduleDistribution = Object.keys(moduleMap).map((key) => ({ module: key, count: moduleMap[key] }));
 
-  // AI 教师提问（ai_messages 里 role=user 的消息）
+  // AI 教师提问（ai_messages 里 role=user 的消息）：同样只统计「在册学情」且在本范围内的数据
   let aiToday = 0;
   let aiWeek = 0;
+  let aiHot = [];
+  let excludedAi = 0;
+  let excludedAiTest = 0;
+  let excludedAiByLine = { internal: 0, demo: 0, test: 0, guest: 0 };
   try {
-    const aiMessages = await fetchAll('ai_messages',
+    // ai_messages 不存 openid，必须经 ai_conversations 关联到人（再判范围与线）
+    const convs = await fetchAll('ai_conversations').catch(() => []);
+    const convOwner = new Map(convs.map((c) => [String(c._id), String(c.openid || '')]));
+    const lineOfOpenid = (openid) => (openid && idx.byOpenid.has(openid) ? idx.byOpenid.get(openid) : 'guest');
+    const allAi = await fetchAll('ai_messages',
       db.collection('ai_messages').where({ role: 'user', created_at: db.command.gte(sevenDaysAgo) }));
+    const withOwner = allAi.map((m) => ({ message: m, openid: convOwner.get(String(m.conversation_id)) || '' }));
+    const scopedAi = withOwner.filter((x) => !scopeOpenids || (x.openid && scopeOpenids.has(x.openid)));
+    const studentAi = scopedAi.filter((x) => lineOfOpenid(x.openid) === 'student');
+    excludedAiByLine = { internal: 0, demo: 0, test: 0, guest: 0 };
+    scopedAi.forEach((x) => {
+      const line = lineOfOpenid(x.openid);
+      if (line !== 'student' && excludedAiByLine[line] !== undefined) excludedAiByLine[line] += 1;
+    });
+    excludedAi = scopedAi.length - studentAi.length;
+    excludedAiTest = excludedAiByLine.internal + excludedAiByLine.demo + excludedAiByLine.test;
+    const aiMessages = studentAi.map((x) => x.message);
     aiWeek = aiMessages.length;
     aiToday = aiMessages.filter((m) => dayKey(new Date(m.created_at).getTime()) === todayKey).length;
+    const kpMap2 = new Map();
+    aiMessages.forEach((m) => {
+      const k = m.knowledge_point || '（未分类）';
+      kpMap2.set(k, (kpMap2.get(k) || 0) + 1);
+    });
+    aiHot = Array.from(kpMap2.entries())
+      .map(([k, n]) => ({ knowledge_point_id: k, count: n }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
   } catch (e) {
     // ai_messages 可能尚未创建
   }
 
-  // ---- 名册与班级概况 ----
-  const rosterRes = await db.collection('students').limit(1000).get().catch(() => ({ data: [] }));
+  // ---- 名册与班级概况（按 classes 实体分组；演示班不进统计）----
   const regMap = await loadRegisteredMap();
-  const rosterItems = rosterRes.data.map((s) => {
-    const u = regMap.get(rosterKey(s.student_no, s.name));
-    return { class_name: s.class_name || '未分班', registered: !!u, openid: u ? u.openid : '' };
-  });
-  const registeredCount = rosterItems.filter((r) => r.registered).length;
+  const rosterItems = idx.students
+    .filter((s) => superUser || s.owner_teacher_id === me._id)
+    .map((s) => {
+      const u = regMap.get(rosterKey(s.student_no, s.name));
+      const cid = String(s.class_id || '');
+      const cls = idx.classById.get(cid);
+      return {
+        class_id: cid,
+        // 归属只认班级实体（class_id）；class_name 仅作为"名册原文本"保留，用于提示教师去归并
+        class_name: cls ? String(cls.name || '') : '',
+        class_legacy_name: (!cls && String(s.class_name || '').trim()) ? String(s.class_name).trim() : '',
+        class_status: cls ? String(cls.status || 'active') : '',
+        is_demo: !!(cls && cls.is_demo === true),
+        registered: !!u,
+        openid: u ? String(u.openid || '') : ''
+      };
+    });
+  const rosterVisible = rosterItems.filter((r) => !r.is_demo);
+  const demoRoster = rosterItems.length - rosterVisible.length;
+  const registeredCount = rosterVisible.filter((r) => r.registered).length;
 
   const classMap = new Map();
-  rosterItems.forEach((r) => {
-    if (!classMap.has(r.class_name)) {
-      classMap.set(r.class_name, { class_name: r.class_name, total: 0, registered: 0, active7: new Set() });
+  rosterVisible.forEach((r) => {
+    const key = r.class_id || '__none__';
+    if (!classMap.has(key)) {
+      classMap.set(key, {
+        class_id: r.class_id,
+        class_name: r.class_id ? (r.class_name || '（班级已删除）') : '未分班',
+        class_status: r.class_status,
+        legacyNames: new Set(),
+        is_demo: false, total: 0, registered: 0, active7: new Set()
+      });
     }
-    const c = classMap.get(r.class_name);
+    const c = classMap.get(key);
+    if (r.class_legacy_name) c.legacyNames.add(r.class_legacy_name);
     c.total += 1;
     if (r.registered) c.registered += 1;
   });
-  const active7Openids = new Set(sessions.map((s) => s.openid).filter(Boolean));
-  rosterItems.forEach((r) => {
-    if (r.openid && active7Openids.has(r.openid)) {
-      const c = classMap.get(r.class_name);
-      if (c) c.active7.add(r.openid);
-    }
+  const active7Openids = new Set(sessions.map((s) => String(s.openid || '')).filter(Boolean));
+  rosterVisible.forEach((r) => {
+    const c = classMap.get(r.class_id || '__none__');
+    if (c && r.openid && active7Openids.has(r.openid)) c.active7.add(r.openid);
   });
   const classes = Array.from(classMap.values()).map((c) => ({
+    class_id: c.class_id,
     class_name: c.class_name,
+    class_status: c.class_status,
+    // 未关联班级但在名册里写了班级名的记录：提示教师用「从名册并入」归并
+    class_legacy_names: Array.from(c.legacyNames),
+    is_demo: false,
     total: c.total,
     registered: c.registered,
     unregistered: c.total - c.registered,
@@ -391,38 +479,43 @@ async function dashboard(event) {
 
   // ---- 学情提醒（统计规则，非 AI）----
   const alerts = [];
-  const unregTotal = rosterItems.length - registeredCount;
+  // 注意：必须用排除演示班后的口径，否则 unregistered_count 会比 roster_total - registered_count 多
+  const unregTotal = rosterVisible.length - registeredCount;
   if (unregTotal > 0) {
     alerts.push({ level: 'info', text: '名册中还有 ' + unregTotal + ' 名学生尚未注册微信' });
   }
-  const idleCount = rosterItems.filter((r) => r.registered && r.openid && !active7Openids.has(r.openid)).length;
+  const idleCount = rosterVisible.filter((r) => r.registered && r.openid && !active7Openids.has(r.openid)).length;
   if (idleCount > 0) {
     alerts.push({ level: 'warn', text: '有 ' + idleCount + ' 名已注册学生最近 7 天没有学习记录' });
   }
-
-  // ---- 本周 AI 提问热点 ----
-  let aiHot = [];
-  try {
-    const aiMsgs = await fetchAll('ai_messages',
-      db.collection('ai_messages').where({ role: 'user', created_at: db.command.gte(sevenDaysAgo) }));
-    const kpMap2 = new Map();
-    aiMsgs.forEach((m) => {
-      const k = m.knowledge_point || '（未分类）';
-      kpMap2.set(k, (kpMap2.get(k) || 0) + 1);
-    });
-    aiHot = Array.from(kpMap2.entries())
-      .map(([k, n]) => ({ knowledge_point_id: k, count: n }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-    if (aiHot.length && aiHot[0].count >= 3) {
-      alerts.push({ level: 'info', text: '本周 AI 提问最集中的是「' + aiHot[0].knowledge_point_id + '」（' + aiHot[0].count + ' 次）' });
-    }
-  } catch (e) {}
+  if (excludedSessions > 0 || excludedAi > 0 || demoRoster > 0) {
+    alerts.push({ level: 'info', text: '已排除非学情数据（测试 / 演示 / 游客）：学习会话 ' + excludedSessions + ' 条、AI 提问 ' + excludedAi + ' 条、演示班名册 ' + demoRoster + ' 人' });
+  }
+  if (aiHot.length && aiHot[0].count >= 3) {
+    alerts.push({ level: 'info', text: '本周 AI 提问最集中的是「' + aiHot[0].knowledge_point_id + '」（' + aiHot[0].count + ' 次）' });
+  }
 
   return {
     ok: true,
-    total_students: totalStudents,
-    roster_total: rosterItems.length,
+    scope: superUser ? 'all' : 'me',
+    lines: {
+      total: idx.users.length,
+      student: idx.counts.student,
+      guest: idx.counts.guest,
+      test: idx.counts.test + idx.counts.internal + idx.counts.demo
+    },
+    line_detail: idx.counts,
+    excluded: {
+      sessions: excludedSessions,
+      sessions_test: excludedSessionsTest,
+      sessions_guest: excludedSessionsByLine.guest,
+      ai: excludedAi,
+      ai_test: excludedAiTest,
+      ai_guest: excludedAiByLine.guest,
+      demo_roster: demoRoster
+    },
+    total_students: idx.users.length,
+    roster_total: rosterVisible.length,
     registered_count: registeredCount,
     unregistered_count: unregTotal,
     today_active_students: todayActiveUsers,
@@ -622,7 +715,10 @@ async function listRegisteredStudents(event, me) {
       owner_teacher_name: '',
       registered: true,
       registered_at: u.created_at || '',
-      last_login_at: u.last_login_at || ''
+      last_login_at: u.last_login_at || '',
+      // 数据标记（第一阶段）：production / test / unknown 与来源（auto / manual）
+      data_quality: u.data_quality || '',
+      data_quality_source: u.data_quality_source || ''
     }))
     .sort((a, b) => String(b.registered_at || '').localeCompare(String(a.registered_at || '')));
 
@@ -874,6 +970,701 @@ function matchPurgeFilters(s, f, regMap) {
   // 未分班：用于把"挂在某位教师名下但没进任何班级"的记录筛出来（例如误收编到超管名下的）
   if (f.no_class && String(s.class_id || '')) return false;
   return true;
+}
+
+// ---- 数据维护（仅超级管理员）----
+// 用途：正式发版前清空"测试期产生的过程数据"，让驾驶舱与各分析页从 0 开始。
+// 安全约束：
+//   1. 只有超管可调用（requireSuper）；
+//   2. 只允许清理下面这 6 张过程表，名册与账号类集合（teachers / classes / students /
+//      roster / users / teacher_notes / teacher_sessions / schools）传入即 403；
+//   3. 默认 dry_run（只统计、不删除），真删必须带 dry_run:false 且 confirm_count 与预览一致；
+//   4. 每次清理写入 maintenance_logs 留痕。
+const RESETTABLE_COLLECTIONS = [
+  { key: 'learning_sessions', label: '学习会话' },
+  { key: 'learning_records', label: '学习行为事件' },
+  { key: 'ai_conversations', label: 'AI 会话' },
+  { key: 'ai_messages', label: 'AI 消息' },
+  { key: 'survey_responses', label: '问卷作答' },
+  { key: 'survey_invites', label: '问卷邀请' }
+];
+
+async function resetProcessData(event) {
+  const me = await requireSuper(event);
+  const allowed = new Set(RESETTABLE_COLLECTIONS.map((c) => c.key));
+  const requested = Array.isArray(event && event.collections) && event.collections.length
+    ? event.collections.map((c) => String(c).trim()).filter(Boolean)
+    : RESETTABLE_COLLECTIONS.map((c) => c.key);
+
+  const illegal = requested.filter((c) => !allowed.has(c));
+  if (illegal.length) {
+    throw makeError('FORBIDDEN_COLLECTION', 403,
+      '不允许清理：' + illegal.join('、') + '。只允许清理过程数据：' + Array.from(allowed).join('、'));
+  }
+  const scope = Array.from(new Set(requested));
+
+  // 预览：逐集合统计
+  const counts = {};
+  let total = 0;
+  for (const key of scope) {
+    const res = await db.collection(key).count().catch(() => ({ total: 0 }));
+    counts[key] = res.total || 0;
+    total += counts[key];
+  }
+
+  const dryRun = !(event && event.dry_run === false);
+  if (dryRun) {
+    return {
+      ok: true,
+      mode: 'dry_run',
+      collections: scope,
+      counts,
+      total,
+      labels: RESETTABLE_COLLECTIONS.filter((c) => scope.indexOf(c.key) >= 0),
+      hint: '确认后用相同 collections 再调用一次，带 dry_run:false 与 confirm_count=' + total + ' 即可清理'
+    };
+  }
+
+  const confirmCount = Number(event && event.confirm_count);
+  if (!Number.isFinite(confirmCount) || confirmCount !== total) {
+    throw makeError('CONFIRM_MISMATCH', 400,
+      'confirm_count 必须等于待清理总条数（当前为 ' + total + '）；请先用 dry_run 预览再提交');
+  }
+
+  // 分块清理：服务端 where().remove() 每次有上限，循环到清空为止
+  const removed = {};
+  for (const key of scope) {
+    let done = 0;
+    for (let round = 0; round < 200; round += 1) {
+      const res = await db.collection(key)
+        .where({ _id: db.command.exists(true) })
+        .remove()
+        .catch(() => ({ stats: { removed: 0 } }));
+      const n = (res && res.stats && res.stats.removed) || 0;
+      done += n;
+      if (n <= 0) break;
+    }
+    removed[key] = done;
+  }
+
+  await db.collection('maintenance_logs').add({ data: {
+    action: 'data.reset',
+    operator_id: me._id,
+    operator_name: me.name || '',
+    collections: scope,
+    counts,
+    removed,
+    total,
+    created_at: now()
+  }}).catch(() => null);
+
+  return { ok: true, mode: 'reset', collections: scope, counts, removed, total };
+}
+
+// ---- 数据维护：按人清理（仅超管）----
+// 背景：测试数据往往是特定几个人（多数是老师自己）产生的，按"人"清理比按表清空精确得多。
+// 规则：
+//   1. 只有超管可调用；
+//   2. 只删「勾选的这些人」名下的数据，其他人一条都不动（可按人核对，避免误删真实数据）；
+//   3. 清理范围三块，默认只清行为数据：
+//      behavior（默认开）＝学习会话 / 学习行为事件 / AI 会话与消息 / 问卷作答与邀请
+//      account（默认关）＝删除该学生的注册账号（users 记录；删除后该微信号需重新注册）
+//      roster（默认关）＝删除名册记录（students）与 AI 白名单（roster），并清理这些学生记录上的教师备注
+//   4. 默认 dry_run（只统计不删）；真删需 dry_run:false 且 confirm_count = 选中人数；
+//   5. 每次真删写入 maintenance_logs 留痕。
+const PURGE_PERSON_MAX = 50;
+
+// 行为数据的归人字段：learning_* 早期记录只有 openid，后来加了 user_id，两个都要匹配
+const PERSON_BEHAVIOR_SOURCES = [
+  { collection: 'learning_sessions', by: ['openid', 'user_id'] },
+  { collection: 'learning_records', by: ['openid', 'user_id'] },
+  { collection: 'ai_conversations', by: ['openid'] },
+  { collection: 'survey_responses', by: ['user_id'] },
+  { collection: 'survey_invites', by: ['user_id'] }
+];
+
+const PERSON_COUNT_LABELS = [
+  { key: 'learning_sessions', label: '学习会话' },
+  { key: 'learning_records', label: '行为事件' },
+  { key: 'ai_conversations', label: 'AI 会话' },
+  { key: 'ai_messages', label: 'AI 消息' },
+  { key: 'survey_responses', label: '问卷作答' },
+  { key: 'survey_invites', label: '问卷邀请' }
+];
+
+function chunksOf(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+function emptyBehaviorCounts() {
+  return {
+    learning_sessions: 0,
+    learning_records: 0,
+    ai_conversations: 0,
+    ai_messages: 0,
+    survey_responses: 0,
+    survey_invites: 0
+  };
+}
+
+async function removeWhereAll(collection, cond) {
+  let removed = 0;
+  for (let round = 0; round < 50; round += 1) {
+    const res = await db.collection(collection).where(cond).remove().catch(() => ({ stats: { removed: 0 } }));
+    const n = (res && res.stats && res.stats.removed) || 0;
+    removed += n;
+    if (n <= 0) break;
+  }
+  return removed;
+}
+
+async function removeWhereIn(collection, field, values) {
+  let removed = 0;
+  for (const chunk of chunksOf(values, PURGE_CHUNK)) {
+    removed += await removeWhereAll(collection, { [field]: db.command.in(chunk) });
+  }
+  return removed;
+}
+
+async function loadBehaviorIndex() {
+  const [sessions, records, conversations, messages, responses, invites] = await Promise.all([
+    fetchAll('learning_sessions').catch(() => []),
+    fetchAll('learning_records').catch(() => []),
+    fetchAll('ai_conversations').catch(() => []),
+    fetchAll('ai_messages').catch(() => []),
+    fetchAll('survey_responses').catch(() => []),
+    fetchAll('survey_invites').catch(() => [])
+  ]);
+  return { sessions, records, conversations, messages, responses, invites };
+}
+
+function behaviorCountsFor(user, idx) {
+  const openid = String(user.openid || '');
+  const uid = String(user._id || '');
+  const convIds = new Set(idx.conversations
+    .filter((c) => openid && String(c.openid || '') === openid)
+    .map((c) => c._id));
+  const mine = (row) => (!!openid && String(row.openid || '') === openid)
+    || (!!uid && String(row.user_id || '') === uid);
+  return {
+    learning_sessions: idx.sessions.filter(mine).length,
+    learning_records: idx.records.filter(mine).length,
+    ai_conversations: convIds.size,
+    ai_messages: idx.messages.filter((m) => convIds.has(m.conversation_id)).length,
+    survey_responses: idx.responses.filter((r) => uid && String(r.user_id || '') === uid).length,
+    survey_invites: idx.invites.filter((r) => uid && String(r.user_id || '') === uid).length
+  };
+}
+
+// 名册/白名单里没有账号的"残留"记录：只能按 学号+姓名 统计（learning_records 存了这两个字段）
+function countRecordsByName(idx, studentNo, name) {
+  const no = normalizeStudentNo(studentNo);
+  const nm = String(name == null ? '' : name).trim();
+  if (!no || !nm) return 0;
+  return idx.records.filter((r) => normalizeStudentNo(r.student_id) === no
+    && String(r.student_name == null ? '' : r.student_name).trim() === nm).length;
+}
+
+// 列出可清理的人：users 账号 ∪ 名册(students) ∪ 白名单(roster)，
+// 这样即便某人只有名册/白名单残留（账号已删），也能被找到并清掉。
+async function listPurgeCandidates(event) {
+  await requireSuper(event);
+  const keyword = String((event && event.keyword) || '').trim().toLowerCase();
+  const [users, students, roster, idx] = await Promise.all([
+    fetchAll('users').catch(() => []),
+    loadAllStudents(),
+    fetchAll('roster').catch(() => []),
+    loadBehaviorIndex()
+  ]);
+  const rosterKeys = new Set(roster.map((r) => rosterKey(r.student_id, r.name)));
+  const studentMap = new Map(students.map((s) => [rosterKey(s.student_no, s.name), s]));
+
+  const byKey = new Map();
+  const standalone = [];   // 空账号（无学号无姓名）无法用「学号|姓名」区分，必须各自成行
+  const sumCounts = (counts) => Object.keys(counts).reduce((sum, k) => sum + counts[k], 0);
+  const emptyCounts = emptyBehaviorCounts;
+
+  // 1) 有账号的学生
+  users.filter((u) => u && u.role === 'student').forEach((u) => {
+    const key = rosterKey(u.student_id, u.name);
+    const counts = behaviorCountsFor(u, idx);
+    counts.learning_records = Math.max(counts.learning_records, countRecordsByName(idx, u.student_id, u.name));
+    const item = {
+      key: 'user:' + u._id,
+      user_id: u._id,
+      has_account: true,
+      openid: String(u.openid || ''),
+      unionid: String(u.unionid || ''),
+      created_at: u.created_at || '',
+      last_login_at: u.last_login_at || '',
+      name: u.name || '',
+      student_no: u.student_id || '',
+      school: u.school || '',
+      registered_at: u.updated_at || u.created_at || '',
+      in_roster: rosterKeys.has(key),
+      in_class_roster: false,
+      owner_teacher_name: '',
+      counts,
+      total: sumCounts(counts)
+    };
+    if (!normalizeStudentNo(u.student_id) && !String(u.name || '').trim()) {
+      standalone.push(item);   // 空账号：每条独立显示，避免与其它空账号共用「|」键被合并
+      return;
+    }
+    byKey.set(key, item);
+  });
+
+  // 2) 名册里的记录（可能没有账号：账号已删或从未注册）
+  students.forEach((s) => {
+    const key = rosterKey(s.student_no, s.name);
+    const exist = byKey.get(key);
+    if (exist) {
+      exist.in_class_roster = true;
+      exist.owner_teacher_name = s.owner_teacher_name || '';
+      if (!exist.school) exist.school = s.school || '';
+      return;
+    }
+    const counts = emptyCounts();
+    counts.learning_records = countRecordsByName(idx, s.student_no, s.name);
+    byKey.set(key, {
+      key: 'name:' + key,
+      user_id: '',
+      has_account: false,
+      name: s.name || '',
+      student_no: s.student_no || '',
+      school: s.school || '',
+      registered_at: s.created_at || '',
+      in_roster: rosterKeys.has(key),
+      in_class_roster: true,
+      owner_teacher_name: s.owner_teacher_name || '',
+      counts,
+      total: sumCounts(counts)
+    });
+  });
+
+  // 3) 白名单里的记录（极端情况下名册也没有，只剩白名单）
+  roster.forEach((r) => {
+    const key = rosterKey(r.student_id, r.name);
+    const nameless = !String(r.name || '').trim();
+    const exist = byKey.get(key);
+    if (exist) {
+      exist.in_roster = true;
+      if (nameless) exist.nameless_roster = true;
+      return;
+    }
+    const counts = emptyCounts();
+    counts.learning_records = countRecordsByName(idx, r.student_id, r.name);
+    byKey.set(key, {
+      key: 'name:' + key,
+      user_id: '',
+      has_account: false,
+      nameless_roster: nameless,
+      name: r.name || '',
+      student_no: normalizeStudentNo(r.student_id),
+      school: '',
+      registered_at: r.created_at || '',
+      in_roster: true,
+      in_class_roster: false,
+      owner_teacher_name: '',
+      counts,
+      total: sumCounts(counts)
+    });
+  });
+
+  let items = Array.from(byKey.values()).concat(standalone);
+
+  // 阶段划分（只描述状态，不做"是不是垃圾"的判断——由使用者按实际情况判断）
+  //   有账号：仅登录未注册 / 已注册未入册 / 已入册
+  //   无账号：名册已录入·未注册（教师已录名单、学生还没登录过，属正常待激活）
+  //           旧白名单残留·无姓名（早期按学号批量导入的 legacy 记录）
+  //           白名单残留·无名册（白名单有、名册没有）
+  items.forEach((it) => {
+    const no = normalizeStudentNo(it.student_no);
+    const nm = String(it.name || '').trim();
+    if (it.has_account) {
+      if (!no && !nm) it.stage = '仅登录未注册';
+      else if (it.in_class_roster || it.in_roster) it.stage = '已入册';
+      else it.stage = '已注册未入册';
+      return;
+    }
+    if (it.in_class_roster) it.stage = '名册已录入·未注册';
+    else if (it.nameless_roster) it.stage = '旧白名单残留·无姓名';
+    else if (it.in_roster) it.stage = '白名单残留·无名册';
+    else it.stage = '未知';
+  });
+
+  if (keyword) {
+    items = items.filter((it) => (it.name + ' ' + it.student_no + ' ' + it.school).toLowerCase().indexOf(keyword) >= 0);
+  }
+  items.sort((a, b) => (b.total - a.total) || String(a.student_no).localeCompare(String(b.student_no)));
+  const limit = Math.max(1, Math.min(1000, Number((event && event.limit) || 500)));
+  return {
+    ok: true,
+    total: items.length,
+    items: items.slice(0, limit),
+    labels: PERSON_COUNT_LABELS
+  };
+}
+
+// 空账号清理：已微信登录、但从未完成注册的 users 记录（学年/姓名全空）。
+// 来源：ensureUser(openid) 在任何人打开小程序登录时自动创建；对方没填学校/姓名/学号就留下这种空行。
+// 注意：删除后该微信号下次打开小程序会重新生成一条，因此它更适合"发版前清一次 + 平时用过滤隐藏"。
+async function emptyAccountCleanup(event) {
+  const me = await requireSuper(event);
+  const users = await fetchAll('users').catch(() => []);
+  const empties = users.filter((u) => u && u.role === 'student'
+    && !normalizeStudentNo(u.student_id)
+    && !String(u.name || '').trim());
+  const dryRun = !(event && event.dry_run === false);
+  if (dryRun) {
+    return {
+      ok: true,
+      mode: 'dry_run',
+      total: empties.length,
+      sample: empties.slice(0, 20).map((u) => ({
+        openid_tail: String(u.openid || '').slice(-6),
+        created_at: u.created_at || u.updated_at || ''
+      })),
+      hint: '确认后带 dry_run:false 与 confirm_count=' + empties.length + ' 再次调用即可清理'
+    };
+  }
+  const confirmCount = Number(event && event.confirm_count);
+  if (!Number.isFinite(confirmCount) || confirmCount !== empties.length) {
+    throw makeError('CONFIRM_MISMATCH', 400,
+      'confirm_count 必须等于待清理条数（当前为 ' + empties.length + '）');
+  }
+  const removed = empties.length ? await removeWhereIn('users', '_id', empties.map((u) => u._id)) : 0;
+  await db.collection('maintenance_logs').add({ data: {
+    action: 'data.emptyAccountCleanup',
+    operator_id: me._id,
+    operator_name: me.name || '',
+    removed,
+    total: empties.length,
+    created_at: now()
+  }}).catch(() => null);
+  return { ok: true, mode: 'purge', removed, total: empties.length };
+}
+
+// 历史遗留清理：只有学号、没有姓名的白名单记录。
+// 来源：早期"按学号批量导入名单"入口（api 云函数 roster.import，写入 name:'' 且 source:'legacy_import'）。
+// 在"学号 + 姓名"核对规则下这类记录不再有任何放行作用，属于可安全清除的垃圾数据。
+async function legacyRosterCleanup(event) {
+  const me = await requireSuper(event);
+  const all = await fetchAll('roster').catch(() => []);
+  const legacy = all.filter((r) => !String(r.name || '').trim() && normalizeStudentNo(r.student_id));
+  const bySource = legacy.reduce((acc, r) => {
+    const key = r.source || '(无 source)';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  const dryRun = !(event && event.dry_run === false);
+  if (dryRun) {
+    return {
+      ok: true,
+      mode: 'dry_run',
+      total: legacy.length,
+      by_source: bySource,
+      sample: legacy.slice(0, 20).map((r) => normalizeStudentNo(r.student_id)),
+      hint: '确认后带 dry_run:false 与 confirm_count=' + legacy.length + ' 再次调用即可清理'
+    };
+  }
+
+  const confirmCount = Number(event && event.confirm_count);
+  if (!Number.isFinite(confirmCount) || confirmCount !== legacy.length) {
+    throw makeError('CONFIRM_MISMATCH', 400,
+      'confirm_count 必须等于待清理条数（当前为 ' + legacy.length + '）');
+  }
+  const removed = legacy.length
+    ? await removeWhereIn('roster', '_id', legacy.map((r) => r._id))
+    : 0;
+  await db.collection('maintenance_logs').add({ data: {
+    action: 'data.legacyRosterCleanup',
+    operator_id: me._id,
+    operator_name: me.name || '',
+    removed,
+    total: legacy.length,
+    by_source: bySource,
+    created_at: now()
+  }}).catch(() => null);
+  return { ok: true, mode: 'purge', removed, total: legacy.length, by_source: bySource };
+}
+
+// ---- 数据标记：回填 / 人工修改（第一阶段：标记 + 回填，见 docs/requirements/REQ-003-phase1-plan.md）----
+// 用户确认的显式测试账号（学号 + 姓名，已按 normalizeStudentNo + trim 归一）。
+// 说明：这是一次性种子名单；今后新增的测试账号请用「数据标记」人工标为 test。
+const TEST_ACCOUNT_KEYS = ['86804388|csj', '0000001|无敌大野牛', '23210010119|王硕'];
+// T0 = 正式发布日（2026-09-09）：当天及之后注册的非 internal/test 账号视为真实数据
+const DATA_QUALITY_T0 = '2026-09-09';
+
+// 回填只写 data_quality / data_quality_source，不动 is_internal（它由环境变量决定）、不动其它字段
+async function backfillDataQuality(event) {
+  const me = await requireSuper(event);
+  const dryRun = !(event && event.dry_run === false);
+  const idx = await buildLineIndex();
+  const testOpenids = new Set();
+  idx.users.forEach((u) => {
+    if (TEST_ACCOUNT_KEYS.indexOf(rosterKey(u.student_id, u.name)) >= 0) testOpenids.add(String(u.openid || ''));
+  });
+
+  const targets = [];
+  const skipped = { internal: 0, manual: 0, unchanged: 0 };
+  idx.users.forEach((u) => {
+    const openid = String(u.openid || '');
+    if (openid && idx.byOpenid.get(openid) === 'internal') { skipped.internal += 1; return; }
+    if (String(u.data_quality_source || '') === 'manual') { skipped.manual += 1; return; }
+    let quality = 'production';
+    if (openid && testOpenids.has(openid)) quality = 'test';
+    else if (String(u.created_at || '').slice(0, 10) < DATA_QUALITY_T0) quality = 'unknown';
+    if (String(u.data_quality || '') === quality) { skipped.unchanged += 1; return; }
+    targets.push({ user_id: String(u._id), name: u.name || '', student_id: u.student_id || '', quality });
+  });
+
+  const categories = targets.reduce((acc, t) => {
+    acc[t.quality] = (acc[t.quality] || 0) + 1;
+    return acc;
+  }, {});
+
+  if (dryRun) {
+    return {
+      ok: true,
+      mode: 'dry_run',
+      total_users: idx.users.length,
+      pending: targets.length,
+      categories,
+      skipped,
+      preview: targets.slice(0, 50),
+      hint: '确认后带 dry_run:false 与 confirm_count=' + targets.length + ' 再次调用即可写入'
+    };
+  }
+
+  const confirmCount = Number(event && event.confirm_count);
+  if (!Number.isFinite(confirmCount) || confirmCount !== targets.length) {
+    throw makeError('CONFIRM_MISMATCH', 400,
+      'confirm_count 必须等于待写入条数（当前为 ' + targets.length + '）；请先预览');
+  }
+
+  let updated = 0;
+  const errors = [];
+  for (const t of targets) {
+    try {
+      await db.collection('users').doc(t.user_id).update({
+        data: { data_quality: t.quality, data_quality_source: 'auto', updated_at: now() }
+      });
+      updated += 1;
+    } catch (e) {
+      errors.push({ user_id: t.user_id, code: 'UPDATE_FAILED', msg: String((e && e.message) || e) });
+    }
+  }
+  await db.collection('maintenance_logs').add({ data: {
+    action: 'data.backfillQuality',
+    operator_id: me._id,
+    operator_name: me.name || '',
+    categories,
+    updated,
+    skipped,
+    total_users: idx.users.length,
+    errors: errors.length,
+    created_at: now()
+  }}).catch(() => null);
+  return { ok: true, mode: 'commit', updated, categories, skipped, errors: errors.slice(0, 50) };
+}
+
+// 人工标记：只改 data_quality（manual 优先级高于回填的 auto），不改 is_internal（D22）
+async function markDataQuality(event) {
+  const me = await requireSuper(event);
+  const userIds = Array.isArray(event && event.user_ids)
+    ? event.user_ids.map((v) => String(v).trim()).filter(Boolean)
+    : [];
+  const quality = String((event && event.quality) || '').trim();
+  if (!userIds.length) throw makeError('MISSING_USER_IDS', 400, '请选择要标记的账号');
+  if (['production', 'test', 'unknown'].indexOf(quality) < 0) {
+    throw makeError('BAD_QUALITY', 400, '数据标记只能是 production / test / unknown');
+  }
+  let updated = 0;
+  const failed = [];
+  for (const id of userIds) {
+    try {
+      await db.collection('users').doc(id).update({
+        data: { data_quality: quality, data_quality_source: 'manual', updated_at: now() }
+      });
+      updated += 1;
+    } catch (e) {
+      failed.push({ user_id: id, code: 'UPDATE_FAILED', msg: String((e && e.message) || e) });
+    }
+  }
+  await db.collection('maintenance_logs').add({ data: {
+    action: 'data.markQuality',
+    operator_id: me._id,
+    operator_name: me.name || '',
+    user_ids: userIds.slice(0, 200),
+    quality,
+    updated,
+    failed: failed.length,
+    created_at: now()
+  }}).catch(() => null);
+  return { ok: true, quality, updated, failed: failed.slice(0, 50) };
+}
+
+async function purgePersonData(event) {
+  const me = await requireSuper(event);
+  // 入参：targets = ['user:<账号文档id>', 'name:<学号>|<姓名>']（推荐）；也兼容旧版 user_ids
+  const rawTargets = Array.isArray(event && event.targets) && event.targets.length
+    ? event.targets.map((t) => String(t).trim()).filter(Boolean)
+    : (Array.isArray(event && event.user_ids)
+      ? event.user_ids.map((id) => 'user:' + String(id).trim()).filter((t) => t !== 'user:')
+      : []);
+  if (!rawTargets.length) throw makeError('NO_SELECTION', 400, '请先勾选要清理的人');
+  if (rawTargets.length > PURGE_PERSON_MAX) {
+    throw makeError('TOO_MANY_SELECTED', 400, '一次最多清理 ' + PURGE_PERSON_MAX + ' 人，请分批操作');
+  }
+
+  const scopeInput = (event && event.scope) || {};
+  const scope = {
+    behavior: scopeInput.behavior !== false,   // 默认清理行为数据
+    account: scopeInput.account === true,      // 默认不删注册账号
+    roster: scopeInput.roster === true         // 默认不删名册与白名单
+  };
+  if (!scope.behavior && !scope.account && !scope.roster) {
+    throw makeError('NO_SCOPE', 400, '请至少选择一项要清理的内容');
+  }
+
+  const idx = await loadBehaviorIndex();
+  const targets = [];
+  for (const raw of rawTargets) {
+    if (raw.indexOf('user:') === 0) {
+      const res = await db.collection('users').doc(raw.slice(5)).get().catch(() => null);
+      const user = res && res.data;
+      if (!user || user.role !== 'student') continue;
+      const counts = behaviorCountsFor(user, idx);
+      counts.learning_records = Math.max(counts.learning_records, countRecordsByName(idx, user.student_id, user.name));
+      targets.push({
+        key: raw, kind: 'user', user_id: user._id, openid: String(user.openid || ''),
+        name: user.name || '', student_no: normalizeStudentNo(user.student_id), school: user.school || '', counts
+      });
+      continue;
+    }
+    if (raw.indexOf('name:') === 0) {
+      const key = raw.slice(5);
+      const parts = key.split('|');
+      const no = normalizeStudentNo(parts[0]);
+      const nm = String(parts[1] == null ? '' : parts[1]).trim();
+      // 允许"只有学号、没有姓名"的历史白名单记录（早期按学号批量导入产生）
+      if (!no) continue;
+      const counts = emptyBehaviorCounts();
+      counts.learning_records = countRecordsByName(idx, no, nm);
+      targets.push({ key: raw, kind: 'name', user_id: '', openid: '', name: nm, student_no: no, school: '', counts });
+    }
+  }
+  if (!targets.length) throw makeError('NOT_FOUND', 404, '选中的记录已不存在（可能刚被清理过）');
+
+  const sumCounts = (counts) => Object.keys(counts).reduce((sum, k) => sum + counts[k], 0);
+  const preview = targets.map((t) => ({
+    key: t.key,
+    kind: t.kind,
+    user_id: t.user_id,
+    name: t.name,
+    student_no: t.student_no,
+    school: t.school,
+    counts: t.counts,
+    total: sumCounts(t.counts)
+  }));
+  const totalRecords = preview.reduce((sum, p) => sum + p.total, 0);
+  const accountTargets = targets.filter((t) => t.kind === 'user');
+
+  if (!(event && event.dry_run === false)) {
+    return {
+      ok: true,
+      mode: 'dry_run',
+      scope,
+      people: preview,
+      people_count: targets.length,
+      account_count: accountTargets.length,
+      total_records: totalRecords,
+      labels: PERSON_COUNT_LABELS,
+      hint: '确认后带 dry_run:false 与 confirm_count=' + targets.length + '（选中人数）再次调用即可清理'
+    };
+  }
+
+  const confirmCount = Number(event && event.confirm_count);
+  if (!Number.isFinite(confirmCount) || confirmCount !== targets.length) {
+    throw makeError('CONFIRM_MISMATCH', 400,
+      'confirm_count 必须等于选中人数（当前为 ' + targets.length + '）；请先预览再提交');
+  }
+
+  const openids = accountTargets.map((t) => t.openid).filter(Boolean);
+  const userIds = accountTargets.map((t) => t.user_id);
+  const removed = {};
+
+  if (scope.behavior) {
+    // AI 消息没有 openid，只能按"这些人的会话 id"删
+    const convIds = idx.conversations
+      .filter((c) => openids.indexOf(String(c.openid || '')) >= 0)
+      .map((c) => c._id);
+    removed.ai_messages = convIds.length ? await removeWhereIn('ai_messages', 'conversation_id', convIds) : 0;
+
+    for (const source of PERSON_BEHAVIOR_SOURCES) {
+      let count = 0;
+      for (const field of source.by) {
+        const values = field === 'openid' ? openids : userIds;
+        if (!values.length) continue;
+        count += await removeWhereIn(source.collection, field, values);
+      }
+      removed[source.collection] = count;
+    }
+    // 只按 openid/user_id 可能漏掉早期只写了 学号+姓名 的行为记录，这里按「学号+姓名」再兜一遍
+    let byName = 0;
+    for (const t of targets) {
+      if (!t.student_no || !t.name) continue;
+      byName += await removeWhereAll('learning_records', { student_id: t.student_no, student_name: t.name });
+    }
+    removed.learning_records += byName;
+  }
+
+  if (scope.roster) {
+    const students = await loadAllStudents();
+    const studentIds = [];
+    targets.forEach((t) => {
+      const key = rosterKey(t.student_no, t.name);
+      students.filter((s) => rosterKey(s.student_no, s.name) === key).forEach((s) => studentIds.push(s._id));
+    });
+    removed.students = studentIds.length ? await removeWhereIn('students', '_id', studentIds) : 0;
+    removed.teacher_notes = studentIds.length ? await removeWhereIn('teacher_notes', 'doc_id', studentIds) : 0;
+
+    // 白名单按「学号 + 姓名」精确匹配删除
+    const rosterAll = await fetchAll('roster').catch(() => []);
+    const keys = new Set(targets.map((t) => rosterKey(t.student_no, t.name)));
+    const rosterIds = rosterAll.filter((r) => keys.has(rosterKey(r.student_id, r.name))).map((r) => r._id);
+    removed.roster = rosterIds.length ? await removeWhereIn('roster', '_id', rosterIds) : 0;
+  }
+
+  if (scope.account && userIds.length) {
+    removed.users = await removeWhereIn('users', '_id', userIds);
+  }
+
+  await db.collection('maintenance_logs').add({ data: {
+    action: 'data.personPurge',
+    operator_id: me._id,
+    operator_name: me.name || '',
+    scope,
+    people: preview.map((p) => ({ key: p.key, kind: p.kind, name: p.name, student_no: p.student_no, total: p.total })),
+    removed,
+    created_at: now()
+  }}).catch(() => null);
+
+  return {
+    ok: true,
+    mode: 'purge',
+    scope,
+    people: preview,
+    people_count: targets.length,
+    account_count: accountTargets.length,
+    total_records: totalRecords,
+    removed,
+    labels: PERSON_COUNT_LABELS
+  };
 }
 
 async function purgeStudents(event) {
@@ -1311,6 +2102,62 @@ async function visibleStudents(me) {
   return { superUser, items, openids, byOpenid };
 }
 
+// ---- 数据分线（真实学情 / 游客漏斗 / 测试）----
+// 单一实现：所有报表口径都必须经过这里，避免各处自行判断（见 docs/requirements/REQ-003.md §4、§8）。
+// 优先级：internal > demo > test > guest > student；每个用户唯一归属，三条线求和 = 总用户数。
+const EXCLUDED_LINES = ['internal', 'demo', 'test'];
+
+function isExcludedLine(line) {
+  return EXCLUDED_LINES.indexOf(line) >= 0;
+}
+
+//   internal：openid 命中 INTERNAL_OPENIDS（环境变量，人工不可改）
+//   demo    ：该用户命中的名册行所在班级被标记为演示班（classes.is_demo）
+//   test    ：users.data_quality === 'test'（回填或超管人工结论）
+//   guest   ：未命中名册（含未填资料者）
+//   student ：命中名册且不属上述
+async function buildLineIndex() {
+  const [users, students, classes] = await Promise.all([
+    fetchAll('users').catch(() => []),
+    loadAllStudents(),
+    fetchAll('classes').catch(() => [])
+  ]);
+  const classById = new Map(classes.map((c) => [String(c._id), c]));
+  const demoClassIds = new Set(classes.filter((c) => c.is_demo === true).map((c) => String(c._id)));
+  const internalSet = new Set(INTERNAL_OPENIDS);
+  const studentClassByKey = new Map();
+  students.forEach((s) => {
+    studentClassByKey.set(rosterKey(s.student_no, s.name), String(s.class_id || ''));
+  });
+  const counts = { internal: 0, demo: 0, test: 0, guest: 0, student: 0 };
+  const byOpenid = new Map();
+  const byUserId = new Map();
+  const scopedUsers = users.filter((u) => String(u.role || 'student') === 'student');
+  scopedUsers.forEach((u) => {
+    const openid = String(u.openid || '');
+    const key = rosterKey(u.student_id, u.name);
+    const hasRoster = studentClassByKey.has(key);
+    let line = 'guest';
+    if (openid && internalSet.has(openid)) line = 'internal';
+    else if (hasRoster && demoClassIds.has(studentClassByKey.get(key))) line = 'demo';
+    else if (String(u.data_quality || '') === 'test') line = 'test';
+    else if (hasRoster) line = 'student';
+    counts[line] += 1;
+    if (openid) byOpenid.set(openid, line);
+    byUserId.set(String(u._id), line);
+  });
+  return { counts, byOpenid, byUserId, demoClassIds, classById, users: scopedUsers, students };
+}
+
+// 取某条数据记录所属的线：优先按 openid，其次按 user_id；无法判定时按 guest 处理（不计入学情）
+function lineOfRecord(idx, record) {
+  const openid = String((record && record.openid) || '');
+  if (openid && idx.byOpenid.has(openid)) return idx.byOpenid.get(openid);
+  const uid = String((record && record.user_id) || '');
+  if (uid && idx.byUserId.has(uid)) return idx.byUserId.get(uid);
+  return 'guest';
+}
+
 // 按 openid 分批查询（规避 in 查询条数上限）
 async function fetchByOpenids(collection, openids, perBatch, perQuery) {
   const out = [];
@@ -1465,6 +2312,14 @@ async function listLearningRecords(event) {
     all = await fetchByOpenids('learning_records', scope.openids, 50, 500);
   }
 
+  // 默认只保留真实学情（student 线）：internal / demo / test / guest 一并排除（见 REQ-003 §8）
+  const lineIdx = await buildLineIndex();
+  const beforeExclude = all.length;
+  const guestCount = all.filter((r) => lineOfRecord(lineIdx, r) === 'guest').length;
+  all = all.filter((r) => lineOfRecord(lineIdx, r) === 'student');
+  const excluded = beforeExclude - all.length - guestCount;
+  const excludedGuest = guestCount;
+
   const classes = Array.from(new Set(scope.items.map((i) => i.class_name).filter(Boolean))).sort();
 
   let items = all
@@ -1492,7 +2347,15 @@ async function listLearningRecords(event) {
       String(r.student_no).toLowerCase().includes(keyword));
   }
 
-  return { ok: true, total: items.length, items: items.slice(0, limit), classes, is_super: scope.superUser };
+  return {
+    ok: true,
+    total: items.length,
+    items: items.slice(0, limit),
+    classes,
+    is_super: scope.superUser,
+    excluded_test: excluded,
+    excluded_guest: excludedGuest
+  };
 }
 
 // AI 问答：教师可见范围内的提问（配成 问/答）+ 统计 + 高频知识点
@@ -1509,6 +2372,14 @@ async function listAiQuestions(event) {
   } else if (scope.openids.length) {
     convs = await fetchByOpenids('ai_conversations', scope.openids, 50, 500);
   }
+
+  // 默认只保留真实学情：对话按 openid 归线，测试 / 演示 / 游客一并排除（见 REQ-003 §8）
+  const lineIdx = await buildLineIndex();
+  const beforeExclude = convs.length;
+  const guestCount = convs.filter((c) => lineOfRecord(lineIdx, c) === 'guest').length;
+  convs = convs.filter((c) => lineOfRecord(lineIdx, c) === 'student');
+  const excluded = beforeExclude - convs.length - guestCount;
+  const excludedGuest = guestCount;
 
   const convById = new Map(convs.map((c) => [c._id, c]));
   const convIds = convs
@@ -1581,7 +2452,9 @@ async function listAiQuestions(event) {
     items: filtered.slice(0, limit),
     summary: { today: todayCount, week: weekCount, total: items.length },
     hot,
-    is_super: scope.superUser
+    is_super: scope.superUser,
+    excluded_test: excluded,
+    excluded_guest: excludedGuest
   };
 }
 
@@ -1635,6 +2508,8 @@ function publicClass(c, memberStat) {
     owner_teacher_id: c.owner_teacher_id || '',
     owner_teacher_name: c.owner_teacher_name || '',
     note: c.note || '',
+    // 演示/内部班标记（仅超管可改）：报表与班级统计会排除演示班，鉴权不受影响
+    is_demo: c.is_demo === true,
     created_at: c.created_at || '',
     updated_at: c.updated_at || '',
     member_count: stat.member_count,
@@ -1800,6 +2675,11 @@ async function updateClass(event) {
     const note = String(event.note || '').trim();
     if (note.length > CLASS_NOTE_MAX) throw makeError('CLASS_NOTE_TOO_LONG', 400, '备注过长');
     patch.note = note;
+  }
+  // 演示班标记：只有超级管理员可以改（教师连自己的班也不能自行标记，见 docs/requirements/REQ-003.md D20）
+  if (event && event.is_demo !== undefined) {
+    if (!isSuper(me)) throw makeError('FORBIDDEN', 403, '只有超级管理员可以标记演示班');
+    patch.is_demo = event.is_demo === true;
   }
   if (!Object.keys(patch).length) throw makeError('EMPTY_PATCH', 400, '没有需要修改的内容');
 
@@ -2159,6 +3039,13 @@ exports.main = async (event) => {
     else if (action === 'class.members.add') result = await addClassMembers(input);
     else if (action === 'class.members.remove') result = await removeClassMembers(input);
     else if (action === 'class.archive') result = await archiveClass(input);
+    else if (action === 'data.reset') result = await resetProcessData(input);
+    else if (action === 'data.personList') result = await listPurgeCandidates(input);
+    else if (action === 'data.personPurge') result = await purgePersonData(input);
+    else if (action === 'data.legacyRoster') result = await legacyRosterCleanup(input);
+    else if (action === 'data.emptyAccounts') result = await emptyAccountCleanup(input);
+    else if (action === 'data.backfillQuality') result = await backfillDataQuality(input);
+    else if (action === 'data.markQuality') result = await markDataQuality(input);
     else result = { ok: false, code: 'UNKNOWN_ACTION', msg: '未知操作' };
 
     return result;
