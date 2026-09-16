@@ -20,6 +20,7 @@ const showFull = process.argv.includes('--full');
 
 const STEPS = [
   { name: '几何真值回归', script: 'scripts/geometry-test.js' },
+  { name: '截交三视图等价性守护', script: 'scripts/section-projection-check.cjs' },
   { name: '静态接线检查', script: 'scripts/integrity-check.js' },
   { name: '整体静态检查', script: 'scripts/full-check.cjs' },
   { name: '首页布局校验', script: 'scripts/layout-check.cjs' },

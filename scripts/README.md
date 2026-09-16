@@ -16,6 +16,7 @@ node scripts/run-all.js --full   # 打印每一步的完整输出
 ```powershell
 node scripts/geometry-test.js          # 几何真值回归（252 项断言）
 node scripts/geometry-test.js --quiet  # 只打印失败项与备注
+node scripts/section-projection-check.cjs  # 截交三视图可见性等价性守护（17 项）
 node scripts/integrity-check.js        # 静态接线检查
 node scripts/full-check.cjs            # 全仓静态检查
 node scripts/offline/run.cjs           # 单个离线云函数自测
@@ -26,6 +27,7 @@ node scripts/offline/run.cjs           # 单个离线云函数自测
 | 脚本 | 作用 | 是否只读 | 失败是否阻断 |
 | --- | --- | --- | --- |
 | `geometry-test.js` | `section-geometry.js`（截交几何真值）+ `basic-solid.js`（基本立体）的数值与拓扑基准 | 只读 | 是 |
+| `section-projection-check.cjs` | 切割模式三视图「可见 / 隐藏棱」分类与改动前基准（blob `4ffcfd8874`）一致，且投影包围盒预筛仍在生效 | 只读 | 是 |
 | `integrity-check.js` | `app.json` ↔ 页面文件、`index.wxml` ↔ 页面方法、客户端 action ↔ 云函数路由、打包忽略列表 | 只读 | 是 |
 | `full-check.cjs` | 全仓 JS 语法、JSON、WXSS/WXML 配平、前后端接口一致性、DOM id、敏感信息、调试输出残留 | 只读 | 是 |
 | `layout-check.cjs` | 首页 `getLayout` 与绘图内容是否放得下 | 只读 | 是 |
@@ -65,6 +67,16 @@ node scripts/offline/run-datarest.cjs
 3. `scripts/` 已在 `project.config.json` 的 `packOptions.ignore` 中排除，不会进入小程序主包，`integrity-check.js` 会校验这一点。
 4. 本目录的检查**不替代**真机/模拟器回归，也不替代云函数部署后的真实验证（`AGENTS.md` C11、`docs/rules/testing.md` §49）。
 5. `pages/index/` 下的模块文件外层各有一层 IIFE（`(function () { … })();`）：网页版是用 `<script src>` 直接打开的，没有 IIFE 时多个文件的同名顶层 `const` 会在同一个全局作用域里冲突。删除这两行会让网页版直接报错，`web-loader-check.cjs` 会拦住。
+
+## 截交三视图等价性怎么维护
+
+`section-projection-check.cjs` 内嵌了 2026-09-15 性能冻结**之前**的 `isProjectionEdgeVisible`（提交 `734feb9` · blob `4ffcfd8874`），用来证明「投影包围盒预筛」只改速度、不改三视图结论。
+
+它锁的是**分类**（每条棱可见 / 隐藏），不是像素：
+
+1. 若有意改动可见性判定算法（例如换成按面的朝向分类），先确认 `docs/freeze-section-projection-2026-09-15.md` 的冻结约束，再更新内嵌基准——不要在未核对的情况下删断言。
+2. 若只是重构 `getProjectionLineSets` 的写法，本脚本必须保持全绿；第 2 节还会检查预筛是否真的在生效，防止「等价但退化回慢实现」。
+3. 第 1 节只覆盖平面切割立体（F3）：`drawSolidProjection` 目前仅由 `drawSectionProjectionOverlay` 调用；基本立体（F4）走 `basic-solid.js` 自己的 `edgeStyle`，不在本脚本范围内。
 
 ## 相关规则
 

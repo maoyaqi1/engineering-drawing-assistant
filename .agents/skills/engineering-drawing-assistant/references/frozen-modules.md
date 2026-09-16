@@ -54,6 +54,12 @@
 
 **修改后必须验证**：连续拖动角度/位置时流畅且实时更新；松手后结果精确；六种立体逐一检查；三视图截交投影正确。
 
+**更新（2026-09-15 性能冻结）**：`pages/index/index.js` 已于 2026-09-13 拆分，本节对应文件现为 `pages/index/section-render.js`（`getSectionResult` / `drawSectionIsometricOverlay` / `drawSectionProjectionOverlay` / `drawRenderedSolid`）、`pages/index/section-math.js`（裁剪与可见性判定）、`pages/index/solid-projection.js`（三视图轮廓的 `getProjectionLineSets` / `isProjectionEdgeVisible`）。
+
+- 三视图轮廓的遮挡测试现带**投影包围盒预筛**（`buildViewTriangleIndex`，容差常量 `VIEW_TRIANGLE_BOX_TOLERANCE = 0.02` 逻辑像素），是本次性能冻结的成果（单帧 74→11 ms 圆球 / 127→16 ms 圆环，绘制指令逐条一致）。
+- 改这三个文件中任何一个后，必须 `node scripts/section-projection-check.cjs` 全绿；不得以「更整洁 / 更统一」为由删掉预筛或改容差。确需改动先读 `docs/freeze-section-projection-2026-09-15.md` 的约束与证据。
+- `isProjectionEdgeVisible` 目前只被 F3 使用；F4 基本立体走 `basic-solid.js` 自己的 `edgeStyle`，不经此处。
+
 ---
 
 ## F4. 基本立体互动
