@@ -192,6 +192,8 @@
 
 > 版本冻结注记（2026-09-14）：`teacher-web/` 自 **`teacher-web-v1.0.0` 起冻结**——虽仍列在 A 级，实际改动需"用户明确要求 + 可复现的真实缺陷"，并重新发布预览仓、更新 `?v=` 版本号。冻结基线、哈希、权限语义与回滚方式见 `docs/freeze-teacher-web-2026-09-14.md`。其余 A 级范围（`cloudfunctions/teacher/`、`docs/` 等）不受此注记影响。
 
+> 性能冻结注记（2026-09-16）：`pages/index/solid-projection.js`（F3 三视图轮廓可见性判定）自 tag **`perf-section-v1`** 起冻结——本次改动只加「投影包围盒预筛」（`buildViewTriangleIndex`、容差 `VIEW_TRIANGLE_BOX_TOLERANCE = 0.02` 逻辑像素），判定公式与容差未变，整帧绘制指令逐条一致。此后改动需"用户明确要求 + 可复现的真实缺陷"，且必须 `node scripts/section-projection-check.cjs` 全绿并真机复测圆球 / 圆环的连续拖动；不得以"更整洁 / 更统一"为由删除预筛或改容差。基线、证据、约束与回滚见 `docs/freeze-section-projection-2026-09-15.md`。该文件仍属 C 级，本注记不改变其分级。
+
 C 级（冻结）允许改动的两种情形，缺一不可：
 
 1. 用户在当前任务中明确要求修改该模块。

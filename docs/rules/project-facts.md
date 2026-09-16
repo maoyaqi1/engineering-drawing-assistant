@@ -47,6 +47,17 @@
 > 并重新发布预览仓、更新 `?v=` 与冻结记录哈希。基线、权限语义与回滚见 `docs/freeze-teacher-web-2026-09-14.md`。
 > 数据库侧 `roster` 集合已于 2026-09-14 由用户删除。
 
+> **2026-09-16 事实更新（平面切割曲面立体性能冻结 · F3）**：`pages/index/solid-projection.js`
+> 的三视图轮廓可见性判定（`getProjectionLineSets` / `buildViewTriangleIndex` / `isProjectionEdgeVisible`）
+> 已冻结为附注 tag **`perf-section-v1`**：代码提交 `e74b922`、记录与守护脚本提交 `ad227ee` / `660e389` / tag 所在提交；
+> 改动内容仅为「投影包围盒预筛」，判定公式与容差（`VIEW_TRIANGLE_BOX_TOLERANCE = 0.02` 逻辑像素）未变，
+> 4 种画布尺寸 × 切割 6 种立体 + 基本立体 6 种的整帧 Canvas 指令轨迹 936 帧完全一致；
+> 离线台架单帧 JS：圆球 73.98→11.52 ms、圆环 126.82→16.33 ms（375×640，每帧几何缓存失效）。
+> 该函数**只被 F3 调用**（`drawSectionProjectionOverlay` → `drawSolidProjection`）；F4 基本立体走 `basic-solid.js`
+> 自己的 `edgeStyle`，不经此处——此前"F3/F4 共享"的说法不准确，以本条为准。
+> 核对命令：`git -C G:\HFJH show perf-section-v1 --stat`、`node scripts/run-all.js`（24 项，含 `section-projection-check`）。
+> 详见 `docs/freeze-section-projection-2026-09-15.md`。
+
 ### 1. 小程序页面清单
 
 `app.json` 的 `pages` 数组当前注册 7 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/ruler/ruler`。`pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除。

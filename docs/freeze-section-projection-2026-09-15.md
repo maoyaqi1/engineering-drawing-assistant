@@ -13,8 +13,8 @@
 | Git 基线提交 | `734feb9`（本次改动之前的 `HEAD`） |
 | 改动前 `solid-projection.js` | blob `4ffcfd8874` |
 | 改动后 `solid-projection.js` | blob `dd2cf45587`（223 行 / 10687 字节；改动前 197 行） |
-| 冻结生效提交 | 代码 `e74b922`（`perf(section): …`）；记录 / `scripts/` / Skill 同步 `ad227ee`（`docs: …`） |
-| 推送与 tag | **未推送、未打 tag**（`AGENTS.md` C10：推送由用户决定，认证由用户本人完成） |
+| 冻结生效提交 | 代码 `e74b922`（`perf(section): …`）；记录 / `scripts/` / Skill 同步 `ad227ee`（`docs: …`）；哈希补记 `660e389` |
+| 附注 tag | **`perf-section-v1`**（指向包含本记录最终版本的提交，即 `AGENTS.md` C7 注记与事实层补记所在提交） |
 
 本次冻结涉及的文件：
 
@@ -97,6 +97,8 @@
 3. 若要有意改变可见性判定算法（例如改用面的朝向分类），属于产品可见行为变化：先确认 `docs/rules/geometry.md` §25 / §30 与 F3 的约束，更新 `scripts/section-projection-check.cjs` 内嵌基准，并在本记录追加修订行。
 4. 容差 `VIEW_TRIANGLE_BOX_TOLERANCE` 是**屏幕空间**常量。目前最大验证到 1339×620 画布；若将来大幅改变投影比例尺（例如新增缩放或更大的画布分区），需重新跑 §4 的轨迹比对。
 5. 几何真值层（`section-geometry.js`）与节流时序（F8）不在本次改动范围内，仍按原冻结规则执行。
+6. 本冻结已在 `AGENTS.md` C7 以「性能冻结注记（2026-09-16）」登记，并在 `docs/rules/project-facts.md` 记入事实层；
+   修改规则层 / 事实层的这段文字需要用户同意（属规则维护，见 `AGENTS.md` 路由层「规则或文档维护」）。
 
 ## 7. 已知限制与后续
 
@@ -149,3 +151,4 @@ git -C G:\HFJH checkout 734feb9 -- scripts/run-all.js scripts/README.md
 | --- | --- | --- | --- |
 | 2026-09-15 | 首次冻结（方案 A：投影包围盒预筛） | `pages/index/solid-projection.js`（`4ffcfd8874` → `dd2cf45587`）、新增 `scripts/section-projection-check.cjs`、`scripts/run-all.js`、`scripts/README.md` | 936 帧绘制指令完全一致；圆球 6.4×、圆环 7.8×（手机竖屏）；真机确认丝滑 |
 | 2026-09-16 | 同步 Skill 文档 F3 条目 | `.agents/skills/engineering-drawing-assistant/references/frozen-modules.md`（`908919c60c`，+6 行） | 补上拆分后的文件路径、预筛容差约束、`section-projection-check.cjs` 的重跑要求；经用户授权写入 |
+| 2026-09-16 | 规则层与事实层补记 + 打 tag | `AGENTS.md`（C7 性能冻结注记）、`docs/rules/project-facts.md`（2026-09-16 事实更新块）、本记录 | 用户同意后把本次冻结写入规则层与事实层，并打附注 tag `perf-section-v1`；随后推送 `master` 与该 tag |
