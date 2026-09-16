@@ -13,7 +13,8 @@
 | Git 基线提交 | `734feb9`（本次改动之前的 `HEAD`） |
 | 改动前 `solid-projection.js` | blob `4ffcfd8874` |
 | 改动后 `solid-projection.js` | blob `dd2cf45587`（223 行 / 10687 字节；改动前 197 行） |
-| 提交状态 | **尚未提交**（工作区改动；提交与 tag 由用户决定，见 §8） |
+| 冻结生效提交 | 代码 `e74b922`（`perf(section): …`）；记录 / `scripts/` / Skill 同步 `ad227ee`（`docs: …`） |
+| 推送与 tag | **未推送、未打 tag**（`AGENTS.md` C10：推送由用户决定，认证由用户本人完成） |
 
 本次冻结涉及的文件：
 
@@ -123,8 +124,11 @@ docs: 平面切割曲面立体性能冻结记录（F3）+ scripts 等价性守�
 
 | 顺序 | 提交 | 内容 |
 | --- | --- | --- |
-| 1 | `perf(section): …` | `pages/index/solid-projection.js` |
-| 2 | `docs: …` | `docs/freeze-section-projection-2026-09-15.md`、`scripts/section-projection-check.cjs`、`scripts/run-all.js`、`scripts/README.md`、`.agents/.../references/frozen-modules.md` |
+| 1 | `e74b922` `perf(section): …` | `pages/index/solid-projection.js`（1 file，+44 / −9） |
+| 2 | `ad227ee` `docs: …` | `docs/freeze-section-projection-2026-09-15.md`、`scripts/section-projection-check.cjs`、`scripts/run-all.js`、`scripts/README.md`、`.agents/.../references/frozen-modules.md`（5 files，+369） |
+
+提交前核对：`git rev-parse HEAD:<文件>` 与 §1 的 blob 表逐项一致；6 个待提交文件敏感信息扫描无命中；
+项目约定保持未跟踪的资产（`web-release/`、`docs/ai_teacher_reflections.txt`、`docs/qrcode.png`、`docs/产品海报.html`、`images/ai-avatar.png` 等）未纳入提交。
 
 ## 9. 回滚
 
