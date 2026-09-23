@@ -15,6 +15,7 @@
 | 改动后 `solid-projection.js` | blob `dd2cf45587`（223 行 / 10687 字节；改动前 197 行） |
 | 冻结生效提交 | 代码 `e74b922`（`perf(section): …`）；记录 / `scripts/` / Skill 同步 `ad227ee`（`docs: …`）；哈希补记 `660e389` |
 | 附注 tag | **`perf-section-v1`**（指向包含本记录最终版本的提交，即 `AGENTS.md` C7 注记与事实层补记所在提交） |
+| 推送状态 | 2026-09-23 **已推送** `origin`：`master` → `d3a021b`；tag `perf-section-v1`（附注 tag 对象 `e6c9f04b`）。经 `git ls-remote` 核对：`refs/heads/master = d3a021b…`、`refs/tags/perf-section-v1 = e6c9f04b…`。此前 3 次尝试均因本机到 GitHub 直连被阻断失败（`Connection was reset` / `Connection timed out`），与仓库和认证无关 |
 
 本次冻结涉及的文件：
 
@@ -152,3 +153,4 @@ git -C G:\HFJH checkout 734feb9 -- scripts/run-all.js scripts/README.md
 | 2026-09-15 | 首次冻结（方案 A：投影包围盒预筛） | `pages/index/solid-projection.js`（`4ffcfd8874` → `dd2cf45587`）、新增 `scripts/section-projection-check.cjs`、`scripts/run-all.js`、`scripts/README.md` | 936 帧绘制指令完全一致；圆球 6.4×、圆环 7.8×（手机竖屏）；真机确认丝滑 |
 | 2026-09-16 | 同步 Skill 文档 F3 条目 | `.agents/skills/engineering-drawing-assistant/references/frozen-modules.md`（`908919c60c`，+6 行） | 补上拆分后的文件路径、预筛容差约束、`section-projection-check.cjs` 的重跑要求；经用户授权写入 |
 | 2026-09-16 | 规则层与事实层补记 + 打 tag | `AGENTS.md`（C7 性能冻结注记）、`docs/rules/project-facts.md`（2026-09-16 事实更新块）、本记录 | 用户同意后把本次冻结写入规则层与事实层，并打附注 tag `perf-section-v1`；随后推送 `master` 与该 tag |
+| 2026-09-23 | 补记推送状态 | 本记录 §1 | 第 4 次尝试推送成功：`master` `734feb9..d3a021b`、新 tag `perf-section-v1`；`git ls-remote` 核对远端哈希一致，本地与 `origin/master` 已同步 |
