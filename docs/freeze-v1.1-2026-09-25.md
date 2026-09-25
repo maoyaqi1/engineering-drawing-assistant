@@ -105,6 +105,6 @@ v1.0.0 之后的**对外发布更新版本**。相对 v1.0.0 的变化分两类�
 ## 7. 冻结动作清单（验证通过后执行）
 
 1. 补记 §4.3 真机验证结论到本文档
-2. 打附注 tag：`git tag -a v1.1.0 -m "v1.1 对外发布更新版（AI 教师升级）"`（指向 `3dc4eea`）
+2. 打附注 tag：`git tag -a v1.1.0 -m "v1.1 对外发布更新版（AI 教师升级）"`（指向**本分支当时的最新提交**，即补记验证结论之后的那次提交）
 3. 推送：`git push origin master`、`git push -u origin release/v1.1`、`git push origin v1.1.0`
 4. 是否需要把 `release/v1.1` 合并回 `master` —— 由用户决定
