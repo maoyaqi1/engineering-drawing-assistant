@@ -311,6 +311,51 @@ function isAdmin(openid) {
   return ADMIN_OPENIDS.includes(openid);
 }
 
+// 拍照提问每日限额（2026-09-25 用户要求）：视觉调用比文字贵，按学生账号限次；
+// 测试账号与内部账号不限次。计数一律以服务端记录为准（客户端计数不可信）。
+const PHOTO_DAILY_LIMIT = 2;
+const PHOTO_ASK_EVENT = 'ai_photo_ask';
+
+// 北京时间当天 00:00 对应的 UTC ISO 字符串（云函数运行时时区不固定，必须显式换算）
+function startOfTodayInBeijing(atMs) {
+  const OFFSET_MS = 8 * 60 * 60 * 1000;
+  const nowMs = typeof atMs === 'number' ? atMs : Date.now();
+  const dayStartMs = Math.floor((nowMs + OFFSET_MS) / 86400000) * 86400000 - OFFSET_MS;
+  return new Date(dayStartMs).toISOString();
+}
+
+async function countPhotoAsksToday(openid) {
+  const res = await db.collection('learning_records')
+    .where({ openid, event_type: PHOTO_ASK_EVENT, created_at: db.command.gte(startOfTodayInBeijing()) })
+    .count();
+  return res.total || 0;
+}
+
+// 记一次拍照提问；字段与 record.event 的事件结构保持一致，教师端统计口径不变
+async function recordPhotoAsk(user, access) {
+  return db.collection('learning_records').add({ data: {
+    user_id: user._id,
+    openid: user.openid,
+    student_id: user.student_id || '',
+    student_name: user.name || '',
+    session_id: '',
+    event_type: PHOTO_ASK_EVENT,
+    chapter_id: '',
+    chapter_name: '',
+    knowledge_point_id: '',
+    knowledge_point_name: '',
+    page: 'ai',
+    duration: 0,
+    metadata: null,
+    access_level: access.level,
+    access_reason: access.reason,
+    in_roster: access.in_roster,
+    is_internal: access.is_internal,
+    access_test_account: !!access.test_account,
+    created_at: now()
+  }});
+}
+
 exports.main = async (event) => {
   const { OPENID, UNIONID } = cloud.getWXContext();
   if (!OPENID) {
@@ -527,13 +572,40 @@ exports.main = async (event) => {
       const user = await ensureUser(OPENID, UNIONID);
       const access = await resolveAccess(user);
       if (access.level !== 'student') return accessDeniedResult(access);
-      return { ok: true, ...(await ai.answerQuestion({
+      const imageBase64 = (event && event.image_base64) || null;
+      // 拍照提问每日限额：测试/内部账号不限次；超额直接拒绝，不再触发视觉调用（省钱）
+      const photoUnlimited = !!access.test_account || !!access.is_internal;
+      let photoUsed = 0;
+      if (imageBase64 && !photoUnlimited) {
+        photoUsed = await countPhotoAsksToday(OPENID);
+        if (photoUsed >= PHOTO_DAILY_LIMIT) {
+          return {
+            ok: false,
+            code: 'IMAGE_QUOTA_EXCEEDED',
+            msg: '今天的拍照提问已用完（每天 ' + PHOTO_DAILY_LIMIT + ' 次），可以直接用文字提问。',
+            photo_quota: { limit: PHOTO_DAILY_LIMIT, used: photoUsed, remaining: 0, unlimited: false }
+          };
+        }
+      }
+      const answer = await ai.answerQuestion({
         openid: OPENID,
         conversationId: (event && event.conversation_id) || null,
         message: (event && event.message) || '',
         knowledgePoint: (event && event.knowledge_point) || null,
-        imageBase64: (event && event.image_base64) || null
-      })) };
+        imageBase64: imageBase64
+      });
+      if (imageBase64) {
+        // 服务端记账：拍照次数以这里写入的事件为唯一依据
+        await recordPhotoAsk(user, access).catch(() => null);
+        photoUsed += 1;
+      }
+      return {
+        ok: true,
+        ...answer,
+        photo_quota: photoUnlimited
+          ? { limit: null, used: null, remaining: null, unlimited: true }
+          : { limit: PHOTO_DAILY_LIMIT, used: photoUsed, remaining: Math.max(0, PHOTO_DAILY_LIMIT - photoUsed), unlimited: false }
+      };
     }
 
     if (action === 'ai.list') {

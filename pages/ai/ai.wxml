@@ -37,6 +37,19 @@
       <view class="bubble">
         <image wx:if="{{item.image}}" class="msg-image" src="{{item.image}}" mode="widthFix" />
         <text>{{item.content}}</text>
+        <!-- 建议观看的视频：回答以文字讲解为主体，视频只是补充建议。
+             带 file_id 时可点击进入播放页（file_id 由云函数下发，
+             环境变量 VIDEO_PLAYBACK=off 时不下发，卡片自动退回纯信息展示） -->
+        <view
+          wx:if="{{item.videoRefs && item.videoRefs.length}}"
+          class="video-hint {{item.videoRefs[0].file_id ? 'playable' : ''}}"
+          data-ref="{{item.videoRefs[0]}}"
+          bindtap="onPlayVideo"
+        >
+          <text class="video-hint-tag">{{item.videoRefs[0].file_id ? '▶ 建议观看（点击播放）' : '建议观看'}}</text>
+          <text class="video-hint-text">{{item.videoRefs[0].video_title}} · {{item.videoRefs[0].time_label}}</text>
+        </view>
+        <text wx:if="{{item.sourceText}}" class="src-line">📚 知识来源：{{item.sourceText}}</text>
       </view>
     </view>
 
@@ -54,11 +67,35 @@
 
   <view wx:if="{{notice}}" class="notice" bindtap="handleNoticeTap">{{notice}}</view>
 
+  <!-- 隐私授权弹窗：同意按钮必须是 open-type="agreePrivacyAuthorization"（微信硬性要求，
+       用 wx.showModal 冒充会导致 requirePrivacyAuthorize 直接失败） -->
+  <view wx:if="{{showPrivacy}}" class="privacy-mask">
+    <view class="privacy-card">
+      <text class="privacy-title">隐私保护提示</text>
+      <text class="privacy-body">拍照讲题需要处理你的题目照片等个人信息。请阅读并同意《{{privacyName}}》后继续，不同意也不影响文字提问和互动工具。</text>
+      <button class="privacy-link" bindtap="openPrivacyContract">查看《{{privacyName}}》</button>
+      <view class="privacy-actions">
+        <button
+          id="agree-btn"
+          class="privacy-btn agree"
+          open-type="agreePrivacyAuthorization"
+          bindagreeprivacyauthorization="handleAgreePrivacyAuthorization"
+        >同意并继续</button>
+        <button class="privacy-btn refuse" bindtap="handleRefusePrivacy">暂不使用</button>
+      </view>
+    </view>
+  </view>
+
   <view class="image-preview" wx:if="{{enableImage && imageDataUrl}}">
     <image class="preview-img" src="{{imageDataUrl}}" mode="widthFix" />
     <text class="preview-remove" bindtap="clearImage">×</text>
-    <text class="preview-tip">AI 只能抓大错、给方向，细节请以老师为准</text>
+    <text class="preview-tip">拍题目就好：画面正对、题干清楚，不要拍到姓名学号等个人信息。看不清的地方老师会指出来。</text>
   </view>
+
+  <view
+    wx:if="{{enableImage && photoQuota && !photoQuota.unlimited && photoQuota.remaining === 0}}"
+    class="quota-hint"
+  >今日拍照提问已用完（每天 2 次），可继续用文字提问</view>
 
   <view class="input-bar">
     <button class="new" size="mini" bindtap="newConversation" disabled="{{sending || !canAsk}}">新对话</button>
@@ -66,7 +103,7 @@
       class="input"
       value="{{input}}"
       bindinput="onInput"
-      placeholder="输入画法几何问题，我来解答"
+      placeholder="输入问题，或点右边相机拍题目"
       disabled="{{!canAsk}}"
       auto-height
       maxlength="300"

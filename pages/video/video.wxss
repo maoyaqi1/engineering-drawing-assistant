@@ -1,0 +1,41 @@
+.video-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  background: #0f1726;
+}
+
+.player {
+  width: 100%;
+  height: 56vh;
+  background: #000;
+}
+
+.meta {
+  padding: 24rpx 28rpx 8rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.meta-title {
+  font-size: 30rpx;
+  color: #ffffff;
+  line-height: 1.5;
+}
+
+.meta-sub {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #9fb2cc;
+}
+
+.tip {
+  margin: 20rpx 28rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #d7e2f1;
+}

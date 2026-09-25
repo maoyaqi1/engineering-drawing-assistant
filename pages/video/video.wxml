@@ -1,0 +1,22 @@
+<view class="video-shell">
+  <video
+    id="courseVideo"
+    class="player"
+    src="{{src}}"
+    initial-time="{{start}}"
+    autoplay
+    controls
+    show-center-play-btn
+    object-fit="contain"
+    binderror="onError"
+  ></video>
+
+  <view class="meta">
+    <text class="meta-title">{{title}}</text>
+    <text wx:if="{{label}}" class="meta-sub">讲解片段：{{label}}</text>
+  </view>
+
+  <view wx:if="{{failed}}" class="tip">
+    这段讲解没能加载出来，可能是该视频还没上传或网络不稳定。学习内容不受影响，可以继续在对话里提问。
+  </view>
+</view>

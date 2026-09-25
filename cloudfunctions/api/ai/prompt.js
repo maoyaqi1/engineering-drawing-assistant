@@ -80,11 +80,27 @@ function buildKnowledgeBlock(currentKnowledgePoint) {
   return `【课程知识库资料】${kp.title}（${currentKnowledgePoint}）：\n\n${content}`;
 }
 
-function buildPrompt({ message, history = [], currentKnowledgePoint }) {
+// 【课程检索片段】：由千问侧服务检索回传的讲稿/PPT 片段正文（契约 §2.2 的 sources[].text）。
+// 生成仍在本仓库完成，用于把"大语料检索"与"教学口径"结合起来（决定：方案 C）。
+// 片段只作讲解依据，不允许原样复述。
+function buildSegmentBlock(segments) {
+  if (!Array.isArray(segments) || !segments.length) return null;
+  const lines = segments.slice(0, 4).map((seg, i) => {
+    const tag = seg.video_id ? '视频' : 'PPT';
+    const head = `${i + 1}. [${tag}] ${seg.doc || ''}${seg.time_label ? '（' + seg.time_label + '）' : ''}`;
+    return `${head}\n${seg.text}`;
+  });
+  return '【课程检索片段（按相关度排序，讲解时取用其中与问题相关的部分；不得整段照抄、不得复述题目）】\n\n'
+    + lines.join('\n\n');
+}
+
+function buildPrompt({ message, history = [], currentKnowledgePoint, segments = null }) {
   const messages = [{ role: 'system', content: buildSystemContent(currentKnowledgePoint) }];
   messages.push({ role: 'system', content: METHOD_RULES });
   const knowledgeBlock = buildKnowledgeBlock(currentKnowledgePoint);
   if (knowledgeBlock) messages.push({ role: 'system', content: knowledgeBlock });
+  const segmentBlock = buildSegmentBlock(segments);
+  if (segmentBlock) messages.push({ role: 'system', content: segmentBlock });
   const recent = history.slice(-CONFIG.context.maxHistoryMessages);
   for (const m of recent) {
     if (m && (m.role === 'user' || m.role === 'assistant')) {
@@ -95,12 +111,14 @@ function buildPrompt({ message, history = [], currentKnowledgePoint }) {
   return messages;
 }
 
-function buildImageMessages({ message, imageDataUrl, currentKnowledgePoint }) {
+function buildImageMessages({ message, imageDataUrl, currentKnowledgePoint, segments = null }) {
   const systemMessages = [{ role: 'system', content: getImageSystemPrompt() }];
   systemMessages.push({ role: 'system', content: IMAGE_CORE_RULES });
   systemMessages.push({ role: 'system', content: METHOD_RULES });
   const knowledgeBlock = buildKnowledgeBlock(currentKnowledgePoint);
   if (knowledgeBlock) systemMessages.push({ role: 'system', content: knowledgeBlock });
+  const segmentBlock = buildSegmentBlock(segments);
+  if (segmentBlock) systemMessages.push({ role: 'system', content: segmentBlock });
   const userContent = [];
   if (imageDataUrl) userContent.push({ type: 'image_url', image_url: { url: imageDataUrl } });
   userContent.push({ type: 'text', text: '请先复述图中已知与所求（必要时先请学生确认），再严格按上面的画法几何要点与步骤讲解作图过程；每一步说明依据；看不清楚、不确定的地方明确说明，不要臆造。' });

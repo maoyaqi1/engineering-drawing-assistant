@@ -6,6 +6,7 @@ const CONFIG = require('./config.js');
 const { matchKnowledgePoint } = require('./knowledge.js');
 const { buildPrompt, buildImageMessages, generateTitle } = require('./prompt.js');
 const { chatCompletion, visionChatCompletion } = require('./llm.js');
+const { askTeacherService } = require('./teacher-service.js');
 
 const db = cloud.database();
 const CONVERSATIONS = 'ai_conversations';
@@ -97,12 +98,73 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
       }))
     : [];
 
-  let result;
-  if (hasImage) {
-    const imageDataUrl = imageBase64.indexOf('data:') === 0 ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
-    result = await visionChatCompletion({ messages: buildImageMessages({ message: text, imageDataUrl, currentKnowledgePoint: currentKp }) });
-  } else {
-    result = await chatCompletion({ messages: buildPrompt({ message: text, history, currentKnowledgePoint: currentKp }) });
+  let result = null;
+  // 方案 C（2026-09-25 用户裁决）：**检索交给千问侧服务，生成仍在本仓库完成**。
+  // 服务返回命中片段正文（契约 §2.2 sources[].text）+ 视频定位；本仓库用既有教学口径与
+  // 16 篇知识库 + 检索片段一起生成回答，保证两条链路口径一致。
+  // 服务不可用/超时/未命中时返回 null，下面按既有逻辑生成（契约 §5 降级）。
+  let videoRefs = [];
+  let sources = [];
+  let serviceAnswer = null;
+  // AI_IMAGE=off 时忽略图片（成本止损开关）；有文字仍按文字回答。
+  if (hasImage && !CONFIG.image.enabled && !text) {
+    throw makeError('IMAGE_DISABLED', 400, '拍照提问暂时关闭，请直接用文字描述问题。');
+  }
+  const useImage = hasImage && CONFIG.image.enabled;
+  // 服务侧读题分支只在"没有文字"时生效（其实现为 `if img and not question`），
+  // 因此带图提问时先按"纯图片"调用，让服务侧去读题（拍题场景里学生那行"这题怎么做"信息量很低）；
+  // 图读不出来（模糊/无文字）再用学生的文字重试一次，两条路都失败才回落本地视觉链路。
+  let fromService = await askTeacherService({
+    question: useImage ? '' : text,
+    conversationId: conversation ? conversation.id : null,
+    knowledgePoint: currentKp,
+    history,
+    imageBase64: useImage ? imageBase64 : null
+  });
+  if (!fromService && useImage && text) {
+    fromService = await askTeacherService({
+      question: text,
+      conversationId: conversation ? conversation.id : null,
+      knowledgePoint: currentKp,
+      history,
+      imageBase64: null
+    });
+  }
+  if (fromService) {
+    videoRefs = fromService.videoRefs;
+    sources = fromService.sources;
+    // 服务侧生成的回答不再作为主答案，只在下面本仓库生成失败时兜底
+    if (fromService.content) {
+      serviceAnswer = { content: fromService.content, model: fromService.model, usage: fromService.usage };
+    }
+    // 调参期诊断：记录"是否推视频、推的是哪个、分数多少"，用于判断阈值该定在哪。
+    // 分数偏低却仍过闸的，就是误推的主要来源；阈值定稳后可以删掉。
+    // 用 console.warn（云函数日志里保留一行/次；项目静态检查禁止 console.log/debug/info）
+    if (videoRefs.length) {
+      console.warn('[AI 推视频] score=' + videoRefs[0].score + ' video=' + videoRefs[0].video_id
+        + ' 检索片段=' + sources.filter((s) => s && s.text).length + ' q=' + (text || '(图片提问)'));
+    } else {
+      console.warn('[AI 不推视频] 命中知识但无可用视频片段 q=' + (text || '(图片提问)'));
+    }
+  }
+
+  // 服务检索到的片段正文（未升级前为空数组，此时只有本仓库 16 篇知识库参与生成）
+  const segments = Array.isArray(sources) ? sources.filter((s) => s && s.text) : [];
+  try {
+    if (hasImage && CONFIG.image.enabled) {
+      const imageDataUrl = imageBase64.indexOf('data:') === 0 ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`;
+      result = await visionChatCompletion({
+        messages: buildImageMessages({ message: text, imageDataUrl, currentKnowledgePoint: currentKp, segments })
+      });
+    } else {
+      result = await chatCompletion({
+        messages: buildPrompt({ message: text, history, currentKnowledgePoint: currentKp, segments })
+      });
+    }
+  } catch (err) {
+    // 本仓库生成失败：服务侧若已给出回答则兜底用它，否则照旧向上抛（前端提示稍后重试）
+    if (serviceAnswer) result = serviceAnswer;
+    else throw err;
   }
 
   let conv = conversation;
@@ -134,7 +196,17 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
     user_message_id: userId,
     knowledge_point: currentKp,
     model: result.model,
-    usage: result.usage
+    usage: result.usage,
+    // 云端文件 ID 由云函数拼好再下发，前端不做字符串拼接；
+    // VIDEO_PLAYBACK=off 时不下发 file_id，前端自动退回"只显示标题与时间点"。
+    video_refs: videoRefs.map((ref) => (
+      CONFIG.video.playback
+        ? Object.assign({}, ref, {
+            file_id: `${CONFIG.video.cloudBase}/${CONFIG.video.pathPrefix}/${ref.video_id}.mp4`
+          })
+        : ref
+    )),
+    sources: sources
   };
 }
 
