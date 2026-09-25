@@ -22,7 +22,11 @@ function user(id) { return table('users').get(id); }
 const results = [];
 function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
-const nowIso = '2026-09-13T02:00:00.000Z';
+// 时间夹具必须相对「当前真实时刻」生成：驾驶舱的"近 7 天"是按真实时钟算的，
+// 早年把日期写死后，跑测日期一过窗口，3a/3b/3h/3j 会因统计为 0 而必然失败。
+// 注意：下面 users 的 created_at 仍用固定日期——它们是与云函数里固定的 T0 比对
+// 来判定 unknown / production 的（断言 4f/4g），不能跟着改。
+const nowIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 seed('teachers', [
   { _id: 'T1', username: 'myq', name: '超级管理员', role: 'super_admin', status: 'active', created_at: nowIso },
   { _id: 'T2', username: 't2', name: '教师二', role: 'teacher', status: 'active', created_at: nowIso },
@@ -58,7 +62,7 @@ seed('users', [
 ]);
 
 // 近 7 天每个账号一条会话 + 一条事件；两个"在册学情"账号各一条 AI 提问
-const recent = '2026-09-13T01:00:00.000Z';
+const recent = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 const ownerOf = { U1: 'o-stu', U2: 'o-internal', U3: 'o-demo', U4: 'o-test', U5: 'o-guest', U6: 'o-old', U7: 'o-stu3' };
 seed('learning_sessions', Object.keys(ownerOf).map((uid, i) => ({
   _id: 'L' + (i + 1), user_id: uid, openid: ownerOf[uid], module: 'point', duration: 120, interaction_count: 5,
