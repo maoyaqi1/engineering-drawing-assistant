@@ -17,6 +17,7 @@ node scripts/run-all.js --full   # 打印每一步的完整输出
 node scripts/geometry-test.js          # 几何真值回归（252 项断言）
 node scripts/geometry-test.js --quiet  # 只打印失败项与备注
 node scripts/section-projection-check.cjs  # 截交三视图可见性等价性守护（17 项）
+node scripts/ai-knowledge-routing-check.cjs  # AI 教师知识点路由检查（126 项）
 node scripts/integrity-check.js        # 静态接线检查
 node scripts/full-check.cjs            # 全仓静态检查
 node scripts/offline/run.cjs           # 单个离线云函数自测
@@ -36,6 +37,9 @@ node scripts/offline/run.cjs           # 单个离线云函数自测
 | `web-loader-check.cjs` | 网页版 `web/index.html` 的模块加载垫片与脚本顺序（模拟到 `pages/index/index.js`） | 只读 | 是 |
 | `share-selfcheck.cjs` | 转发声明与 `onShareAppMessage` 行为 | 只读 | 是 |
 | `ruler-removal-selfcheck.cjs` | v1.0.0 移除尺规作图后的残留扫描 | 只读 | 是 |
+| `ai-knowledge-routing-check.cjs` | AI 教师知识文件与 `ai/knowledge.js` 知识点路由一致（含装配图 G06）、注入正文不超 `maxKnowledgeChars` | 只读 | 是 |
+| `ai-teacher-contract-check.cjs` | AI 教师服务（千问侧）接口契约验收：§9 用例字段/长度/无 LaTeX、401/404、`matched=false` 降级 | 只读 | 需设 `QWEN_TEACHER_TOKEN`；未设时只跑负向检查 |
+| `ai-answer-blind-eval.cjs` | AI 教师**回答质量盲评**：同一批问题，A（只用 16 篇）/ B（16 篇+讲稿片段）/ C（服务侧生成）三版回答打乱顺序，输出盲评页 | 只读 | 需 `DEEPSEEK_API_KEY` + `QWEN_TEACHER_*`；输出写到系统临时目录 |
 | `offline/run*.cjs` | 云函数离线行为自测（内存桩，不打真实数据库） | 只读 | 是 |
 
 ## 离线云函数自测

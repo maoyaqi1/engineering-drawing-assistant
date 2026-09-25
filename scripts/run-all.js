@@ -28,7 +28,8 @@ const STEPS = [
   { name: '手机端折行估算（仅报告）', script: 'scripts/phone-fit-check.cjs', informational: true },
   { name: '网页版模块加载检查', script: 'scripts/web-loader-check.cjs' },
   { name: '转发能力自测', script: 'scripts/share-selfcheck.cjs' },
-  { name: '尺规移除自测', script: 'scripts/ruler-removal-selfcheck.cjs' }
+  { name: '尺规移除自测', script: 'scripts/ruler-removal-selfcheck.cjs' },
+  { name: 'AI 教师知识点路由检查', script: 'scripts/ai-knowledge-routing-check.cjs' }
 ];
 
 fs.readdirSync(path.join(__dirname, 'offline'))
