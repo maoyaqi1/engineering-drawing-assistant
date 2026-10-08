@@ -43,7 +43,7 @@
 
 已知文档滞后点（2026-09-11 核对，尚未修订，不得据此推断实现）：
 
-1. 小程序端 `pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除，`app.json` 现注册 7 个页面（`login`/`register`/`index`/`survey`/`ai`/`terms`/`ruler`）；章程 §5、`README.md` 的“名单管理页”表述、Skill 的 `references/architecture.md` 与 `references/frozen-modules.md` 相关条目均已过期。
+1. 小程序端 `pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除，`pages/ruler/`、`web/ruler.html` 已随 `879183f`（v1.0.0 功能范围收敛）移除；`app.json` 现注册 **8 个页面**（`login`/`register`/`index`/`projection`/`survey`/`ai`/`video`/`terms`，其中 `projection` 为 v1.2.0 新增）——本行已于 2026-10-08 按代码事实更新；章程 §5、`README.md` 的“名单管理页”表述、Skill 的 `references/architecture.md` 与 `references/frozen-modules.md` 相关条目均已过期。
 2. `utils/` 实际只有 `api.js` 与 `geo.js`，不存在 `teacher-api.js`。
 3. 章程 §3 / §5 / §7 / §25 / §28 中与 Three.js、`js/*.js`、DOM、BufferGeometry 相关的表述是历史设想，当前实现为 Canvas 2D。
 
@@ -97,12 +97,14 @@
 
 | 路径 | 职责 | 状态 |
 | --- | --- | --- |
-| `app.js` / `app.json` / `app.wxss` | 云开发初始化、隐私授权、页面注册（7 页） | 稳定 |
+| `app.js` / `app.json` / `app.wxss` | 云开发初始化、隐私授权、页面注册（8 页） | 稳定 |
 | `pages/index/` | 核心教学画布：点/线/面、基本立体、平面切割立体 | 冻结（F1–F4） |
+| `pages/projection/` | 投影体系：三投影面体系（八分角/第一分角）、投影面展开、空间旋转观察 | 稳定（v1.2.0 新增，只读复用 `pages/index/` 的布局与绘图模块） |
+| `pages/video/` | 课程讲解播放页（AI 教师"建议观看"卡片进入） | 稳定（v1.1.0 新增） |
 | `pages/login/`、`pages/register/` | 微信登录、实名注册 | 冻结（F5） |
 | `pages/ai/` | AI 教师对话界面 | 稳定 |
 | `pages/survey/`、`pages/terms/` | 学习效果问卷、用户协议与隐私政策 | 稳定 |
-| `pages/ruler/`、`web/ruler.html` | 尺规作图 | 探索（不在版本基线内） |
+| ~~`pages/ruler/`、`web/ruler.html`~~ | 尺规作图：**已随 `879183f`（v1.0.0）移除**，暂不恢复 | 已移除 |
 | `utils/api.js` | 学生端调用云函数 `api` 的封装 | 稳定 |
 | `utils/geo.js` | 尺规作图纯几何工具（不碰 DOM） | 冻结 |
 | `cloudfunctions/api/` | 学生端云函数；含 `ai/`、`knowledge/*.md`（16 篇）、`prompts/*.md`（2 篇） | 冻结（F6/F7） |
