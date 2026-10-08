@@ -1,0 +1,74 @@
+<view class="page-shell">
+  <view class="app-toolbar">
+    <view class="back-entry" bindtap="goBack">
+      <text class="back-arrow">‹</text>
+      <text class="back-label">返回</text>
+    </view>
+    <text class="toolbar-title">投影体系</text>
+    <text class="toolbar-pill">{{scope === 'first' ? '第一分角' : '八个分角'}}</text>
+  </view>
+
+  <scroll-view class="page-scroll" scroll-y="{{!canvasDragging}}">
+    <view class="type-panel">
+      <text class="type-label section-label">投影面范围</text>
+      <view class="type-toolbar">
+        <button class="type-chip {{scope === 'octants' ? 'active' : ''}}" data-scope="octants" bindtap="handleScope">八分角</button>
+        <button class="type-chip {{scope === 'first' ? 'active' : ''}}" data-scope="first" bindtap="handleScope">第一分角</button>
+      </view>
+      <view class="slider-row unfold-row">
+        <button class="type-chip unfold-toggle" bindtap="handleUnfoldToggle">{{unfold.angle >= 45 ? '投影折叠' : '投影展开'}}</button>
+        <text class="param-name unfold-angle-name">角度</text>
+        <slider
+          class="param-slider"
+          min="0"
+          max="90"
+          step="1"
+          value="{{unfold.angle}}"
+          bindchanging="handleUnfoldLive"
+          bindchange="handleUnfoldSlider"
+          activeColor="#1684ff"
+          block-size="16"
+        />
+        <text class="param-val">{{unfold.angle}}°</text>
+      </view>
+    </view>
+
+    <view class="canvas-card">
+      <view class="card-heading">
+        <view>
+          <text class="card-title">三投影面体系与投影面展开</text>
+          <text class="card-caption">空间视图左右拖动＝绕 OZ 轴旋转观察；按「投影展开／投影折叠」把 H 面绕 OX、W 面绕 OZ 各转 90°；「第一分角」范围下坐标轴只保留第一分角内的长度</text>
+        </view>
+        <button class="ghost-button" bindtap="handleUnfoldReset">重置</button>
+      </view>
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="geometry-canvas"
+        bindtouchstart="handleViewTouchStart"
+        bindtouchmove="handleViewTouchMove"
+        bindtouchend="handleViewTouchEnd"
+        bindtouchcancel="handleViewTouchEnd"
+        aria-label="三投影面体系与投影面展开互动图"
+      ></canvas>
+      <view class="legend-row">
+        <view class="legend-item"><text class="legend-dot dot-space"></text>空间点 A</view>
+        <view class="legend-item"><text class="legend-dot dot-mark"></text>投影 a、a′、a″</view>
+        <view class="legend-item"><text class="legend-line"></text>投射线 · 投影连线</view>
+        <view class="legend-item"><text class="legend-plane"></text>投影面 V / H / W</view>
+      </view>
+    </view>
+
+    <view class="lesson-card">
+      <text class="lesson-index">观察 · 投影体系</text>
+      <text class="lesson-title">三个互相垂直的投影面把空间分成八个分角</text>
+      <text class="lesson-body">V、H、W 三面互相垂直。默认「第一分角」只保留第一分角内的三块板（坐标轴也只画第一分角内的长度），就是教材里最常见的三面投影体系，空间点 A 取在第一分角的一般位置；切到「八分角」则把三块面各自向两侧延伸，空间被分成八个分角（图上 Ⅰ–Ⅷ，Ⅰ = x&gt;0、y&gt;0、z&gt;0 即 V 面之前、H 面之上、W 面之左）。投影面是实心的，所以在空间视图里左右拖动可以绕 OZ 轴旋转观察八分角，转到背面就能看到被挡住的 Ⅴ–Ⅷ。按「投影展开」：V 面不动，H 面绕 OX 轴转 90°，W 面绕 OZ 轴转 90°，三个面摊平在同一个平面上——正投影 a′ 留在原处，a 随 H 面、a″ 随 W 面一起移动；投影面上的投影连线（a′—a_x—a、a″—a_z—a′）贴在各自投影面上，随面一起翻折并保留，展开后就是三视图的长对正、高平齐。再按一次按钮即折回。空间点 A、投射线与分角编号只在未展开的空间状态出现，展开到位后退场，画面只剩纯投影图。</text>
+      <view class="formula-row">
+        <view class="formula-chip">a′ 在 V 面 · 不随折叠移动</view>
+        <view class="formula-chip">a 随 H 面折叠</view>
+        <view class="formula-chip">a″ 随 W 面折叠</view>
+        <view class="formula-chip">投影连线随面翻折、展开后保留</view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -1,0 +1,138 @@
+/* 投影体系页面样式：沿用首页的视觉语言（深色工具条 + 白卡片 + 画布卡），
+   只保留本页用到的规则；页面样式是页面私有的，不复用 index.wxss。 */
+
+.page-shell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 0 0 calc(24rpx + env(safe-area-inset-bottom));
+}
+
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  height: 84rpx;
+  padding: 0 12rpx;
+  overflow: hidden;
+  border-bottom: 4rpx solid #1684ff;
+  background: #202124;
+  color: #ffffff;
+}
+
+.back-entry { flex: none; display: flex; align-items: center; padding: 8rpx 10rpx 8rpx 4rpx; }
+.back-arrow { margin-right: 4rpx; font-size: 34rpx; line-height: 1; }
+.back-label { color: #ffffff; font-size: 22rpx; white-space: nowrap; }
+.toolbar-title { flex: 1; min-width: 0; padding-left: 8rpx; color: #ffffff; font-size: 26rpx; font-weight: 650; }
+.toolbar-pill { flex: none; padding: 6rpx 14rpx; border-radius: 999rpx; background: #e7f2ff; color: #116fc8; font-size: 20rpx; }
+
+.type-panel { display: flex; flex-direction: column; width: 100%; padding: 6rpx 12rpx 8rpx; border-bottom: 1rpx solid #e3e8ef; background: #ffffff; box-shadow: 0 2rpx 10rpx rgba(20,40,80,.04); box-sizing: border-box; }
+.type-label { margin: 0 0 6rpx; color: #e04444; font-size: 23rpx; font-weight: 700; }
+.section-label { margin-top: 10rpx; }
+.type-toolbar { display: flex; flex-wrap: wrap; gap: 8rpx; width: 100%; min-width: 0; }
+.type-chip { display: flex; flex: 0 0 calc((100% - 24rpx) / 4); align-items: center; justify-content: center; box-sizing: border-box; min-width: 0; max-width: calc((100% - 24rpx) / 4); height: 52rpx; margin: 0; padding: 0 2rpx; border: 1rpx solid #aeb3ba; border-radius: 8rpx; background: #fff; color: #252b34; font-size: 22rpx; line-height: 1; text-align: center; white-space: nowrap; overflow: hidden; }
+.type-chip.active { border-color: #1684ff; color: #0877dd; background: #f2f8ff; box-shadow: inset 0 0 0 1rpx rgba(22,132,255,.12); }
+.unfold-toggle { border-color: #1684ff; background: #1684ff; color: #ffffff; font-weight: 650; }
+
+.slider-row { display: flex; align-items: center; gap: 8rpx; min-height: 48rpx; margin-top: 6rpx; }
+.param-name { flex: none; width: 108rpx; color: #3b4654; font-size: 23rpx; }
+.param-slider { flex: 1; min-width: 0; }
+.param-val { flex: none; min-width: 56rpx; text-align: right; color: #1c2c42; font-size: 24rpx; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* 「投影展开」按钮与「展开角度」滑块并排：按钮固定宽度，滑块吃掉剩余空间 */
+.unfold-row { gap: 10rpx; margin-top: 12rpx; }
+.unfold-row .unfold-toggle { flex: 0 0 200rpx; max-width: 200rpx; height: 56rpx; font-size: 23rpx; }
+.unfold-row .unfold-angle-name { flex: none; width: auto; margin-right: 2rpx; }
+
+.canvas-card,
+.lesson-card {
+  box-sizing: border-box;
+  margin: 0 14rpx 12rpx;
+  border: 1rpx solid rgba(109, 130, 156, 0.16);
+  border-radius: 22rpx;
+  background: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(36, 55, 82, 0.07);
+}
+
+.canvas-card { padding: 16rpx; display: flex; flex-direction: column; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+.card-heading > view:first-child { display: flex; flex-direction: column; }
+.card-title { font-size: 30rpx; font-weight: 650; }
+.card-caption { margin-top: 5rpx; font-size: 22rpx; color: #778397; }
+.ghost-button { margin: 0; padding: 0 20rpx; height: 54rpx; line-height: 54rpx; border-radius: 14rpx; background: #edf4f8; color: #245a75; font-size: 22rpx; }
+
+.geometry-canvas { display: block; width: 100%; height: 640px; border: 1rpx solid #25272b; border-radius: 12rpx; background: #fff; }
+
+.legend-row { display: flex; flex-wrap: wrap; gap: 20rpx; margin-top: 14rpx; color: #66748a; font-size: 21rpx; }
+.legend-item { display: flex; align-items: center; }
+.legend-dot { width: 13rpx; height: 13rpx; margin-right: 9rpx; border-radius: 50%; }
+.dot-space { background: #f2a83b; box-shadow: 0 0 0 4rpx rgba(242,168,59,.16); }
+.dot-mark { background: #ff4f53; }
+.legend-line { width: 22rpx; margin-right: 9rpx; border-top: 2rpx solid #94a6b8; }
+.legend-plane { width: 24rpx; height: 14rpx; margin-right: 9rpx; border: 2rpx solid #3484f6; background: rgba(52,132,246,.18); }
+
+.lesson-card { padding: 22rpx; background: linear-gradient(145deg, #fffaf0, #fff 62%); border-color: rgba(219,164,69,.2); }
+.lesson-index { display: block; color: #b47824; font-size: 20rpx; font-weight: 650; letter-spacing: 2rpx; }
+.lesson-title { display: block; margin-top: 10rpx; font-size: 30rpx; font-weight: 650; }
+.lesson-body { display: block; margin-top: 12rpx; color: #59667a; font-size: 24rpx; line-height: 1.7; }
+.formula-row { display: flex; flex-wrap: wrap; gap: 10rpx; margin-top: 14rpx; }
+.formula-chip { padding: 9rpx 13rpx; border-radius: 10rpx; background: #f5eee1; color: #755627; font-size: 20rpx; }
+
+@media (max-width: 520px) {
+  .card-caption { display: none; }
+  .type-chip { height: 50rpx; }
+  .lesson-card { padding: 20rpx; }
+}
+
+@media (max-width: 360px) {
+  .geometry-canvas { height: 560px; }
+}
+
+/* 宽屏（PAD / 折叠屏展开 / 横屏）：rpx 换算成手机等大的 px，画布放大后用满宽度。
+   画布内部由 projection.js 的 getLayout() 自动切成左右两栏（左空间视图 / 右展开投影图）。 */
+@media (min-width: 500px) {
+  .page-shell { padding: 0 0 calc(12px + env(safe-area-inset-bottom)); }
+  .app-toolbar { height: 42px; padding: 0 6px; border-bottom: 2px solid #1684ff; }
+  .back-entry { padding: 4px 5px 4px 2px; }
+  .back-arrow { margin-right: 2px; font-size: 17px; }
+  .back-label { font-size: 11px; }
+  .toolbar-title { padding-left: 4px; font-size: 13px; }
+  .toolbar-pill { padding: 3px 7px; font-size: 10px; }
+  .type-panel { padding: 3px 6px 4px; border-bottom: 0.5px solid #e3e8ef; }
+  .type-label { margin: 0 0 3px; font-size: 11.5px; }
+  .section-label { margin-top: 5px; }
+  .type-toolbar { gap: 4px; }
+  .type-chip { flex: 0 0 calc((100% - 12px) / 4); max-width: calc((100% - 12px) / 4); height: 26px; padding: 0 1px; border: 0.5px solid #aeb3ba; border-radius: 4px; font-size: 11px; }
+  .slider-row { min-height: 24px; margin-top: 3px; }
+  .param-name { width: 54px; font-size: 11.5px; }
+  .param-val { min-width: 28px; font-size: 12px; }
+  .unfold-row { gap: 5px; margin-top: 6px; }
+  .unfold-row .unfold-toggle { flex: 0 0 100px; max-width: 100px; height: 28px; font-size: 11.5px; }
+  .unfold-row .unfold-angle-name { width: auto; margin-right: 1px; }
+  .canvas-card, .lesson-card { margin: 0 7px 6px; border: 0.5px solid rgba(109,130,156,.16); border-radius: 11px; box-shadow: 0 4px 12px rgba(36,55,82,.07); }
+  .canvas-card { padding: 8px; }
+  .card-title { font-size: 15px; }
+  .card-caption { margin-top: 2.5px; font-size: 11px; }
+  .ghost-button { padding: 0 10px; height: 27px; line-height: 27px; border-radius: 7px; font-size: 11px; }
+  .geometry-canvas { height: calc(100vh - 210px); min-height: 420px; border: 0.5px solid #25272b; border-radius: 6px; }
+  .legend-row { gap: 10px; margin-top: 7px; font-size: 10.5px; }
+  .legend-dot { width: 6.5px; height: 6.5px; margin-right: 4.5px; }
+  .legend-line { width: 11px; margin-right: 4.5px; }
+  .legend-plane { width: 12px; height: 7px; margin-right: 4.5px; }
+  .lesson-card { padding: 11px; }
+  .lesson-index { font-size: 10px; letter-spacing: 1px; }
+  .lesson-title { margin-top: 5px; font-size: 15px; }
+  .lesson-body { margin-top: 6px; font-size: 12px; }
+  .formula-row { gap: 5px; margin-top: 7px; }
+  .formula-chip { padding: 4.5px 6.5px; border-radius: 5px; font-size: 10px; }
+}

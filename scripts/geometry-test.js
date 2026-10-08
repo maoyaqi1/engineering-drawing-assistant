@@ -11,6 +11,8 @@
 //   A. pages/index/section-geometry.js（F2 几何真值层）：立体网格、截平面、求交、截交环、截面封盖
 //   B. pages/index/basic-solid.js（F4 基本立体）：参数化立体的顶点/面/法向与变换不变量
 //   C. 退化情形：记录当前行为（其中共面退化为已知限制，只记录、不在此处修改实现）
+//   D. pages/projection/unfold.js（投影体系）：展开旋转的刚性、折痕不动、钳制，
+//      以及「三个投影面展开 90° 后，三个投影点的第一角正投影与三视图逐点一致」这条教学不变量
 //
 // 边界（必须明确）：
 //   1. 只 require 纯几何模块，不加载 wx / canvas / 网络；
@@ -27,6 +29,8 @@ const ENDPOINT_EPS = 1e-5; // 与 createSectionLoops 默认 tolerance 一致
 
 let SG = null;
 let BS = null;
+let PS = null;
+let PJ = null;
 
 // ---- 基准值（由当前实现实测得到，均为「已通过真机验证」的行为，改动必须是有意为之）----
 
@@ -503,12 +507,129 @@ function checkDegenerateCases(suite) {
 
 // ---- 主流程 ----
 
+// 投影体系：展开数学来自 pages/projection/unfold.js（纯函数），三视图口径取自 pages/index/projection.js
+function loadProjectionModules() {
+  try {
+    PS = require(path.join(ROOT, 'pages', 'projection', 'unfold.js'));
+    PJ = require(path.join(ROOT, 'pages', 'index', 'projection.js'));
+  } catch (error) {
+    console.error('无法在 Node 中加载投影体系模块：' + (error && error.message || error));
+    console.error('pages/projection/unfold.js 必须保持「纯计算 + 绘制」分层，且不得在顶层依赖 wx / canvas。');
+    process.exitCode = 2;
+    return false;
+  }
+  return true;
+}
+
+// D. 投影体系：展开旋转的数学不变量（教学断言：展开到位后就是三视图）
+function checkProjectionSystem(suite) {
+  suite.section('D. 投影体系（展开数学与三视图一致性）');
+  const modelPoint = { x: 4, y: 3, z: 5 };
+
+  // θ=0：什么都不动（展开角 0 时必须是空间状态原样）
+  const hAtZero = PS.unfoldHPoint({ x: modelPoint.x, y: modelPoint.y, z: 0 }, 0);
+  const wAtZero = PS.unfoldWPoint({ x: 0, y: modelPoint.y, z: modelPoint.z }, 0);
+  suite.close(hAtZero.x, modelPoint.x, EPS, 'θ=0°：H 面上的点 x 不变');
+  suite.close(hAtZero.y, modelPoint.y, EPS, 'θ=0°：H 面上的点 y 不变');
+  suite.close(hAtZero.z, 0, EPS, 'θ=0°：H 面上的点 z 保持 0');
+  suite.close(wAtZero.y, modelPoint.y, EPS, 'θ=0°：W 面上的点 y 不变');
+  suite.close(wAtZero.z, modelPoint.z, EPS, 'θ=0°：W 面上的点 z 不变');
+
+  // θ=90：H 绕 OX 折到 OX 下方、W 绕 OZ 折到另一侧（第一角展开方向）
+  const hAt90 = PS.unfoldHPoint({ x: modelPoint.x, y: modelPoint.y, z: 0 }, 90);
+  const wAt90 = PS.unfoldWPoint({ x: 0, y: modelPoint.y, z: modelPoint.z }, 90);
+  suite.close(hAt90.x, modelPoint.x, 1e-12, 'θ=90°：H 面上的点 x 不变（长对正）');
+  suite.close(hAt90.y, 0, 1e-12, 'θ=90°：H 面上的点落到 V 面（y=0）');
+  suite.close(hAt90.z, -modelPoint.y, 1e-12, 'θ=90°：俯视图落在 OX 下方（z=-y）');
+  suite.close(wAt90.x, -modelPoint.y, 1e-12, 'θ=90°：左视图落在 OZ 另一侧（x=-y）');
+  suite.close(wAt90.z, modelPoint.z, 1e-12, 'θ=90°：左视图高度不变（高平齐）');
+
+  // 中间角度：方向单调推进，不停在原地
+  const hMid = PS.unfoldHPoint({ x: modelPoint.x, y: modelPoint.y, z: 0 }, 45);
+  const wMid = PS.unfoldWPoint({ x: 0, y: modelPoint.y, z: modelPoint.z }, 45);
+  suite.check(hMid.z < -1e-9 && hMid.z > -modelPoint.y, 'θ=45°：俯视图已移到 OX 下方、尚未到位');
+  suite.check(wMid.x < -1e-9 && wMid.x > -modelPoint.y, 'θ=45°：左视图已移到 OZ 另一侧、尚未到位');
+
+  // 折痕不动：OX 上的点绕 x 轴旋转不变，OZ 上的点绕 z 轴旋转不变
+  const onX = PS.rotatePointAboutX({ x: 6, y: 0, z: 0 }, 73);
+  const onZ = PS.rotatePointAboutZ({ x: 0, y: 0, z: 6 }, -73);
+  suite.close(dist(onX, { x: 6, y: 0, z: 0 }), 0, 1e-12, '折痕 OX 上的点旋转后不动');
+  suite.close(dist(onZ, { x: 0, y: 0, z: 6 }), 0, 1e-12, '折痕 OZ 上的点旋转后不动');
+
+  // 刚体：绕轴旋转不改变到原点的距离
+  const probe = { x: 1.5, y: -0.8, z: 2.4 };
+  const probeRadius = Math.hypot(probe.x, probe.y, probe.z);
+  suite.close(Math.hypot(PS.rotatePointAboutX(probe, 37).x, PS.rotatePointAboutX(probe, 37).y, PS.rotatePointAboutX(probe, 37).z), probeRadius, 1e-12, '绕 OX 旋转保持长度');
+  suite.close(Math.hypot(PS.rotatePointAboutZ(probe, -58).x, PS.rotatePointAboutZ(probe, -58).y, PS.rotatePointAboutZ(probe, -58).z), probeRadius, 1e-12, '绕 OZ 旋转保持长度');
+  const xAxisTurned = PS.rotatePointAboutZ({ x: 1, y: 0, z: 0 }, 90);
+  suite.close(dist(xAxisTurned, { x: 0, y: 1, z: 0 }), 0, 1e-12, '绕 OZ 转 90°：x 轴方向 → y 轴方向');
+
+  // 展开角钳制（滑块与动画只允许 0..90）
+  suite.equal(PS.clampUnfoldAngle(-15), 0, '展开角下限钳制到 0°');
+  suite.equal(PS.clampUnfoldAngle(120), 90, '展开角上限钳制到 90°');
+  suite.equal(PS.clampUnfoldAngle('bad'), 0, '非法展开角按 0° 处理');
+
+  // 教学不变量：展开 90° 后，三个投影点落在同一个平面上，把它们按第一角正投影到 V 面，
+  // 得到的二维坐标必须与 pages/index/projection.js 的三视图映射逐点相同。
+  const unfolded = PS.unfoldProjections(modelPoint, 90);
+  ['front', 'top', 'left'].forEach((key) => {
+    suite.close(unfolded[key].y, 0, 1e-12, 'θ=90°：' + key + ' 落在 y=0 平面（三面共面）');
+  });
+  const viewNames = { front: 'a′（正视）', top: 'a（俯视）', left: 'a″（左视）' };
+  ['front', 'top', 'left'].forEach((key) => {
+    const expected = PJ.worldToView(modelPoint, key);
+    const actual = PJ.worldToView(unfolded[key], 'front');
+    suite.close(actual.u, expected.u, 1e-12, '展开 90° 后 ' + viewNames[key] + ' 的 u = 三视图 u');
+    suite.close(actual.v, expected.v, 1e-12, '展开 90° 后 ' + viewNames[key] + ' 的 v = 三视图 v');
+  });
+  suite.note('本节锁住的是「三投影面展开成三视图」的口径：改动展开方向或旋转符号会立刻失败；'
+    + '若确要改，须连同 pages/projection/unfold.js 的注释与真机表现一起改，并重新做真机回归。');
+
+  // 实心投影面的遮挡判定：虽然不是展开数学，但同样是纯函数（给定三块面与视线，判断某点是否被挡住），
+  // 它决定空间视图里"哪个分角编号/空间点看得见"，改错会让画面自相矛盾，因此一并锁住。
+  const plateFrames = (rotateView) => {
+    const rot = (p) => (rotateView ? PS.rotatePointAboutZ(p, 180) : p);
+    return {
+      V: { u1: rot({ x: 1, y: 0, z: 0 }), u2: rot({ x: 0, y: 0, z: 1 }) },
+      H: { u1: rot({ x: 1, y: 0, z: 0 }), u2: rot({ x: 0, y: 1, z: 0 }) },
+      W: { u1: rot({ x: 0, y: 0, z: 1 }), u2: rot({ x: 0, y: 1, z: 0 }) }
+    };
+  };
+  const frontFrames = plateFrames(false);
+  const backFrames = plateFrames(true);
+  const octantRange = { center: 0, half: 7 };      // 八分角模式：板向两侧延伸
+  const firstRange = { center: 3.5, half: 3.5 };   // 第一分角模式：板只覆盖 0..7
+  const occluded = (point, frames, range) => PS.isOccludedByPlates(point, frames, range || octantRange);
+  suite.check(!occluded(modelPoint, frontFrames), '默认视角：第一分角内的空间点不被投影面遮挡');
+  suite.check(occluded({ x: -4, y: -3, z: 2 }, frontFrames), '默认视角：V 面背后的点被实心投影面挡住');
+  suite.check(!occluded({ x: -4, y: -3, z: 9 }, frontFrames), '超出投影面范围（|坐标| > 7）的点不被挡住');
+  // 实现里"旋转视角"= 把整个场景连同三块板一起绕 OZ 轴转，观察方向保持不变，
+  // 所以这里也必须把点与三块板一起转，才是同一个视图坐标系。
+  const inViewFrame = (point, angle) => PS.rotatePointAboutZ(point, angle);
+  suite.check(!occluded(inViewFrame({ x: -4, y: -3, z: 2 }, 180), backFrames),
+    '视角绕 OZ 轴转 180° 后，原本被挡住的 Ⅴ–Ⅷ 一侧的点可见');
+  suite.check(!occluded(inViewFrame(modelPoint, 180), backFrames), '视角绕 OZ 轴转 180° 后，空间点本身仍在空处可见');
+  // 板的大小决定谁能挡住谁：同一点在八分角模式下被延伸的 V 面挡住，在第一分角模式下不被挡住
+  suite.check(occluded({ x: -4, y: -2, z: 4 }, frontFrames, octantRange),
+    '八分角模式：V 面背后的点被延伸出去的那半块板挡住');
+  suite.check(!occluded({ x: -4, y: -2, z: 4 }, frontFrames, firstRange),
+    '第一分角模式：同一位置不被挡住（板只覆盖第一分角 0..7）');
+  suite.check(!occluded({ x: 4, y: 3, z: 5 }, frontFrames, firstRange),
+    '第一分角模式：第一分角内的空间点仍不被挡住');
+  suite.note('遮挡判定用的是"从点朝观察者方向 (1, 1, 0.76) 走，是否穿过 ±7 的方板"，'
+    + '与 pages/index/projection.js 的等轴测退化方向一致；改基向量或板尺寸都会影响可见性。');
+}
+
 function main() {
   const quiet = process.argv.includes('--quiet') || process.argv.includes('-q');
   const suite = createSuite('geometry-test', { quiet });
 
   if (!loadGeometryModules()) {
     console.log('\ngeometry-test：无法运行（几何模块在 Node 中不可加载）');
+    return;
+  }
+  if (!loadProjectionModules()) {
+    console.log('\ngeometry-test：无法运行（投影体系模块在 Node 中不可加载）');
     return;
   }
 
@@ -519,6 +640,7 @@ function main() {
   checkSectionCaps(suite);
   checkBasicSolid(suite);
   checkDegenerateCases(suite);
+  checkProjectionSystem(suite);
 
   const code = suite.finish();
   if (!code) console.log('geometry-test: OK');

@@ -4,6 +4,12 @@
       <text class="profile-avatar">👤</text>
       <text class="profile-link">个人信息</text>
     </view>
+    <!-- 投影体系入口（独立新增页面 pages/projection）：复用工具条既有样式类，不新增样式；
+         位置固定在「个人信息」右侧、模块选择器左侧（2026-10-08 用户要求） -->
+    <navigator class="profile-entry" url="/pages/projection/projection" hover-class="none">
+      <text class="profile-avatar">📐</text>
+      <text class="profile-link">投影体系</text>
+    </navigator>
     <picker class="module-picker" mode="selector" range="{{moduleOptions}}" value="{{moduleIndex}}" bindchange="handleModulePicker">
       <view class="module-selector">
         <text>{{moduleOptions[moduleIndex]}}</text>
