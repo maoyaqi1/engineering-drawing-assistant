@@ -1,6 +1,6 @@
 # 版本冻结记录 v1.2（投影体系模块）
 
-> 状态：**已冻结**（主仓已提交并打附注 tag `v1.2.0`；**未推送**，推送由用户执行）
+> 状态：**已冻结**（2026-10-10 重新冻结：主仓已提交并打附注 tag `v1.2.0`；tag 已重新指向，推送需 `git push --force origin v1.2.0`）
 > 上一版本：`v1.1.0`（2026-09-25，tag `v1.1.0`，基线提交 `03df1bf`）
 > 本次改动：新增**投影体系**独立页面（三投影面体系、八分角/第一分角、投影面展开、空间旋转观察）+ 首页工具条入口
 > 上级规则：`AGENTS.md` C1（用户明确要求优先）、C7/C8（冻结模块与开工前确认）、C10（提交与推送）、C11（本项目无自动化测试，改后必真机验证）、C12/§62（交付摘要）
@@ -18,28 +18,26 @@
 
 ## 2. 改动清单
 
+> 下表对应 **tag `v1.2.0`（2026-10-10 重新冻结）**；核对用 `git show v1.2.0:"<文件>" | git hash-object --stdin`（工作区若含未纳入本版本的改动，直接对工作区文件算哈希会不同）。
+
 | 文件 | 性质 | blob（前 10 位） | 行数 |
 | --- | --- | --- | --- |
+| `app.json` | B 级：注册 `pages/projection/projection`；注销 `pages/video/video` | `c7606233dc` | 22 |
+| `project.config.json` | 打包忽略 `pages/video`（源码保留、不入包） | `a856157854` | 97 |
+| `pages/index/index.wxml` | **C 级冻结模块**：工具条加入口 + 位置调整 | `31f93e85d9` | 261 |
 | `pages/projection/projection.js` | 新增（页面） | `36d8c21af1` | 63 |
-| `pages/projection/unfold.js` | 新增（展开数学 + 绘制 + 交互） | `9630ea0533` | 706 |
+| `pages/projection/unfold.js` | 新增（展开数学 + 绘制 + 交互）；面名锚点按投影面范围区分 | `74c10a682c` | 717 |
 | `pages/projection/projection.wxml` | 新增 | `feb6f4923a` | 74 |
 | `pages/projection/projection.wxss` | 新增 | `0406d2f38a` | 138 |
 | `pages/projection/projection.json` | 新增 | `4b58455770` | 5 |
-| `app.json` | B 级：注册 `pages/projection/projection` | `ab5e442ebb` | 23 |
-| `pages/index/index.wxml` | **C 级冻结模块**：工具条加入口 + 位置调整 | `31f93e85d9` | 261 |
+| `pages/ai/ai.js` | 删除 `onPlayVideo`：不再提供播放入口 | `64e4840db4` | 357 |
+| `pages/ai/ai.wxml` | 「建议观看」卡片 → 纯文字提示（学习通） | `efac254f11` | 111 |
+| `cloudfunctions/api/ai/config.js` | `video.playback` 默认改为 `off`（合规） | `f0177b56e9` | 59 |
 | `scripts/geometry-test.js` | 开发者只读检查：新增「D. 投影体系」一节 | `0e3be8ae7d` | 650 |
+| `scripts/ruler-removal-selfcheck.cjs` | A2 断言识别"打包忽略的目录" | `8bf2ee6f1a` | 124 |
+| `docs/AI教师对接契约.md` | §4 开关默认值与暂停视频推送的结论 | `9db886c395` | 506 |
+| `docs/交接说明.md` | §3 目录职责、§8 action 同步、§11 功能清单、视频合规说明 | `eaab83a11b` | 248 |
 | `README.md` | 功能清单补一行 | `12b8cc2fab` | 57 |
-| `docs/交接说明.md` | §3 目录职责、§8 teacher action 同步、§11 功能清单 | `1bbbad94b8` | 247 |
-
-核对命令：
-
-```powershell
-git -C G:\HFJH hash-object app.json pages/index/index.wxml pages/projection/projection.js pages/projection/unfold.js `
-  pages/projection/projection.wxml pages/projection/projection.wxss pages/projection/projection.json `
-  scripts/geometry-test.js README.md "docs/交接说明.md"
-```
-
----
 
 ## 3. 涉及冻结模块的改动与授权依据
 
@@ -138,3 +136,21 @@ git -C G:\HFJH checkout v1.1.0 -- scripts/geometry-test.js README.md "docs/交�
 4. **投影面配色已由用户裁决定稿（2026-10-08）：按当前配色**——V 蓝（`#2a6ac4`）、H 绿（`#2f8f5f`）、W 黄（`#b8912f`），即与首页空间视图一致；`AGENTS.md` §9 的建议默认色（H 浅蓝 / V 浅绿 / W 浅黄）不适用于本模块，本模块以本条裁决为准。
 5. `AGENTS.md` C4 的页面清单仍写作 7 页（`login`/`register`/`index`/`survey`/`ai`/`video`/`terms`），实际 `app.json` 现为 8 页（新增 `pages/projection/projection`）；本次未改章程正文，登记在此。
 6. 新页面未接入 `web/`（浏览器版演示）：`web/index.html` 的 CommonJS 垫片按 `pages/index/` 的模块顺序注册，新页面若要进网页版需另加脚本与页面（本次未做，用户未要求）。
+---
+
+## 10. 重新冻结记录（2026-10-10）
+
+触发：小程序提审以「个人主体不能开放视频功能」被拒 → 用户要求"暂停 AI 教师视频推送、只给文字讲解 + 学习通提示"，并把**当前版本**（投影体系 + 面名修正 + 视频合规暂停）重新冻结进 `v1.2.0`。
+
+| 类别 | 改动 |
+| --- | --- |
+| 视频合规（2026-10-09/10） | `cloudfunctions/api/ai/config.js` 的 `video.playback` 默认改为 `off`（只有 `VIDEO_PLAYBACK=on` 才下发 `file_id`）；`pages/ai/ai.wxml` 的「建议观看」可点击卡片改为纯文字提示（标题 + 时间点 + 在学习通课程相应章节观看）；`pages/ai/ai.js` 删除 `onPlayVideo`；`app.json` 注销 `pages/video/video`；`project.config.json` 把 `pages/video` 加入打包忽略（源码保留、不入包）；`scripts/ruler-removal-selfcheck.cjs` 的 A2 断言识别"打包忽略的目录"；`docs/AI教师对接契约.md`、`docs/交接说明.md` 同步 |
+| 投影体系修正 | `pages/projection/unfold.js`：面名锚点按投影面范围区分（第一分角只画 0..E 象限，八分角画 ±E 整板），修正"第一分角下面名标到别的面上"的缺陷 |
+
+验证：`node scripts/run-all.js` **27 项 27 通过**（含几何真值 289 项、截交守护 17 项、静态检查 11 项、尺规移除自测 15 项、离线用例全绿）；`node --check` 覆盖改动的 JS；`app.json` / `project.config.json` JSON 合法；投影体系 0°/90° 两种范围重新渲染核对面名。
+
+模型下线核对（2026-10-10，阿里云百炼公告）：公告名单中**没有本项目调用的模型**——本仓库只调用不带日期的 `qwen-vl-plus`（拍照提问视觉读题，百炼兼容模式）与 `deepseek-chat`（DeepSeek 官方端点）；名单中的 `qwen3-vl-plus-2025-xx-xx`、`qwen-vl-ocr-*`、`deepseek-v4-flash*` 等均为快照或其它模型。结论：本次下线不影响本版本，无需改动。腾讯云 SCF 千问侧服务的模型由该服务自身配置（不在本仓库），需在百炼「用量统计」核查。
+
+**tag 说明（重要）**：`v1.2.0` 已于 2026-10-08 推送到 GitHub，本次为容纳上述改动而**重新指向**新提交——推送需要 `git push --force origin v1.2.0`（或改用新 tag，例如 `v1.2.1`，不改写已发布的 tag）。master 正常推送即可。
+
+仍未纳入本版本（工作区未提交）：AI 教师 V2.1「教学事件」、教师端「未分班学生可调整班级」。
