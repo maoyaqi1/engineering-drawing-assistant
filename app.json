@@ -6,7 +6,6 @@
     "pages/projection/projection",
     "pages/survey/survey",
     "pages/ai/ai",
-    "pages/video/video",
     "pages/terms/terms"
   ],
   "lazyCodeLoading": "requiredComponents",

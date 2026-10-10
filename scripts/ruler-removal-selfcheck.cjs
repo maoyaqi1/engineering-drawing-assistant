@@ -29,9 +29,16 @@ for (const p of pages) {
   }
 }
 check('A1 app.json 注册的 ' + pages.length + ' 个页面文件齐全', missing.length === 0, missing.join(', '));
-const pageDirs = fs.readdirSync(ROOT + '/pages', { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => 'pages/' + e.name + '/' + e.name);
+// 被 project.config.json 排除出包的页面目录不要求注册（例如按合规要求暂停视频功能时的 pages/video）
+const projectConfig = JSON.parse(read(ROOT + '/project.config.json'));
+const ignoredFolders = new Set(((projectConfig.packOptions || {}).ignore || [])
+  .filter((entry) => entry.type === 'folder')
+  .map((entry) => String(entry.value).replace(/^\.?\//, '').replace(/\/+$/, '')));
+const pageDirs = fs.readdirSync(ROOT + '/pages', { withFileTypes: true }).filter((e) => e.isDirectory())
+  .map((e) => 'pages/' + e.name + '/' + e.name)
+  .filter((d) => !ignoredFolders.has(d.replace(/\/[^/]+$/, '')));
 const unregistered = pageDirs.filter((d) => !pages.includes(d));
-check('A2 磁盘上每个页面目录都已注册', unregistered.length === 0, '未注册: ' + unregistered.join(', '));
+check('A2 磁盘上每个页面目录都已注册（打包忽略的目录除外）', unregistered.length === 0, '未注册: ' + unregistered.join(', '));
 check('A3 pages/ruler 已从 app.json 与磁盘移除', !pages.some((p) => p.indexOf('ruler') >= 0) && !fs.existsSync(ROOT + '/pages/ruler'));
 
 // ---- B. 跳转目标 ----

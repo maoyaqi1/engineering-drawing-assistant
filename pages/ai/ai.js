@@ -233,23 +233,9 @@ Page({
     this.setData({ imageDataUrl: '' });
   },
 
-  // 点击"配套讲解"卡片 → 进入播放页，从片段起点开始播。
-  // file_id 由云函数下发（环境变量 VIDEO_PLAYBACK=off 时不带该字段，这里给出提示而不跳转）。
-  onPlayVideo(event) {
-    const ref = (event && event.currentTarget && event.currentTarget.dataset.ref) || {};
-    if (!ref.file_id) {
-      wx.showToast({ title: '这段讲解的视频暂未开放', icon: 'none' });
-      return;
-    }
-    const query = [
-      'src=' + encodeURIComponent(ref.file_id),
-      'title=' + encodeURIComponent(ref.video_title || '课程讲解'),
-      'label=' + encodeURIComponent(ref.time_label || ''),
-      'start=' + (ref.start || 0)
-    ].join('&');
-    wx.navigateTo({ url: '/pages/video/video?' + query });
-  },
-
+  // 2026-10-09：个人主体类目不支持教育视频播放、提审被拒 → AI 教师暂停视频推送。
+  // 「配套讲解」只作文字提示（标题 + 时间点 + 在学习通课程里观看），小程序内不提供任何播放入口；
+  // 原 onPlayVideo（跳转 pages/video 播放页）的逻辑已移除。
   send() {
     const text = (this.data.input || '').trim();
     const image = this.data.enableImage ? this.data.imageDataUrl : '';
@@ -344,10 +330,11 @@ Page({
         });
       }
       const sourceText = sources.map((s) => s && s.doc).filter(Boolean).slice(0, 3).join('、');
+      const convId = (res && res.conversation_id) || this.data.conversationId;
       this.setData({
         sending: false,
         messages: this.data.messages.concat([{ role: 'assistant', content, videoRefs, sourceText }]),
-        conversationId: (res && res.conversation_id) || this.data.conversationId,
+        conversationId: convId,
         photoQuota: (res && res.photo_quota) || this.data.photoQuota,
         scrollTop: this.data.scrollTop + 10000
       });

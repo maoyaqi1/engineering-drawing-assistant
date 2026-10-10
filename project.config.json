@@ -31,6 +31,10 @@
         "type": "folder"
       },
       {
+        "value": "pages/video",
+        "type": "folder"
+      },
+      {
         "value": "teacher-web",
         "type": "folder"
       },

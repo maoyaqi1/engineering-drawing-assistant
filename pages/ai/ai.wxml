@@ -37,17 +37,12 @@
       <view class="bubble">
         <image wx:if="{{item.image}}" class="msg-image" src="{{item.image}}" mode="widthFix" />
         <text>{{item.content}}</text>
-        <!-- 建议观看的视频：回答以文字讲解为主体，视频只是补充建议。
-             带 file_id 时可点击进入播放页（file_id 由云函数下发，
-             环境变量 VIDEO_PLAYBACK=off 时不下发，卡片自动退回纯信息展示） -->
-        <view
-          wx:if="{{item.videoRefs && item.videoRefs.length}}"
-          class="video-hint {{item.videoRefs[0].file_id ? 'playable' : ''}}"
-          data-ref="{{item.videoRefs[0]}}"
-          bindtap="onPlayVideo"
-        >
-          <text class="video-hint-tag">{{item.videoRefs[0].file_id ? '▶ 建议观看（点击播放）' : '建议观看'}}</text>
+        <!-- 配套讲解：只给文字提示，不提供任何播放入口（个人主体类目不支持教育视频播放，
+             2026-10-09 提审被拒后暂停视频推送）；视频请到学习通课程相应章节观看。 -->
+        <view wx:if="{{item.videoRefs && item.videoRefs.length}}" class="video-hint">
+          <text class="video-hint-tag">📺 对应讲解</text>
           <text class="video-hint-text">{{item.videoRefs[0].video_title}} · {{item.videoRefs[0].time_label}}</text>
+          <text class="video-hint-text">视频在学习通课程的相应章节里，课后可在那里观看</text>
         </view>
         <text wx:if="{{item.sourceText}}" class="src-line">📚 知识来源：{{item.sourceText}}</text>
       </view>

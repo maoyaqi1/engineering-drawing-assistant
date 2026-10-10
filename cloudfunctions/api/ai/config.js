@@ -42,9 +42,11 @@ module.exports = {
   //   VIDEO_PLAYBACK=off → 不下发 file_id，前端回到"只显示标题与时间点"的降级呈现。
   // 说明：个人主体「教育服务-教育信息展示」类目在官方类目表中标注"不支持教育视频播放"，
   // 是否携带播放入口需以审核结论为准；一旦被拒，把 VIDEO_PLAYBACK 置 off 即可立刻回滚。
+// 2026-10-09 实况：提审被拒（个人主体不能开放视频功能）→ 默认值已改为 off（见下），
+// AI 回答只给文字讲解 + "视频在学习通课程相应章节"的提示；仅在确认类目允许后才置 VIDEO_PLAYBACK=on。
   // VIDEO_CLOUD_BASE 为云存储文件 ID 前缀，如与实际情况不符可在控制台改环境变量，无需改代码。
   video: {
-    playback: (process.env.VIDEO_PLAYBACK || '').toLowerCase() !== 'off',
+    playback: (process.env.VIDEO_PLAYBACK || '').toLowerCase() === 'on',
     cloudBase: (process.env.VIDEO_CLOUD_BASE
       || 'cloud://cloud1-d4gwsysje82cf604a.636c-cloud1-d4gwsysje82cf604a-1476352837').replace(/\/+$/, ''),
     pathPrefix: 'videos'

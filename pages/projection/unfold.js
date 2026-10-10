@@ -568,15 +568,26 @@
         context.restore();
       }
 
-      // 面名：只标朝向观察者的面（背面被实心板挡住）
+      // 面名：只标朝向观察者的面（背面被实心板挡住）。
+      // 锚点必须落在该面"当前真正画出来的那块板"内：八分角模式是三块 ±E 的整板，
+      // 第一分角模式只有 0..E 的象限——两套锚点分开给，避免把面名标到别的面上。
       const planeLabel = (modelPoint, text, color, frame) => {
         if (!facingViewer(frame)) return;
         const screen = toScreen(modelPoint);
         this.drawOutlinedText(context, text, screen.x - 14, screen.y + 4, color, 10, '600');
       };
-      planeLabel({ x: extended * 0.85, y: 0, z: -extended * 0.85 }, 'V 面', PLANE_STYLE.V.label, frames.V);
-      planeLabel(unfoldHPoint({ x: extended * 0.9, y: -extended * 0.5, z: 0 }, angle), 'H 面', PLANE_STYLE.H.label, frames.H);
-      planeLabel(unfoldWPoint({ x: 0, y: extended * 0.8, z: -extended * 0.65 }, angle), 'W 面', PLANE_STYLE.W.label, frames.W);
+      const vAnchor = firstOnly
+        ? { x: extended * 0.9, y: 0, z: extended * 0.9 }
+        : { x: extended * 0.85, y: 0, z: -extended * 0.85 };
+      const hAnchor = firstOnly
+        ? { x: extended * 0.85, y: extended * 0.85, z: 0 }
+        : { x: extended * 0.9, y: -extended * 0.5, z: 0 };
+      const wAnchor = firstOnly
+        ? { x: 0, y: extended * 0.95, z: extended * 0.3 }
+        : { x: 0, y: extended * 0.8, z: -extended * 0.65 };
+      planeLabel(vAnchor, 'V 面', PLANE_STYLE.V.label, frames.V);
+      planeLabel(unfoldHPoint(hAnchor, angle), 'H 面', PLANE_STYLE.H.label, frames.H);
+      planeLabel(unfoldWPoint(wAnchor, angle), 'W 面', PLANE_STYLE.W.label, frames.W);
 
       // 八个分角编号：被投影面挡住的编号不画（旋转视角即可看到，例如 Ⅴ–Ⅷ 转到背面）
       if (spaceAlpha > 0.02) {
