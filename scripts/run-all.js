@@ -27,6 +27,8 @@ const STEPS = [
   { name: '宽屏一屏放下估算', script: 'scripts/pad-fit-check.cjs' },
   { name: '手机端折行估算（仅报告）', script: 'scripts/phone-fit-check.cjs', informational: true },
   { name: '网页版模块加载检查', script: 'scripts/web-loader-check.cjs' },
+  { name: 'AI 教师页面结构检查', script: 'scripts/ai-page-check.cjs' },
+  { name: '需求—测试用例覆盖检查', script: 'scripts/test-case-coverage-check.cjs' },
   { name: '转发能力自测', script: 'scripts/share-selfcheck.cjs' },
   { name: '尺规移除自测', script: 'scripts/ruler-removal-selfcheck.cjs' },
   { name: 'AI 教师知识点路由检查', script: 'scripts/ai-knowledge-routing-check.cjs' }

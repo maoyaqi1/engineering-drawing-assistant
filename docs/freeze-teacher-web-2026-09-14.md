@@ -120,3 +120,63 @@ git -c safe.directory=$dst -C $dst push origin main
 2. `docs/freeze-v1.0.0-2026-09-11.md` §1 记的教师后台功能名仍是「未入册学生（仅超管）」，且其中 `roster` 相关描述在第二阶段已废弃。
 3. `docs/rules/teacher-backend.md`、`docs/rules/cloud-database.md` 的历史"现状事实"段写于 2026-09-11，已在其文件内加了 2026-09-14 更新块，但未逐条改写旧文。
 4. `docs/交接说明.md` 中 `roster`、`data.reset` 等描述仍为历史状态。
+
+---
+
+## 11. 变更记录（2026-10-08）：未分班学生可直接调整班级
+
+> 本节的改动发生在 v1.0.0 冻结之后（`a853878..` 期间 `teacher-web/` 无其他改动）。
+> §1 仍是 v1.0.0 的冻结基线与哈希，**不回改**；本节按 §7 第 4 条记录新哈希与发布状态。
+
+### 11.1 触发原因（用户明确要求 + 可复现的真实缺口）
+
+教师在「班级详情 → 批量管理」把误录入的 45 名学生批量移出班级后，这 45 人变成「未分班」：
+驾驶舱「班级概况」只显示人数，**没有任何可操作入口**；代码里能真正调整的路径只有
+「某个班级详情 → 从名册添加」，而该弹窗没有搜索框，人数一多就难以定位。
+用户 2026-10-08 明确要求：未分班学生要能调整班级，或新建班级后归入。
+
+### 11.2 改动内容
+
+| 文件 | 改动 |
+| --- | --- |
+| `cloudfunctions/teacher/index.js` | 新增只读 action `class.unassigned`：返回「本人名下名册（`owner_teacher_id` = 调用者）中 `class_id` 为空」的学生，支持 `keyword`；超管仍只返回自己名下记录（R21 只读语义不变） |
+| `teacher-web/js/api.js` | 新增封装 `unassignedStudents()` → `class.unassigned` |
+| `teacher-web/js/app.js` | 班级页新增「未分班学生 · 调整班级…」入口；驾驶舱「班级概况 → 未分班」行新增「去调整…」按钮；新增 `openUnassignedModal()`：搜索 / 多选 / 全选当前结果 / 归入已有班级 / **新建班级并归入**（复用 `class.create` + `class.members.add`） |
+| `teacher-web/index.html` | `?v=20260914b` → `?v=20261008a` |
+| `teacher-web/README.md` | 「已有功能」补一条班级管理与未分班调整 |
+| `scripts/offline/run.cjs` | 新增 10 条断言（21–25）：未分班范围/权限/筛选、归入已有班级、新建班级归入 |
+
+**未改**：权限语义（超管对教师班级只读、成员操作范围限本人名册）、`class.members.*` 既有规则、
+学生端小程序与 `api` 云函数、`pages/index/` 等冻结模块。
+
+### 11.3 改动后的哈希（2026-10-08）
+
+| 文件 | blob | 行数 |
+| --- | --- | --- |
+| `teacher-web/index.html` | `832c1c26d8` | 74 |
+| `teacher-web/js/app.js` | `07a36a9356` | 2527 |
+| `teacher-web/js/api.js` | `eed84fd4f8` | 165 |
+| `teacher-web/js/config.js` | `dff7032a35` | 11（未变） |
+| `teacher-web/css/style.css` | `9fb8163c5f` | 511（未变） |
+| `teacher-web/README.md` | `d3e136ecda` | 45 |
+
+核对命令：`git -C G:\HFJH hash-object teacher-web/index.html teacher-web/js/app.js teacher-web/js/api.js teacher-web/js/config.js teacher-web/css/style.css teacher-web/README.md`
+
+### 11.4 验证与发布状态
+
+| 检查 | 方法 | 结果 |
+| --- | --- | --- |
+| 全量只读检查 | `node scripts/run-all.js` | **27/27 通过** |
+| 离线云函数自测 · class.* | `node scripts/offline/run.cjs` | **44/44 通过**（原 34 + 新增 10） |
+| 前后端一致性 / DOM id / 敏感信息 | `node scripts/full-check.cjs` | **11/11**（教师端 action 33/34，api 方法 33/33，DOM id 139/146） |
+| 云函数部署 | 用户 | ⬜ 待执行（未部署不算验证） |
+| 预览仓发布 + `?v=` | 用户 | ⬜ 待执行（`teacher-web/` 同步到 `hfjh-teacher-preview` 的 `main`） |
+| 浏览器实机 | 用户 | ⬜ 待执行（教师账号登录后走一遍「未分班 → 调整班级」） |
+
+### 11.5 回滚
+
+```powershell
+# 只回滚教师网页（回到 v1.0.0 冻结内容；云函数的 class.unassigned 是只读新增，保留不影响旧页面）
+git -C G:\HFJH checkout teacher-web-v1.0.0 -- teacher-web
+# 云函数若要一并回退：删除 teacher/index.js 里的 classUnassigned 与 dispatcher 的 class.unassigned 分支后重新部署
+```

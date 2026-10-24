@@ -9,6 +9,8 @@
     show-center-play-btn
     object-fit="contain"
     binderror="onError"
+    bindtimeupdate="onProgress"
+    bindended="onEnded"
   ></video>
 
   <view class="meta">

@@ -16,6 +16,15 @@ const results = [];
 const check = (name, pass, detail) => results.push({ name, pass: !!pass, detail: detail || '' });
 
 const html = fs.readFileSync(path.join(ROOT, 'web', 'index.html'), 'utf8');
+const runtimeText = fs.readFileSync(path.join(ROOT, 'web', 'runtime.js'), 'utf8');
+
+const moduleValues = [...html.matchAll(/<option value="([^"]+)">(?:点|直线|平面|平面切割立体)<\/option>/g)]
+  .map((match) => match[1]);
+check('浏览器教学模块使用语义值',
+  moduleValues.join(',') === 'point,line,plane,section',
+  moduleValues.join(','));
+check('浏览器切割模块映射到共享页面索引 4',
+  /section:\s*4/.test(runtimeText));
 
 // 按出现顺序取出 <script src="..."> 与内联 <script>…</script>
 const scripts = [];

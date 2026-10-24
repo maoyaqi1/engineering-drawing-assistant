@@ -1,7 +1,11 @@
 // 账号唯一性自测：同一 openid 反复登录 / 反复修改资料，是否始终只有一条记录并只保留最后一次信息。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  rows,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 
 // 用桩替换 AI 模块，避免加载 LLM 依赖链
 const convPath = require.resolve(repoPath('cloudfunctions/api/ai/conversation.js'));
@@ -9,14 +13,8 @@ require.cache[convPath] = { id: convPath, filename: convPath, loaded: true, expo
 
 const apiFn = require(repoPath('cloudfunctions/api/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function users() { return Array.from(table('users').values()); }
+function users() { return rows('users'); }
 
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
 
 (async () => {
@@ -81,9 +79,5 @@ const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
     users().length === 1 && t7.user && t7.user.student_id === '4002' && t7.user.name === '新名',
     JSON.stringify({ left: users().map((x) => x.student_id), got: t7.user && t7.user.student_id }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

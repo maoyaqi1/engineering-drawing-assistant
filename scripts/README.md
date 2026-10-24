@@ -35,6 +35,8 @@ node scripts/offline/run.cjs           # 单个离线云函数自测
 | `pad-fit-check.cjs` | 宽屏（PAD / 折叠屏展开）一屏是否放下（按样式表估算） | 只读 | 是 |
 | `phone-fit-check.cjs` | 手机端参数面板折行估算 | 只读 | 否（仅报告） |
 | `web-loader-check.cjs` | 网页版 `web/index.html` 的模块加载垫片与脚本顺序（模拟到 `pages/index/index.js`） | 只读 | 是 |
+| `ai-page-check.cjs` | AI 教师页的领域模块导出、Page 装配与 WXML 事件接线 | 只读 | 是 |
+| `test-case-coverage-check.cjs` | 每个当前需求是否至少映射到一个测试用例，以及用例编号是否唯一 | 只读 | 是 |
 | `share-selfcheck.cjs` | 转发声明与 `onShareAppMessage` 行为 | 只读 | 是 |
 | `ruler-removal-selfcheck.cjs` | v1.0.0 移除尺规作图后的残留扫描 | 只读 | 是 |
 | `ai-knowledge-routing-check.cjs` | AI 教师知识文件与 `ai/knowledge.js` 知识点路由一致（含装配图 G06）、注入正文不超 `maxKnowledgeChars` | 只读 | 是 |

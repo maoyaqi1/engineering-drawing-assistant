@@ -2,25 +2,20 @@
 // 覆盖：线归属优先级、演示班标记与权限、回填幂等与 manual 保护、驾驶舱三条线与排除计数、
 //       教师驾驶舱范围过滤、学习记录 / AI 分析的测试数据排除。
 // 运行：node scripts/offline/run-quality.cjs（或 node scripts/run-all.js 统一运行）
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-
 // 内部账号名单必须在 require 云函数之前设置（模块加载时读取环境变量）
 process.env.INTERNAL_OPENIDS = 'o-internal';
 
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  dump,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-function dump(name) { return JSON.stringify(Array.from(table(name).values()).sort((a, b) => String(a._id).localeCompare(String(b._id)))); }
 function user(id) { return table('users').get(id); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
 // 时间夹具必须相对「当前真实时刻」生成：驾驶舱的"近 7 天"是按真实时钟算的，
 // 早年把日期写死后，跑测日期一过窗口，3a/3b/3h/3j 会因统计为 0 而必然失败。
@@ -205,11 +200,7 @@ const t3Call = (p) => teacherFn.main(Object.assign({ token: 'tok-t3' }, p));
     ai.summary.total === 2 && ai.excluded_test === 4 && ai.excluded_guest === 1,
     JSON.stringify({ total: ai.summary.total, test: ai.excluded_test, guest: ai.excluded_guest }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exitCode = failed.length ? 1 : 0;
+  process.exitCode = printSummary() ? 1 : 0;
 })().catch((error) => {
   console.log('HARNESS_ERROR ' + (error && error.stack ? error.stack : error));
   process.exitCode = 2;

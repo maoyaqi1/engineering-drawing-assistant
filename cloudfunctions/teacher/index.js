@@ -1,197 +1,84 @@
-const cloud = require('wx-server-sdk');
-const crypto = require('crypto');
+// 教师端云函数入口：独立于学生端 api，只服务 teacher-web。
+//
+// 分层：
+//   lib/runtime.js     云开发初始化、数据库、token、密码哈希、分页查询；
+//   lib/identity.js    名册身份规范化、注册匹配和公开字段；
+//   lib/class-model.js 班级实体、归属校验和成员统计；
+//   index.js           action 处理器与稳定路由。
+//
+// 对应统一需求：
+//   SYS-04 / SYS-11 / SYS-18：服务隔离、稳定 action 与密钥边界；
+//   IAM-03 / IAM-19 / DATA-02：教师身份与服务端权限；
+//   TCH-04–TCH-09：教师名册、学生详情和备注；
+//   TCH-10–TCH-26 / IAM-20–IAM-22：班级、成员与收编；
+//   TCH-27–TCH-33 / DATA-11–DATA-15：驾驶舱与学情口径；
+//   DATA-21–DATA-24 / TCH-34–TCH-39：数据治理与审计；
+//   DATA-26–DATA-29：正式 action 与退役接口。
+//
+// action 名称、返回字段和导出的 main 是稳定接口。下方处理器只通过
+// 共享运行时与领域模块协作，不各自初始化云开发或复制身份规则。
+const runtime = require('./lib/runtime.js');
+const identity = require('./lib/identity.js');
+const classModel = require('./lib/class-model.js');
 
-// 教师端云函数：独立于学生端 api，只服务教师 Web 后台。
-// 账号密码登录：登录以 username/password 换取 token，后续所有请求凭 token 鉴权。
-// 超级管理员（环境变量初始化）可对教师账号增删改查。
-// 已实现：登录/登出/鉴权、教师管理、学生名册与学情（REQ-001）；
-// 班级管理按 REQ-002 第一阶段实现（classes 实体 + students.class_id 权威关联 + students.class_name 兼容快照）。
-cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
-
-const db = cloud.database();
-const COLLECTIONS = [
-  'teachers',
-  'teacher_sessions',
-  'schools',
-  'classes',
-  'students',
-  'teacher_classes',
-  'teacher_notes',
-  'maintenance_logs'
-];
-
-// ---- 常量 ----
-const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-const SCRYPT_KEYLEN = 64;
-const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1 };
-
-// 超级管理员：从云函数环境变量读取（部署时配置 TEACHER_USERNAME / TEACHER_PASSWORD）
-const SUPER_USERNAME = (process.env.TEACHER_USERNAME || 'myq').trim();
-const SUPER_PASSWORD = (process.env.TEACHER_PASSWORD || '').trim();
-
-// 内部测试账号（微信 openid，逗号 / 分号 / 空格分隔）。
-// 用途：把开发者与老师本人的自测数据从"真实学情"里剔除（见 docs/requirements/REQ-003.md D21/D22）。
-// 注意：这与小程序端 api 云函数的 ADMIN_OPENIDS 是两套名单，不要混用；人工不可改这里的判定结果。
-const INTERNAL_OPENIDS = (process.env.INTERNAL_OPENIDS || '')
-  .split(/[,，;；\s]+/)
-  .map((s) => s.trim())
-  .filter(Boolean);
-
-// ---- 工具 ----
-function now() {
-  return new Date().toISOString();
-}
-
-function nowMs() {
-  return Date.now();
-}
-
-function makeError(code, status, message) {
-  const err = new Error(message);
-  err.code = code;
-  err.status = status;
-  return err;
-}
-
-function hashPassword(password, salt) {
-  return new Promise((resolve, reject) => {
-    crypto.scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_OPTIONS, (err, derivedKey) => {
-      if (err) return reject(err);
-      resolve(derivedKey.toString('hex'));
-    });
-  });
-}
-
-function makeSalt() {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-function makeToken() {
-  return crypto.randomBytes(32).toString('hex');
-}
-
-function normalizeUsername(v) {
-  return String(v == null ? '' : v).trim().toLowerCase();
-}
-
-function publicTeacher(t) {
-  return {
-    id: t._id,
-    username: t.username || '',
-    name: t.name,
-    role: t.role,
-    schoolId: t.schoolId || '',
-    schoolName: t.schoolName || '',
-    status: t.status,
-    createdAt: t.created_at,
-    lastLoginAt: t.last_login_at || ''
-  };
-}
-
-function isSuper(teacher) {
-  return teacher && teacher.role === 'super_admin' && teacher.status === 'active';
-}
-
-// ---- collection 初始化 ----
-async function ensureCollections() {
-  await Promise.all(COLLECTIONS.map((name) => db.createCollection(name).catch(() => null)));
-}
-
-// 确保超级管理员存在（幂等）。从环境变量读取，仅首次创建；已存在则不覆盖。
-async function ensureSuperAdmin() {
-  if (!SUPER_PASSWORD) return null;
-  const existing = await db.collection('teachers').where({ role: 'super_admin' }).limit(1).get();
-  if (existing.data.length) return existing.data[0];
-  const salt = makeSalt();
-  const passwordHash = await hashPassword(SUPER_PASSWORD, salt);
-  const record = {
-    username: normalizeUsername(SUPER_USERNAME),
-    name: '超级管理员',
-    password_hash: passwordHash,
-    salt,
-    role: 'super_admin',
-    schoolId: '',
-    schoolName: '',
-    status: 'active',
-    created_at: now(),
-    updated_at: now(),
-    last_login_at: ''
-  };
-  const added = await db.collection('teachers').add({ data: record });
-  return Object.assign({ _id: added._id }, record);
-}
-
-async function getTeacherById(id) {
-  try {
-    const res = await db.collection('teachers').doc(id).get();
-    return res.data ? Object.assign({ _id: id }, res.data) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-// ---- 鉴权 ----
-async function authByToken(token) {
-  if (!token) return null;
-  const res = await db.collection('teacher_sessions').where({ token }).limit(1).get();
-  const session = res.data[0];
-  if (!session) return null;
-  if (session.expires_at < nowMs()) return null;
-  const teacher = await getTeacherById(session.teacher_id);
-  if (!teacher || teacher.status !== 'active') return null;
-  return teacher;
-}
-
-async function requireAuth(event) {
-  const teacher = await authByToken((event && event.token) || '');
-  if (!teacher) throw makeError('UNAUTHORIZED', 401, '未登录或登录已过期');
-  return teacher;
-}
-
-async function requireSuper(event) {
-  const teacher = await requireAuth(event);
-  if (!isSuper(teacher)) throw makeError('FORBIDDEN', 403, '仅超级管理员可执行此操作');
-  return teacher;
-}
-
-// ---- 数据统计工具 ----
-function dayKey(ms) {
-  // 按北京时间（UTC+8）生成 YYYY-MM-DD
-  const d = new Date(ms + 8 * 60 * 60 * 1000);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function daysAgoISO(n) {
-  return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
-}
-
-async function fetchAll(collection, query) {
-  // 分批拉取（云开发单次 100 条上限）
-  const MAX = 100;
-  const result = [];
-  let offset = 0;
-  const safeQuery = query || db.collection(collection);
-  while (true) {
-    const batch = await (typeof safeQuery.skip === 'function'
-      ? safeQuery.skip(offset).limit(MAX).get()
-      : db.collection(collection).skip(offset).limit(MAX).get());
-    result.push(...batch.data);
-    if (batch.data.length < MAX) break;
-    offset += MAX;
-  }
-  return result;
-}
-
-// 从 users 表中统计学生
-async function countStudents() {
-  const res = await db.collection('users').where({ role: 'student' }).count();
-  return res.total;
-}
+const {
+  db,
+  TOKEN_TTL_MS,
+  INTERNAL_OPENIDS,
+  now,
+  nowMs,
+  makeError,
+  hashPassword,
+  makeSalt,
+  makeToken,
+  normalizeUsername,
+  publicTeacher,
+  isSuper,
+  ensureCollections,
+  ensureSuperAdmin,
+  getTeacherById,
+  requireAuth,
+  requireSuper,
+  dayKey,
+  daysAgoISO,
+  fetchAll
+} = runtime;
+const {
+  normalizeStudentNo,
+  normalizeName,
+  rosterKey,
+  validateStudentIdentity,
+  loadRegisteredMap,
+  publicRosterStudent,
+  buildRosterRecord
+} = identity;
+const {
+  CLASS_STATUS_ACTIVE,
+  CLASS_STATUS_ARCHIVED,
+  CLASS_NAME_MAX,
+  CLASS_SCHOOL_MAX,
+  CLASS_NOTE_MAX,
+  CLASS_BATCH_MAX,
+  normalizeClassName,
+  normalizeDocIds,
+  ensureClassCollection,
+  publicClass,
+  getClassById,
+  canManageClass,
+  requireOwnClass,
+  loadAllStudents,
+  buildClassStats,
+  classMemberScope,
+  isClassActive,
+  ensureClassOwnerActive,
+  findDuplicateClass,
+  loadTeacherActiveClasses,
+  resolveClassForTeacher
+} = classModel;
 
 // ---- 登录 / 登出 / 身份 ----
+// 对应 IAM-03、IAM-19：教师使用账号密码换取短期 token；
+// 所有后续业务 action 都从 token 恢复教师身份，不信任前端声明的角色。
 async function login(event) {
   const username = normalizeUsername((event && event.username) || '');
   const password = String((event && event.password) || '');
@@ -323,6 +210,9 @@ async function deleteTeacher(event) {
 }
 
 // ---- 教学驾驶舱统计 ----
+// 对应 TCH-27–TCH-33、DATA-11–DATA-15：
+// 普通教师只看自己名册范围，超级管理员看全局只读数据；
+// internal / demo / test 只影响报表分线，不改变学生端鉴权。
 async function dashboard(event) {
   const me = await requireAuth(event);
   const superUser = isSuper(me);
@@ -543,138 +433,8 @@ async function dashboard(event) {
 }
 
 // ---- 学生名册（教师端） ----
-// 教师录入的名册存放在 students 集合；学生微信注册信息存放在 users 集合。
-// 两条路径完全独立：教师录名册，学生自己注册。
-// 匹配 / 判重键 = 学号 + 姓名（不同学校学号可能重复，故不能只按学号判断）。
-// 学号规范化（R11/D14）：trim + 去内部空白 + 全角转半角；大小写敏感。
-// 与 cloudfunctions/api/index.js 的 normalizeStudentId 必须一致（两个云函数独立部署，改动要同时改）。
-function toHalfWidth(v) {
-  return String(v == null ? '' : v)
-    .replace(/[\uFF01-\uFF5E]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
-    .replace(/\u3000/g, ' ');
-}
-
-function normalizeStudentNo(v) {
-  return toHalfWidth(v).trim().replace(/\s+/g, '');
-}
-
-// 姓名规范化：trim + 压缩连续空白（与 api 云函数的 normalizeName 一致）
-function normalizeName(v) {
-  return toHalfWidth(v).trim().replace(/\s+/g, ' ');
-}
-
-function rosterKey(studentNo, name) {
-  return normalizeStudentNo(studentNo) + '|' + normalizeName(name);
-}
-
-// 学号与姓名的格式校验（防止「姓名/学号填反」这类录入错误）。
-// 学号按字符串校验：允许前导零（0301010…），因此不做数值转换。
-const STUDENT_NO_MIN = 4;
-const STUDENT_NO_MAX = 20;
-const STUDENT_NAME_MAX = 20;
-
-function validateStudentIdentity(studentNo, name) {
-  const no = normalizeStudentNo(studentNo);
-  const nm = normalizeName(name);
-  if (!no) return { code: 'MISSING_STUDENT_NO', msg: '请填写学号' };
-  if (!/^[0-9]+$/.test(no)) {
-    return {
-      code: 'STUDENT_NO_NOT_NUMERIC',
-      msg: '学号必须是纯数字（当前为「' + no + '」）；请检查是否把姓名填到了学号栏'
-    };
-  }
-  if (no.length < STUDENT_NO_MIN || no.length > STUDENT_NO_MAX) {
-    return {
-      code: 'STUDENT_NO_LENGTH',
-      msg: '学号位数应为 ' + STUDENT_NO_MIN + '–' + STUDENT_NO_MAX + ' 位（当前 ' + no.length + ' 位）'
-    };
-  }
-  if (!nm) return { code: 'MISSING_NAME', msg: '请填写姓名' };
-  if (/[0-9]/.test(nm)) {
-    return {
-      code: 'NAME_HAS_DIGIT',
-      msg: '姓名不能包含数字（当前为「' + nm + '」）；请检查是否把学号填到了姓名栏'
-    };
-  }
-  if (nm.length > STUDENT_NAME_MAX) {
-    return { code: 'NAME_TOO_LONG', msg: '姓名过长（最多 ' + STUDENT_NAME_MAX + ' 个字符）' };
-  }
-  return null;
-}
-
-// 已注册学生匹配表：key = 学号|姓名 → users 记录
-async function loadRegisteredMap() {
-  const res = await db.collection('users').where({ role: 'student' }).limit(1000).get();
-  const map = new Map();
-  res.data.forEach((u) => {
-    const no = normalizeStudentNo(u.student_id);
-    const name = normalizeName(u.name);
-    if (!no || !name) return;
-    map.set(rosterKey(no, name), u);
-  });
-  return map;
-}
-
-// 名册记录对外结构；registered 由与 users 的匹配结果决定
-function publicRosterStudent(s, matchedUser) {
-  return {
-    id: s._id,
-    school: s.school || '',
-    class_name: s.class_name || '',
-    class_id: s.class_id || '',
-    name: s.name || '',
-    student_no: s.student_no || '',
-    owner_teacher_id: s.owner_teacher_id || '',
-    owner_teacher_name: s.owner_teacher_name || '',
-    registered: !!matchedUser,
-    registered_at: matchedUser ? (matchedUser.created_at || '') : '',
-    last_login_at: matchedUser ? (matchedUser.last_login_at || '') : ''
-  };
-}
-
-function buildRosterRecord(row, teacher) {
-  return {
-    school: String(row.school || '').trim(),
-    class_id: String(row.class_id || '').trim(),
-    class_name: String(row.class_name || '').trim(),
-    name: normalizeName(row.name),
-    student_no: normalizeStudentNo(row.student_no),
-    owner_teacher_id: teacher ? teacher._id : '',
-    owner_teacher_name: teacher ? (teacher.name || teacher.username || '') : '',
-    source: 'teacher',
-    created_at: now(),
-    updated_at: now()
-  };
-}
-
-// ---- 学生 ←→ 班级 归并（REQ-003）----
-// 学生名册与班级管理合并为一条链路：班级关系只认 classes 实体（students.class_id），
-// class_name 始终写成实体名，避免"学生页写的班级名"与"班级页建的班级"各说一套。
-// 解析规则：
-// 1) 明确给出 class_id → 校验归属后直接使用；
-// 2) 给出班级名且与同教师的某个活动班级同名 → 归入该班；
-// 3) 名称不一致或为空，但该教师只有一个活动班级 → 归入该班（教师建的那个班）；
-// 4) 其他情况 → 保持未分班（class_id 为空），保留原始班级名文本，由界面提示教师处理。
-async function loadTeacherActiveClasses(teacherId) {
-  if (!teacherId) return [];
-  const all = await fetchAll('classes').catch(() => []);
-  return all.filter((c) => c.owner_teacher_id === teacherId && isClassActive(c));
-}
-
-async function resolveClassForTeacher(teacher, className, classId, noClass) {
-  if (noClass) return null; // 显式选择「未分班」：跳过自动归并
-  const ownerId = teacher ? teacher._id : '';
-  const classes = await loadTeacherActiveClasses(ownerId);
-  if (classId) return classes.find((c) => c._id === classId) || null;
-  const want = normalizeClassName(className);
-  if (want) {
-    const exact = classes.find((c) => normalizeClassName(c.name) === want);
-    if (exact) return exact;
-  }
-  if (classes.length === 1) return classes[0];
-  return null;
-}
-
+// 身份规范化、名册公开结构和注册匹配集中在 lib/identity.js；
+// 班级归属解析集中在 lib/class-model.js。本文件只保留名册业务处理器。
 // ---- AI 教师提问权限（REQ-003 D16：白名单 roster 已下线）----
 // 现在的规则是：名册（students）命中 + 班级 active 即为在册学生，自动获得 AI 提问权限；
 // 判定由学生端云函数 api 的 resolveAccess 实时完成，教师端不再维护任何"白名单副本"，
@@ -880,6 +640,8 @@ async function deleteStudent(event) {
 // 说明（REQ-003 D5/R21/R24）：`student.purge`（超管按条件批量物理删除名册）已下线。
 // 名册的删改归名册归属教师本人（student.delete / student.update）；
 // 超管只保留"按人合规清理（data.personPurge）"，且该通道也只用于个人数据删除请求。
+// 对应 DATA-21–DATA-24、TCH-34–TCH-39：治理动作先预览、再按确认数量执行，
+// 并把操作者与影响范围写入维护日志。
 const PURGE_CHUNK = 50;
 
 // 说明（REQ-003 D5/R24）：「整表清理过程数据」（原 data.reset）作为运维型批量物理删除已下线。
@@ -2072,135 +1834,11 @@ async function listAiQuestions(event) {
 // 数据模型：classes 集合保存班级实体；students.class_id → classes._id 是唯一权威关联；
 // students.class_name 是现有页面（驾驶舱班级概况、学习记录筛选、AI 分析、学生管理）所需的兼容展示快照。
 // 边界：本节的任何写操作都不得触碰 roster（AI 白名单），也不得修改 students.owner_teacher_id（名册归属）。
-const CLASS_STATUS_ACTIVE = 'active';
-const CLASS_STATUS_ARCHIVED = 'archived';
-const CLASS_NAME_MAX = 40;
-const CLASS_SCHOOL_MAX = 60;
-const CLASS_NOTE_MAX = 200;
-const CLASS_BATCH_MAX = 200;
-
-function normalizeClassName(v) {
-  return String(v == null ? '' : v).trim().replace(/\s+/g, ' ');
-}
-
-function normalizeDocIds(raw) {
-  const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
-  const out = [];
-  const seen = new Set();
-  list.forEach((v) => {
-    const id = String(v == null ? '' : v).trim();
-    if (!id || seen.has(id)) return;
-    seen.add(id);
-    out.push(id);
-  });
-  return out;
-}
-
-// classes 集合在 COLLECTIONS 中已声明，ensureCollections() 会幂等建表；
-// 这里再做一次显式探测，便于在日志中区分「已存在」与「本次创建」（REQ-002 §23 第 1 项）。
-async function ensureClassCollection() {
-  try {
-    await db.collection('classes').limit(1).get();
-    return 'exists';
-  } catch (e) {
-    await db.createCollection('classes').catch(() => null);
-    return 'created';
-  }
-}
-
-function publicClass(c, memberStat) {
-  const stat = memberStat || { member_count: 0, registered_count: 0 };
-  return {
-    id: c._id,
-    name: c.name || '',
-    school: c.school || '',
-    status: c.status || CLASS_STATUS_ACTIVE,
-    owner_teacher_id: c.owner_teacher_id || '',
-    owner_teacher_name: c.owner_teacher_name || '',
-    note: c.note || '',
-    // 演示/内部班标记（仅超管可改）：报表与班级统计会排除演示班，鉴权不受影响
-    is_demo: c.is_demo === true,
-    created_at: c.created_at || '',
-    updated_at: c.updated_at || '',
-    member_count: stat.member_count,
-    registered_count: stat.registered_count
-  };
-}
-
-async function getClassById(id) {
-  if (!id) return null;
-  try {
-    const res = await db.collection('classes').doc(id).get();
-    return res.data ? Object.assign({ _id: id }, res.data) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-// 可见范围（只读）：超级管理员=全部班级；普通教师=自己创建的班级。
-// 写权限另见 requireOwnClass（R21：超管不得修改教师班级）。
-function canManageClass(me, classDoc) {
-  return isSuper(me) || classDoc.owner_teacher_id === me._id;
-}
-
-// 写权限（R21）：班级编辑 / 成员增减 / 同步 / 停用只有负责教师本人可做，超管对教师班级只读。
-// 唯一例外是「恢复已停用班级」（R15），由 archiveClass 单独放行超管。
-function requireOwnClass(me, classDoc, what) {
-  if (classDoc.owner_teacher_id !== me._id) {
-    throw makeError('FORBIDDEN', 403,
-      '只能' + (what || '管理') + '自己负责的班级（超级管理员对教师班级只读）');
-  }
-}
-
-async function loadAllStudents() {
-  return await fetchAll('students').catch(() => []);
-}
-
-// 班级成员统计：成员数与已注册人数（注册判定沿用「学号 + 姓名」匹配 users 的既有口径）
-function buildClassStats(students, regMap) {
-  const stats = new Map();
-  students.forEach((s) => {
-    const cid = s.class_id || '';
-    if (!cid) return;
-    if (!stats.has(cid)) stats.set(cid, { member_count: 0, registered_count: 0 });
-    const stat = stats.get(cid);
-    stat.member_count += 1;
-    if (regMap.get(rosterKey(s.student_no, s.name))) stat.registered_count += 1;
-  });
-  return stats;
-}
-
-// 成员操作范围 = 该班负责教师名册中的学生。超级管理员同样遵守该范围，
-// 以保证「班级管理不得改变学生名册归属、不做跨教师调班」。
-function classMemberScope(students, classDoc) {
-  return students.filter((s) => s.owner_teacher_id === classDoc.owner_teacher_id);
-}
-
-function isClassActive(classDoc) {
-  return (classDoc.status || CLASS_STATUS_ACTIVE) === CLASS_STATUS_ACTIVE;
-}
-
-// B1/R15：恢复班级前校验负责人仍在职，保持"停用教师不得持有活动班级"的不变量
-async function ensureClassOwnerActive(classDoc) {
-  if (!classDoc.owner_teacher_id) {
-    throw makeError('CLASS_NO_OWNER', 409, '该班没有负责教师，无法恢复：请先由超管指定负责人');
-  }
-  const owner = await getTeacherById(classDoc.owner_teacher_id);
-  if (!owner || owner.status !== 'active') {
-    throw makeError('OWNER_INACTIVE', 409, '该班负责教师账号已停用，请先启用教师账号，再恢复班级');
-  }
-}
-
-// 同一负责教师下「班级名 + 学校」在活动班级中必须唯一
-function findDuplicateClass(classes, ownerId, name, school, excludeId) {
-  return classes.find((c) => c._id !== excludeId
-    && c.owner_teacher_id === ownerId
-    && isClassActive(c)
-    && normalizeClassName(c.name) === normalizeClassName(name)
-    && String(c.school || '').trim() === String(school || '').trim()) || null;
-}
-
-// 班级列表：普通教师=自己的班级；超管=全部（可按负责教师筛选）
+// 对应 IAM-07、IAM-20–IAM-22、TCH-10–TCH-26：
+// 普通教师只能写本班，超级管理员只读教师业务数据；
+// 学生归属只认 class_id，class_name 必须与实体名称同步写入。
+// 班级常量、归属校验和成员统计集中在 lib/class-model.js；
+// 本文件只保留经过 token 鉴权的班级 action 处理器。
 async function listClasses(event) {
   const me = await requireAuth(event);
   const superUser = isSuper(me);
@@ -2423,6 +2061,43 @@ async function classCandidates(event) {
   return { ok: true, total: items.length, items };
 }
 
+// 未分班学生：本教师名册中"没有班级实体"的学生（students.class_id 为空）。
+// 背景（2026-10-08 用户反馈）：把学生从班级批量移出后，驾驶舱的「未分班」只显示人数，
+// 没有任何可操作入口；这里返回的是**可直接操作的那一份名单**——范围与 class.members.add
+// 完全一致（owner_teacher_id === 调用者），因此列出的每一条都能被归入班级。
+// 说明：超管对教师班级只读（R21），所以超管只看到自己名下的记录；他人名册中未分班的学生不返回。
+async function classUnassigned(event) {
+  const me = await requireAuth(event);
+  const keyword = String((event && event.keyword) || '').trim().toLowerCase();
+  const [students, regMap] = await Promise.all([loadAllStudents(), loadRegisteredMap()]);
+
+  let items = students
+    .filter((s) => s.owner_teacher_id === me._id)
+    .filter((s) => !String(s.class_id || '').trim())
+    .map((s) => {
+      const u = regMap.get(rosterKey(s.student_no, s.name));
+      return {
+        doc_id: s._id,
+        name: s.name || '',
+        student_no: s.student_no || '',
+        school: s.school || '',
+        // class_id 为空但 class_name 有值 = 历史"名册原文本"记录，供教师判断原本写的是哪个班
+        legacy_class_name: String(s.class_name || '').trim(),
+        registered: !!u,
+        registered_at: u ? (u.created_at || '') : '',
+        last_login_at: u ? (u.last_login_at || '') : ''
+      };
+    })
+    .sort((a, b) => String(a.student_no).localeCompare(String(b.student_no)));
+
+  if (keyword) {
+    items = items.filter((s) =>
+      String(s.name).toLowerCase().includes(keyword) || String(s.student_no).toLowerCase().includes(keyword));
+  }
+
+  return { ok: true, total: items.length, items, is_super: isSuper(me) };
+}
+
 // 加入班级：只写 students.class_id 与兼容快照 students.class_name。
 // 不写 roster、不触发 AI 白名单变化、不修改 owner_teacher_id。
 async function addClassMembers(event) {
@@ -2621,6 +2296,8 @@ async function archiveClass(event) {
 // 1) 传统 wx.cloud.callFunction / 小程序 SDK 调用：event 直接是对象。
 // 2) HTTP 触发：event 可能是 JSON 字符串、或带 body 的对象、或带 httpMethod 的对象。
 // 已下线的维护 action（REQ-003 D5/D16）：明确回 ACTION_RETIRED，避免前端只看到"未知操作"。
+// 对应 SYS-11、DATA-26–DATA-29：action 是稳定接口；
+// 新增、退役或改名时必须同步教师网页、离线用例和部署记录，成功路径返回值结构保持不变。
 const RETIRED_ACTIONS = {
   'student.purge': 'student.purge（超管批量删除名册）已下线：名册删改归名册归属教师本人',
   'roster.backfill': 'roster.backfill 已下线：AI 白名单 roster 已废弃，放行改由名册实时判定',
@@ -2679,6 +2356,7 @@ exports.main = async (event) => {
     else if (action === 'class.update') result = await updateClass(input);
     else if (action === 'class.detail') result = await classDetail(input);
     else if (action === 'class.candidates') result = await classCandidates(input);
+    else if (action === 'class.unassigned') result = await classUnassigned(input);
     else if (action === 'class.syncMembers') result = await syncClassMembers(input);
     else if (action === 'class.members.add') result = await addClassMembers(input);
     else if (action === 'class.members.remove') result = await removeClassMembers(input);

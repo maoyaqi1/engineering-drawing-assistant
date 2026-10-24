@@ -3,19 +3,15 @@
 //   2. 名册删改归名册归属教师本人：student.delete 只能删自己名下的行；
 //   3. 超管对他人名册只读；只有自己名下的（历史孤儿）记录才能删。
 // 运行：node scripts/offline/run-purge.cjs
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  size,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
-
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
 const T0 = '2026-09-11T09:30:00.000Z';
 seed('teachers', [
@@ -83,9 +79,5 @@ const t1 = (p) => teacherFn.main(Object.assign({ token: 'tok-t1' }, p));
   check('P6 超管可删除自己名下（owner=超管）的孤儿名册记录',
     superOwn.ok === true && !table('students').has('SX'), JSON.stringify(superOwn));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

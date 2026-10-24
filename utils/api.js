@@ -1,6 +1,15 @@
 const SURVEY_ID = 'geometry_learning_2026';
 const SURVEY_VERSION = 'v1';
 
+// 学生端云函数调用边界。
+//
+// 对应统一需求：
+//   IAM：login / register / rosterStatus；
+//   STU：session / statistics / survey；
+//   AI：aiAsk / aiList / aiDetail / aiFeedback / aiTeachingEvent。
+//
+// 前端 API 名称与 action 稳定；权限、配额和统计口径由云函数返回，
+// 本模块不得自行推断用户是否可提问或是否应计入学情。
 function cloudAvailable() {
   return typeof wx !== 'undefined' && wx.cloud && typeof wx.cloud.callFunction === 'function';
 }
@@ -83,6 +92,12 @@ function aiFeedback(messageId, rating, reason) {
   return callApi('ai.feedback', { message_id: messageId, rating, reason: reason || null });
 }
 
+// AI 教学事件上报（V2.1）：只允许"学生行为"两类——打开视频、看完视频。
+// "AI 推荐了什么"由云函数在回答时写入，客户端不能上报（防伪造）。
+function aiTeachingEvent(eventType, payload) {
+  return callApi('ai.teaching_event', Object.assign({ event_type: eventType }, payload || {}));
+}
+
 module.exports = {
   SURVEY_ID,
   SURVEY_VERSION,
@@ -97,5 +112,6 @@ module.exports = {
   aiAsk,
   aiList,
   aiDetail,
-  aiFeedback
+  aiFeedback,
+  aiTeachingEvent
 };

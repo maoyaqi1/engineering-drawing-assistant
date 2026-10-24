@@ -8,13 +8,19 @@
 //   7. 判定路径为按键查询、上限 2000，且全仓不再读写 roster 集合（B6/C1/D16）。
 // 运行：node scripts/offline/run-access2.cjs
 const fs = require('fs');
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
 
 // INTERNAL_OPENIDS 在云函数模块加载时读取，因此必须在 require 之前设置
 process.env.INTERNAL_OPENIDS = 'openid-internal,openid-internal2,openid-internal3';
 
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  sdk,
+  table,
+  seed,
+  rows,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 
 const aiCalls = [];
 const convPath = require.resolve(repoPath('cloudfunctions/api/ai/conversation.js'));
@@ -36,16 +42,8 @@ require.cache[convPath] = {
 
 const apiFn = require(repoPath('cloudfunctions/api/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-function rows(name) { return Array.from(table(name).values()); }
 function userByOpenid(openid) { return rows('users').find((u) => u.openid === openid); }
 
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
 const api = (payload) => apiFn.main(payload);
 const status = (openid) => { asOpenid(openid); return api({ action: 'roster.status' }); };
@@ -287,9 +285,5 @@ const register = async (openid, name, studentId) => {
   check('G5 教师端不再同步白名单（无 grantAiAccess / revokeAiAccess）',
     !/grantAiAccess|revokeAiAccess/.test(teacherSrc));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

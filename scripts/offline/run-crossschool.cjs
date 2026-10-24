@@ -5,9 +5,13 @@
 //   4. 学校字段不参与匹配 → 跨校「同号同名」会互相命中，属已知风险（B5，本期不解决）；
 //   5. 教师改名后按新的「学号 + 姓名」立即生效，旧名字立即失效。
 // 运行：node scripts/offline/run-crossschool.cjs
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 
 // 桩替换 AI 模块（本用例不真的提问，但 require api 会拉起依赖链）
 const convPath = require.resolve(repoPath('cloudfunctions/api/ai/conversation.js'));
@@ -16,14 +20,6 @@ require.cache[convPath] = { id: convPath, filename: convPath, loaded: true, expo
 const apiFn = require(repoPath('cloudfunctions/api/index.js'));
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
 
 const T0 = '2026-09-11T09:30:00.000Z';
@@ -116,9 +112,5 @@ const status = async (openid) => { asOpenid(openid); return apiFn.main({ action:
   check('A10 跨校同「学号 + 姓名」会命中（学校不参与匹配，B5 已知风险）',
     crossSchool.level === 'student', JSON.stringify(crossSchool.reason));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

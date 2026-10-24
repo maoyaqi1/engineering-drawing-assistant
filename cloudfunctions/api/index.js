@@ -592,7 +592,9 @@ exports.main = async (event) => {
         conversationId: (event && event.conversation_id) || null,
         message: (event && event.message) || '',
         knowledgePoint: (event && event.knowledge_point) || null,
-        imageBase64: imageBase64
+        imageBase64: imageBase64,
+        // 教学事件（V2.1）需要学号快照；与 learning_records 一样在写入时取值
+        studentId: user.student_id || ''
       });
       if (imageBase64) {
         // 服务端记账：拍照次数以这里写入的事件为唯一依据
@@ -634,6 +636,32 @@ exports.main = async (event) => {
         rating: (event && event.rating) || '',
         reason: (event && event.reason) || null
       });
+      return { ok: true, ...result };
+    }
+
+    // V2.1 教学事件上报（设计说明 §7.2/§7.3、§19 Step 3/4）：
+    // 只接收学生行为（video_open / video_complete），落进独立集合 ai_teaching_events；
+    // 与 ai_messages、learning_records 都分开，不改变既有结构与统计口径。
+    if (action === 'ai.teaching_event') {
+      await ai.ensureCollections();
+      const user = await ensureUser(OPENID, UNIONID);
+      const access = await resolveAccess(user);
+      if (access.level !== 'student') return accessDeniedResult(access);
+      const result = await ai.recordStudentVideoEvent({
+        openid: OPENID,
+        studentId: user.student_id || '',
+        eventType: (event && event.event_type) || '',
+        payload: {
+          video_id: (event && event.video_id) || '',
+          video_title: (event && event.video_title) || '',
+          conversation_id: (event && event.conversation_id) || '',
+          message_id: (event && event.message_id) || '',
+          knowledge_point_id: (event && event.knowledge_point_id) || '',
+          video_position: event && event.video_position,
+          duration: event && event.duration
+        }
+      });
+      if (result && result.ok === false) return result;
       return { ok: true, ...result };
     }
 

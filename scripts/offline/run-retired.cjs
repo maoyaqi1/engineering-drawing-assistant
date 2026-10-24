@@ -5,19 +5,15 @@
 //   3. 保留的治理通道仍然可用：data.personList / data.personPurge（合规按人）、
 //      data.markQuality / data.backfillQuality（标记 + 回填）。
 // 运行：node scripts/offline/run-retired.cjs
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  size,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
-
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
 const T0 = '2026-09-11T09:30:00.000Z';
 seed('teachers', [
@@ -92,9 +88,5 @@ const snapshot = () => TRACKED.map((n) => n + ':' + table(n).size).join('|');
     backfill.ok === true && backfill.mode === 'dry_run' && backfill.skipped.manual === 1,
     JSON.stringify({ mode: backfill.mode, skipped: backfill.skipped }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

@@ -1,17 +1,12 @@
 // 「学生名单 ←→ 班级管理」归并自测：写入时解析班级、以及把历史名册并入班级。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
-
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
 const T0 = '2026-09-11T09:30:00.000Z';
 seed('teachers', [
@@ -146,9 +141,5 @@ const tSuper = (p) => teacherFn.main(Object.assign({ token: 'tok-super' }, p));
   const m15row = Array.from(table('students').values()).find((s) => s.student_no === '2026008');
   check('M15 导入 no_class 全部未分班', m15.ok === true && m15row && !m15row.class_id, JSON.stringify({ id: m15row && m15row.class_id, assigned: m15.summary && m15.summary.class_assigned }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

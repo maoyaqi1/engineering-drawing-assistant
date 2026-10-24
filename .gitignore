@@ -33,3 +33,8 @@ project.private.config.json
 teacher-web/output/
 data-export/
 db-export/
+
+# 独立学术与申报资料（不属于开发文档或代码；禁止进入 Git 和远程仓库）
+/软著材料/
+/论文材料/
+/专利材料/

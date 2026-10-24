@@ -1,28 +1,19 @@
 // REQ-002 第一阶段后端离线自测（桩 + 内存库），验证 class.* 的权限、去重、双写与归档行为。
 // 运行：node scripts/offline/run.cjs（或 node scripts/run-all.js 统一运行）
 // 边界：不替代真实部署后的验证（未部署不算验证，见 AGENTS.md C11）。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  dump,
+  size,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) {
-  rows.forEach((row) => table(name).set(row._id, row));
-}
-function dump(name) {
-  return JSON.stringify(Array.from(table(name).values()).sort((a, b) => String(a._id).localeCompare(String(b._id))));
-}
 function student(id) {
   return table('students').get(id);
-}
-
-const results = [];
-function check(name, pass, detail) {
-  results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) });
 }
 
 const nowIso = '2026-09-11T00:00:00.000Z';
@@ -165,11 +156,50 @@ async function main(payload) {
   // 13b roster 全程未变
   check('13b roster 全程未变', dump('roster') === rosterBefore, dump('roster'));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  // 21–25. 未分班学生（2026-10-08 新增 class.unassigned：驾驶舱「未分班」要能直接操作）
+  //   S2/S3 = T1 名册中无班级；S1 在 T1 的已停用班 c1 里（仍算"有班"）；S4 = T2 名册中无班级
+  const un1 = await main({ action: 'class.unassigned' });
+  check('21 未分班列表只含本教师名册中无班级的学生',
+    un1.ok && un1.total === 2 && un1.items.map((i) => i.student_no).join(',') === '2024002,2024003',
+    JSON.stringify({ total: un1.total, nos: un1.items.map((i) => i.student_no) }));
+  check('21b 已在自己名下班里的学生不出现在未分班列表',
+    un1.items.every((i) => i.student_no !== '2024001'), JSON.stringify(un1.items.map((i) => i.student_no)));
+  check('21c 未分班列表带注册状态与"名册原文本"字段',
+    un1.items.every((i) => typeof i.registered === 'boolean' && typeof i.legacy_class_name === 'string'),
+    JSON.stringify(un1.items[0]));
+  const un2 = await teacherFn.main({ action: 'class.unassigned', token: 'tok-t2' });
+  check('22 另一位教师只看到自己名下的未分班学生',
+    un2.ok && un2.total === 1 && un2.items[0].student_no === '2024004',
+    JSON.stringify({ total: un2.total, nos: un2.items.map((i) => i.student_no) }));
+  const unSuper = await teacherFn.main({ action: 'class.unassigned', token: 'tok-super' });
+  check('22b 超管未分班列表只含自己名下（R21：不返回他人名册）',
+    unSuper.ok && unSuper.total === 0, JSON.stringify({ total: unSuper.total }));
+  const unKw = await main({ action: 'class.unassigned', keyword: '王五' });
+  check('23 未分班列表支持关键词筛选',
+    unKw.ok && unKw.total === 1 && unKw.items[0].student_no === '2024003',
+    JSON.stringify({ total: unKw.total, nos: unKw.items.map((i) => i.student_no) }));
+  const unNoAuth = await teacherFn.main({ action: 'class.unassigned' });
+  check('23b 未登录调用 class.unassigned 返回 401',
+    unNoAuth.ok === false && unNoAuth.code === 'UNAUTHORIZED', unNoAuth.code);
+
+  // 24. 端到端（前端弹窗走的就是这两步）：未分班列表 → 归入已有班级
+  const unassignedIds = un1.items.map((i) => i.doc_id);
+  const assignToC2 = await main({ action: 'class.members.add', class_id: c2, doc_ids: unassignedIds });
+  check('24 未分班学生可被归入已有班级',
+    assignToC2.ok && assignToC2.added === 2 && assignToC2.failed.length === 0, JSON.stringify(assignToC2.failed));
+  const un1After = await main({ action: 'class.unassigned' });
+  check('24b 归入后未分班列表为空', un1After.ok && un1After.total === 0, String(un1After.total));
+
+  // 25. 端到端：新建班级 → 归入（弹窗的「新建班级并归入」路径）
+  const backOut = await main({ action: 'class.members.remove', class_id: c2, doc_ids: [unassignedIds[0]] });
+  const newCls = await main({ action: 'class.create', name: '未分班归入测试班', school: '安徽建筑大学' });
+  const newClsId = (newCls.class && newCls.class.id) || '';
+  const intoNew = await main({ action: 'class.members.add', class_id: newClsId, doc_ids: [unassignedIds[0]] });
+  check('25 新建班级后可把未分班学生直接归入',
+    backOut.ok && backOut.removed === 1 && newCls.ok && intoNew.ok && intoNew.added === 1,
+    JSON.stringify({ removed: backOut.removed, added: intoNew.added, failed: intoNew.failed }));
+
+  process.exit(printSummary());
 })().catch((e) => {
   console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e));
   process.exit(2);

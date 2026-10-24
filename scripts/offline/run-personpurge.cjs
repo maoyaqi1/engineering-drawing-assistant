@@ -1,19 +1,14 @@
 // 数据维护·按人清理 离线自测：列表统计、预览、防误删、**只删选中的人**（隔离性）、留痕。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  rows,
+  size,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
-
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-function size(name) { return table(name).size; }
-function rows(name) { return Array.from(table(name).values()); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
 const T0 = '2026-09-11T02:00:00.000Z';
 seed('teachers', [
@@ -238,9 +233,5 @@ const behaviorScope = { behavior: true, roster: false, account: false };
     && rows('users').every((u) => !!String(u.student_id || '').trim()),
     JSON.stringify({ removed: t14d.removed, left: rows('users').map((u) => u.student_id) }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

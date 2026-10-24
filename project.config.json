@@ -31,6 +31,18 @@
         "type": "folder"
       },
       {
+        "value": "软著材料",
+        "type": "folder"
+      },
+      {
+        "value": "论文材料",
+        "type": "folder"
+      },
+      {
+        "value": "专利材料",
+        "type": "folder"
+      },
+      {
         "value": "pages/video",
         "type": "folder"
       },

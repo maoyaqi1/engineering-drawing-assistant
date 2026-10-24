@@ -7,6 +7,7 @@ const { matchKnowledgePoint } = require('./knowledge.js');
 const { buildPrompt, buildImageMessages, generateTitle } = require('./prompt.js');
 const { chatCompletion, visionChatCompletion } = require('./llm.js');
 const { askTeacherService } = require('./teacher-service.js');
+const { EVENTS_COLLECTION, recordVideoRecommend, recordStudentVideoEvent } = require('./teaching-events.js');
 
 const db = cloud.database();
 const CONVERSATIONS = 'ai_conversations';
@@ -24,7 +25,7 @@ function now() {
 }
 
 async function ensureCollections() {
-  await Promise.all([CONVERSATIONS, MESSAGES].map((name) => db.createCollection(name).catch(() => null)));
+  await Promise.all([CONVERSATIONS, MESSAGES, EVENTS_COLLECTION].map((name) => db.createCollection(name).catch(() => null)));
 }
 
 async function createConversation({ openid, title, knowledgePoint }) {
@@ -71,7 +72,7 @@ async function addMessage({ conversationId, role, content, model, knowledgePoint
   return added._id;
 }
 
-async function answerQuestion({ openid, conversationId, message, knowledgePoint, imageBase64 }) {
+async function answerQuestion({ openid, conversationId, message, knowledgePoint, imageBase64, studentId }) {
   const text = (message || '').trim();
   const hasImage = typeof imageBase64 === 'string' && imageBase64.length > 40;
   if (!text && !hasImage) throw makeError('EMPTY_MESSAGE', 400, '请先输入问题或上传图片。');
@@ -188,6 +189,18 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
     totalTokens: result.usage.totalTokens
   });
 
+  // V2.1 教学事件（设计说明 §7.1、§19 Step 2）：把"AI 推荐了什么"写进独立集合
+  // ai_teaching_events。只新增事件写入，不改 ai_messages 结构、不改上面任何分支；
+  // 写入失败一律吞掉——学生必须先拿到回答，事件是旁路数据（§3.1 主链不变）。
+  await Promise.all(videoRefs.map((ref) => recordVideoRecommend({
+    openid,
+    studentId: studentId,
+    conversationId: conv.id,
+    messageId: assistantId,
+    knowledgePoint: currentKp,
+    videoRef: ref
+  }).catch(() => null)));
+
   return {
     conversation_id: conv.id,
     title: conv.title,
@@ -258,5 +271,8 @@ module.exports = {
   answerQuestion,
   listConversations,
   getConversationDetail,
-  recordFeedback
+  recordFeedback,
+  // V2.1：学生行为事件（video_open / video_complete）由云函数入口路由到教学事件模块，
+  // 这里转出，保持 index.js 只依赖 ai/conversation.js 这一个 AI 模块入口。
+  recordStudentVideoEvent
 };

@@ -505,8 +505,11 @@
         '<tr style="background:var(--panel-soft);text-align:left">' +
         '<th style="padding:8px">班级</th><th>名册人数</th><th>已注册</th><th>未注册</th><th>近7天活跃</th></tr>';
       classes.forEach((c) => {
+        // 「未分班」不是死数据：给一个直接入口，点开即可选人归入班级（见 openUnassignedModal）
+        const unassigned = !c.class_id;
         html += '<tr style="border-top:1px solid var(--border)">' +
           '<td style="padding:8px">' + esc(c.class_name) +
+            (unassigned ? ' <button class="mini-btn" data-unassigned="1">去调整…</button>' : '') +
             ((c.class_legacy_names && c.class_legacy_names.length)
               ? ' <span style="color:#a26a00;font-size:12px">（名册里写着「' + esc(c.class_legacy_names.join('、')) + '」，未关联班级）</span>'
               : '') +
@@ -573,6 +576,10 @@
     html += '</div>';
 
     container.innerHTML = html;
+    // 驾驶舱「班级概况 → 未分班 → 去调整…」：直接打开与班级页同一个调整弹窗
+    container.querySelectorAll('button[data-unassigned]').forEach((btn) => {
+      btn.addEventListener('click', () => openUnassignedModal());
+    });
     if (!dash || !dash.ok) {
       container.insertAdjacentHTML('beforeend',
         '<div class="card" style="margin-top:16px;color:#e04444">' + ((dash && dash.msg) || '统计加载失败') + '</div>');
@@ -1390,6 +1397,182 @@
       '<div class="stat-label">' + esc(label) + '</div></div>';
   }
 
+  // ---- 未分班学生 → 调整班级 ----
+  // 背景（2026-10-08 用户反馈）：在班级里把学生批量移出后，学生变成「未分班」；
+  // 驾驶舱只在「班级概况」里显示这个人数，没有任何可操作入口，教师无从下手。
+  // 这里把「未分班」做成真正的操作入口：搜索 → 多选 → 归入已有班级，或新建班级后直接归入。
+  // 写操作全部复用既有接口（class.create / class.members.add），不新增写接口、不改权限语义：
+  // 服务端仍按「本人名下的名册（owner_teacher_id）」校验范围，超管对他人名册依旧只读。
+  async function openUnassignedModal() {
+    const [listRes, clsRes] = await Promise.all([
+      api.unassignedStudents({}),
+      api.listClasses({ status: '' })
+    ]);
+    if (!listRes || !listRes.ok) {
+      alert(classErrText(listRes, '未分班学生加载失败'));
+      return;
+    }
+
+    const all = listRes.items || [];
+    const myClasses = ((clsRes && clsRes.ok && clsRes.items) || []).filter(canWriteClass);
+    if (!all.length) {
+      alert(isSuper()
+        ? '没有你名下的未分班学生。\n\n说明：超级管理员对教师班级只读，只能调整「录入教师是你自己」的名册记录；' +
+          '其他教师的未分班学生需由该教师本人处理。'
+        : '你的名册里没有未分班的学生。');
+      return;
+    }
+
+    const classOptions = myClasses.map((c) =>
+      '<option value="' + esc(c.id) + '">' + esc(c.name) +
+        (c.school ? '（' + esc(c.school) + '）' : '') + '</option>').join('');
+
+    openModal('未分班学生 · 调整班级',
+      '<div class="hint">共 <b>' + all.length + '</b> 名学生在你的名册里，但没有班级（例如刚从某个班级移出）。' +
+        '勾选后选择目标班级，点「确认调整」即可。' +
+        (isSuper() ? '<br>超级管理员对教师班级只读：这里只列出你本人名下的名册记录。' : '') + '</div>' +
+      '<div class="filter-row">' +
+        '<input id="uKeyword" class="filter-input" placeholder="搜索姓名或学号" />' +
+        '<button class="mini-btn" id="uAll">全选当前结果</button>' +
+        '<button class="mini-btn" id="uNone">清空选择</button>' +
+      '</div>' +
+      '<div class="pick-list" id="uList"></div>' +
+      '<div class="hint" style="margin:8px 0">已选 <b id="uCount">0</b> 人</div>' +
+      '<div class="fld"><label>归入班级</label>' +
+        '<select id="uClass" class="filter-select">' + classOptions +
+          '<option value="__new__">+ 新建班级并归入…</option></select></div>' +
+      '<div class="form-grid hidden" id="uNewWrap">' +
+        '<div class="fld"><label>新班级名称 <i>*</i></label>' +
+          '<input id="uNewName" class="filter-input" placeholder="如 机械2402" /></div>' +
+        '<div class="fld"><label>学校</label>' +
+          '<input id="uNewSchool" class="filter-input" placeholder="如 安徽建筑大学" /></div>' +
+      '</div>' +
+      '<div id="uErr" class="form-err"></div>',
+      '<button class="mini-btn" id="uCancel">取消</button>' +
+      '<button class="login-btn filter-btn" id="uConfirm">确认调整</button>');
+
+    // 选择状态按 doc_id 记在内存里，搜索切换列表时不会丢
+    const picked = new Set();
+
+    function matched() {
+      const kw = String(($('uKeyword') && $('uKeyword').value) || '').trim().toLowerCase();
+      if (!kw) return all;
+      return all.filter((s) =>
+        String(s.name).toLowerCase().includes(kw) || String(s.student_no).toLowerCase().includes(kw));
+    }
+
+    function renderList() {
+      const list = $('uList');
+      if (!list) return;
+      const items = matched();
+      if (!items.length) {
+        list.innerHTML = '<div class="placeholder" style="padding:14px">没有匹配的学生</div>';
+        return;
+      }
+      list.innerHTML = items.map((s) => {
+        const legacy = s.legacy_class_name ? '　·　名册原写：' + esc(s.legacy_class_name) : '';
+        return '<label class="pick-row">' +
+          '<input type="checkbox" class="u-box" value="' + esc(s.doc_id) + '"' +
+            (picked.has(s.doc_id) ? ' checked' : '') + ' />' +
+          '<span class="pick-main">' + esc(s.name) + '　' + esc(s.student_no) + '</span>' +
+          '<span class="pick-sub">' + esc(s.school || '—') + '　·　' +
+            (s.registered ? '已注册' : '未注册') + legacy + '</span>' +
+          '</label>';
+      }).join('');
+      list.querySelectorAll('.u-box').forEach((box) => {
+        box.addEventListener('change', () => {
+          if (box.checked) picked.add(box.value); else picked.delete(box.value);
+          updateCount();
+        });
+      });
+    }
+
+    function updateCount() {
+      const el = $('uCount');
+      if (el) el.textContent = String(picked.size);
+    }
+
+    // 「新建班级并归入」时展开新班级名称 / 学校输入框
+    function syncNewFields() {
+      const wrap = $('uNewWrap');
+      if (!wrap) return;
+      const isNew = $('uClass').value === '__new__';
+      wrap.className = isNew ? 'form-grid' : 'form-grid hidden';
+    }
+
+    renderList();
+    syncNewFields();
+    $('uKeyword').addEventListener('input', renderList);
+    $('uClass').addEventListener('change', syncNewFields);
+    $('uAll').addEventListener('click', () => {
+      matched().forEach((s) => picked.add(s.doc_id));
+      renderList();
+      updateCount();
+    });
+    $('uNone').addEventListener('click', () => {
+      picked.clear();
+      renderList();
+      updateCount();
+    });
+    $('uCancel').addEventListener('click', closeModal);
+
+    $('uConfirm').addEventListener('click', async () => {
+      const err = $('uErr');
+      err.textContent = '';
+      const ids = Array.from(picked);
+      if (!ids.length) { err.textContent = '请先勾选要调整的学生'; return; }
+      // 服务端单次上限 200（CLASS_BATCH_MAX）；这里先拦一次，避免大班误操作后才发现
+      if (ids.length > 200) {
+        err.textContent = '单次最多调整 200 名学生（已选 ' + ids.length + ' 名），请分批操作';
+        return;
+      }
+
+      $('uConfirm').disabled = true;
+      const choice = $('uClass').value;
+      let classId = choice;
+      if (choice === '__new__') {
+        const name = $('uNewName').value.trim();
+        if (!name) {
+          err.textContent = '请填写新班级名称';
+          $('uConfirm').disabled = false;
+          return;
+        }
+        const created = await api.createClass({ name, school: $('uNewSchool').value.trim() });
+        if (!created || !created.ok) {
+          err.textContent = classErrText(created, '新建班级失败');
+          $('uConfirm').disabled = false;
+          return;
+        }
+        classId = created.class && created.class.id;
+      }
+      if (!classId || classId === '__new__') {
+        err.textContent = '请选择要归入的班级';
+        $('uConfirm').disabled = false;
+        return;
+      }
+
+      const r = await api.addClassMembers(classId, ids);
+      $('uConfirm').disabled = false;
+      if (!r || !r.ok) {
+        err.textContent = classErrText(r, '调整失败');
+        return;
+      }
+      const failed = r.failed || [];
+      if (!failed.length) {
+        closeModal();
+        await renderRoute();
+        return;
+      }
+      // 部分成功：分别反馈成功与未成功的人，不假装全部成功
+      $('uList').innerHTML =
+        '<div class="form-ok">成功归入 ' + (r.added || 0) + ' 人</div>' +
+        '<div class="form-err">以下 ' + failed.length + ' 人未归入：</div>' +
+        failed.map((f) => '<div class="pick-sub">· ' + esc(f.msg || f.code || '未归入') + '</div>').join('');
+      $('uConfirm').parentNode.innerHTML = '<button class="mini-btn" id="uClose">关闭</button>';
+      $('uClose').addEventListener('click', async () => { closeModal(); await renderRoute(); });
+    });
+  }
+
   // 班级列表：普通教师=自己的班级；超管=全部（含负责教师列）
   async function renderClasses(container) {
     container.innerHTML =
@@ -1398,7 +1581,10 @@
       '<div class="card">' +
         '<div class="tool-row">' +
           '<button class="login-btn filter-btn" id="clsAdd">+ 新建班级</button>' +
+          '<button class="mini-btn" id="clsUnassigned">未分班学生 · 调整班级…</button>' +
         '</div>' +
+        '<div class="hint" style="margin:0 0 12px">学生被移出班级后（或录入时没有班级）会变成「未分班」，' +
+          '驾驶舱里只能看到人数。点左边按钮可搜索、多选这些学生，一次性归入已有班级，或新建班级后直接归入。</div>' +
         '<div class="filter-row">' +
           '<input id="clsKeyword" class="filter-input" placeholder="搜索班级名称或学校" />' +
           '<select id="clsStatus" class="filter-select">' +
@@ -1414,6 +1600,7 @@
     $('clsKeyword').value = classFilter.keyword;
     $('clsStatus').value = classFilter.status;
     $('clsAdd').addEventListener('click', () => openClassModal(null));
+    $('clsUnassigned').addEventListener('click', () => openUnassignedModal());
     $('clsSearch').addEventListener('click', () => {
       classFilter.keyword = $('clsKeyword').value.trim();
       classFilter.status = $('clsStatus').value;

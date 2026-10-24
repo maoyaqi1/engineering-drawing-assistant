@@ -7,12 +7,16 @@
 // 运行：node scripts/offline/run-photo-quota.cjs（run-all.js 会自动收录本文件）
 //
 // 边界：不覆盖"跨天重置"（需要伪造时钟）；跨天逻辑见 cloudfunctions/api/index.js 的 startOfTodayInBeijing()。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
 // 内部账号名单必须在 require 云函数之前设置（与 run-quality.cjs 一致）
 process.env.INTERNAL_OPENIDS = 'openid-internal';
 
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 
 // 桩替换 AI 模块：既能拦住真实 LLM 依赖链，又能断言"被拒时没有进入 AI 模块"
 const aiCalls = [];
@@ -36,18 +40,11 @@ require.cache[convPath] = {
 const apiFn = require(repoPath('cloudfunctions/api/index.js'));
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
 function countEvents(openid, eventType) {
   return Array.from(table('learning_records').values())
     .filter((r) => r.openid === openid && r.event_type === eventType).length;
 }
 
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
 const api = (payload) => apiFn.main(payload);
 const teacherCall = (payload) => teacherFn.main(Object.assign({ token: 'tok-1' }, payload));
@@ -110,8 +107,5 @@ seed('teacher_sessions', [{ _id: 's1', token: 'tok-1', teacher_id: 'T1', expires
   check('C2 内部账号标记 unlimited', !!(lastQuota && lastQuota.unlimited === true), JSON.stringify(lastQuota));
 
   // ---------- 输出 ----------
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.detail ? ' :: ' + r.detail : '')));
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exitCode = failed.length ? 1 : 0;
+  process.exitCode = printSummary({ separator: false, compactDetail: true }) ? 1 : 0;
 })();

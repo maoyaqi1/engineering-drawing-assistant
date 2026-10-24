@@ -1,5 +1,16 @@
 const api = require('../../utils/api.js');
 
+// 学习效果问卷的前端页面。
+//
+// 问卷分为单选题（q1–q4）、开放题（q5、q6）和多选题（q7）：
+//   q1/q2：五级量表，值 1–5；
+//   q3：AI 教师使用频率，1 = 从未使用，2–4 = 使用过；
+//   q4：AI 帮助程度，仅在 q3 > 1 时必答；
+//   q5/q6：自由文本；
+//   q7：教学资源来源标签数组。
+//
+// 前端负责即时必填校验和交互反馈；作答人是否在册仍由云函数按服务端身份重新判定。
+// 因此这里的提交按钮状态不能作为权限依据。
 const SCALES = ['1 非常没有帮助', '2 帮助较小', '3 一般', '4 比较有帮助', '5 非常有帮助'];
 const UNDERSTAND = ['1 非常困难', '2 比较困难', '3 基本理解', '4 理解较好', '5 理解非常清楚'];
 const AI_USE = ['从没使用', '偶尔使用', '经常使用', '每次遇到问题都会用'];
@@ -28,6 +39,7 @@ Page({
     q5: '',
     q6: '',
     q7: [],
+    // submitting 防止重复点击；submitted 仅表示本次页面会话中的提交结果。
     submitting: false,
     submitted: false
   },
@@ -40,6 +52,8 @@ Page({
     }
   },
 
+  // 单选题的值直接取自按钮的 data-value。
+  // q3 选择“从没使用”时同步清空 q4，避免提交一个不适用的 AI 帮助评分。
   pickSingle(event) {
     const key = event.currentTarget.dataset.key;
     const value = Number(event.currentTarget.dataset.value);
@@ -48,6 +62,10 @@ Page({
     this.setData(patch);
   },
 
+  // 多选题同时维护两份状态：
+  //   q7Options：供 WXML 渲染选项与勾选态；
+  //   q7：提交给云函数的纯标签数组。
+  // 先拷贝选项再修改，保持 setData 更新过程可预测。
   toggleMulti(event) {
     const key = event.currentTarget.dataset.key;
     const label = event.currentTarget.dataset.value;
@@ -59,10 +77,16 @@ Page({
     this.setData({ [optionsPath]: options, [key]: selectedLabels });
   },
 
+  // 开放题只更新对应字段，具体长度和内容约束由提交阶段/服务端负责。
   onOpenInput(event) {
     this.setData({ [event.currentTarget.dataset.key]: event.detail.value });
   },
 
+  // 提交前的客户端门禁：
+  //   1. 防止连点产生重复答卷；
+  //   2. 校验三个必答题；
+  //   3. 仅在确实使用过 AI 时要求 q4。
+  // 云函数返回的业务错误码再映射为面向学生的提示，不直接展示服务端技术细节。
   submit() {
     const { q1, q2, q3, q4, q5, q6, q7, submitting } = this.data;
     if (submitting) return;
@@ -97,6 +121,7 @@ Page({
     });
   },
 
+  // 问卷入口是独立页面，完成后返回首页而不是回退到可能已经失效的页面栈。
   backHome() {
     wx.redirectTo({ url: '/pages/index/index' });
   }

@@ -111,6 +111,10 @@
     classCandidates(classId) {
       return callTeacher('class.candidates', { class_id: classId });
     },
+    // 未分班学生（名册中 class_id 为空，且归属本人）→ 可直接归入班级
+    unassignedStudents(payload) {
+      return callTeacher('class.unassigned', payload || {});
+    },
     // 把名册中已存在但未关联班级实体的学生并入本班（修复"学生页录入、班级页看不到"）
     syncClassMembers(payload) {
       return callTeacher('class.syncMembers', payload || {});

@@ -2,19 +2,14 @@
 //   1. 未入册列表包含「已注册未入册」与「未注册游客」两类，可筛选；
 //   2. 误收编到超管名下的孤儿记录，由超管本人按 owner 删除（student.purge 已下线）；
 //   3. 超管不得删除教师名下的名册（R21）。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
-
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
-
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 
 const T0 = '2026-09-11T09:30:00.000Z';
 seed('teachers', [
@@ -75,9 +70,5 @@ const superCall = (p) => teacherFn.main(Object.assign({ token: 'tok-super' }, p)
     && table('students').get('P2').owner_teacher_id === 'T1',
     JSON.stringify(Array.from(table('students').keys())));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

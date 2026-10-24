@@ -1,8 +1,13 @@
 // 名册权威性自测：以老师录入的名册（students，判定源）+ 班级状态为准（REQ-003 R3/D16）。
 // 学生自己改错学号或姓名 → 自己就不再命中名册（老师不需要管）；改回与老师一致 → 自动恢复。
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  size,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 
 // 桩替换 AI 模块
 const convPath = require.resolve(repoPath('cloudfunctions/api/ai/conversation.js'));
@@ -11,15 +16,8 @@ require.cache[convPath] = { id: convPath, filename: convPath, loaded: true, expo
 const apiFn = require(repoPath('cloudfunctions/api/index.js'));
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
 function studentRows(no) { return Array.from(table('students').values()).filter((r) => r.student_no === no); }
 
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
 
 const T0 = '2026-09-11T02:00:00.000Z';
@@ -79,9 +77,5 @@ const teacherCall = (p) => teacherFn.main(Object.assign({ token: 'tok-a' }, p));
   check('T7 同学号不同姓名可注册，但不在白名单（不会误放行）',
     other.ok === true && s4.ok === true && s4.in_roster === false, JSON.stringify({ ok: other.ok, in: s4.in_roster }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(printSummary());
 })().catch((e) => { console.log('HARNESS_ERROR ' + (e && e.stack ? e.stack : e)); process.exit(2); });

@@ -8,9 +8,14 @@
 //   7. register 只写 users，不写名册。
 // 说明：班级停用 / 未分班 / 读库失败 / 快照 / 问卷 / 权限收窄见 run-access2.cjs。
 // 运行：node scripts/offline/run-access.cjs（或 node scripts/run-all.js 统一运行）
-const { enableOfflineSdkStub, repoPath } = require('./bootstrap.js');
-enableOfflineSdkStub();
-const sdk = require('wx-server-sdk');
+const {
+  repoPath,
+  table,
+  seed,
+  size,
+  createReporter
+} = require('./test-context.cjs');
+const { results, check, printSummary } = createReporter();
 
 // 桩替换 AI 模块，避免加载真实 LLM 依赖链；同时记录是否真的走到了 AI 模块
 const aiCalls = [];
@@ -34,16 +39,9 @@ require.cache[convPath] = {
 const apiFn = require(repoPath('cloudfunctions/api/index.js'));
 const teacherFn = require(repoPath('cloudfunctions/teacher/index.js'));
 
-function table(name) {
-  if (!sdk.__store.has(name)) sdk.__store.set(name, new Map());
-  return sdk.__store.get(name);
-}
-function seed(name, rows) { rows.forEach((r) => table(name).set(r._id, r)); }
 function studentRows(no) { return Array.from(table('students').values()).filter((r) => r.student_no === no); }
 function studentRow(no) { return Array.from(table('students').values()).find((r) => r.student_no === no); }
 
-const results = [];
-function check(name, pass, detail) { results.push({ name, pass: !!pass, detail: detail === undefined ? '' : String(detail) }); }
 const asOpenid = (openid) => { global.__CURRENT_OPENID = openid; };
 const api = (payload) => apiFn.main(payload);
 
@@ -182,11 +180,7 @@ const teacherCall = (payload) => teacherFn.main(Object.assign({ token: 'tok-a' }
     && list.code === 'NOT_IN_ROSTER' && detail.code === 'NOT_IN_ROSTER' && feedback.code === 'NOT_IN_ROSTER',
     JSON.stringify({ list: list.code, detail: detail.code, feedback: feedback.code }));
 
-  const failed = results.filter((r) => !r.pass);
-  results.forEach((r) => console.log((r.pass ? 'PASS ' : 'FAIL ') + r.name + (r.pass ? '' : ' :: ' + r.detail)));
-  console.log('---');
-  console.log('总计=' + results.length + ' 通过=' + (results.length - failed.length) + ' 失败=' + failed.length);
-  process.exitCode = failed.length ? 1 : 0;
+  process.exitCode = printSummary() ? 1 : 0;
 })().catch((error) => {
   console.log('HARNESS_ERROR ' + (error && error.stack ? error.stack : error));
   process.exitCode = 2;
