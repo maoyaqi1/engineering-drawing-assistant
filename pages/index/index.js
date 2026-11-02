@@ -1,4 +1,4 @@
-// 首页画布（冻结模块 F1/F3/F4）——拆分后只保留：页面 data、生命周期、模块挂载。
+// 首页画布（冻结模块 F1/F3/F4）——页面 data、生命周期、模块挂载与紧凑画布布局适配。
 //
 // 方法实现按功能拆到同目录模块，全部以普通函数属性挂回 Page，因此 Page 上对外的方法名
 // 与拆分前完全一致（index.wxml 的 bind*/catch* 不受影响）；禁止把方法改成箭头函数，
@@ -20,8 +20,29 @@
   const sectionRender = require('./section-render.js');
   const solidProjection = require('./solid-projection.js');
   const uiHandlers = require('./ui-handlers.js');
+  const COMPACT_SPATIAL_VERTICAL_PADDING = 2;
+  const COMPACT_SPATIAL_FLOOR_UNITS = 9 * 1.08;
+  const COMPACT_SPATIAL_UNIT_DIVISOR = 29.3;
+  const COMPACT_PROJECTION_TOP_PADDING = 26;
+  const COMPACT_PROJECTION_BOTTOM_PADDING = 8;
 
-  Page(Object.assign({
+  function getCompactProjectionMetrics(layout) {
+    const unit = Math.min(
+      layout.rightWidth / 21,
+      (layout.bottomHeight
+        - COMPACT_PROJECTION_TOP_PADDING
+        - COMPACT_PROJECTION_BOTTOM_PADDING) / 16
+    );
+    return {
+      origin: {
+        x: layout.projectionOrigin.x,
+        y: layout.projectionTop + COMPACT_PROJECTION_TOP_PADDING + 8 * unit
+      },
+      unit
+    };
+  }
+
+  const pageDefinition = Object.assign({
       data: {
         mode: 'point',
         canvasDragging: false,
@@ -100,5 +121,49 @@
         this.sectionSolidCache = null;
         this.sectionResultCache = null;
       },
-  }, session, projection, mathUtils, presets, uiHandlers, touch, drawHelpers, renderScene, sectionMath, sectionRender, solidProjection));
+  }, session, projection, mathUtils, presets, uiHandlers, touch, drawHelpers, renderScene, sectionMath, sectionRender, solidProjection);
+
+  // 五种空间对象共用紧凑画布：保持三维 unit，裁去黑底上下多余空间。
+  const getBaseLayout = projection.getLayout;
+  pageDefinition.getLayout = function getLayout() {
+    const baseLayout = getBaseLayout.call(this);
+    if (baseLayout.split) return baseLayout;
+    const unit = Math.min(
+      baseLayout.leftWidth / 27,
+      baseLayout.leftWidth / COMPACT_SPATIAL_UNIT_DIVISOR
+    );
+    const contentHeight = unit * (10 + COMPACT_SPATIAL_FLOOR_UNITS);
+    const topHeight = contentHeight + COMPACT_SPATIAL_VERTICAL_PADDING * 2;
+    const bottomHeight = this.canvasHeight - topHeight;
+    const projectionMetrics = getCompactProjectionMetrics({
+      rightWidth: baseLayout.rightWidth,
+      bottomHeight,
+      projectionTop: topHeight,
+      projectionOrigin: { x: baseLayout.leftWidth * 0.5 }
+    });
+    return Object.assign({}, baseLayout, {
+      dividerY: topHeight,
+      topHeight,
+      bottomHeight,
+      projectionTop: topHeight,
+      projectionHeight: bottomHeight,
+      unit,
+      isoOrigin: {
+        x: baseLayout.leftWidth * 0.5,
+        y: COMPACT_SPATIAL_VERTICAL_PADDING + 10 * unit
+      },
+      projectionOrigin: projectionMetrics.origin
+    });
+  };
+
+  const getBaseProjectionMetrics = projection.getProjectionMetrics;
+  pageDefinition.getProjectionMetrics = function getProjectionMetrics() {
+    const layout = this.getLayout();
+    if (layout.split) {
+      return getBaseProjectionMetrics.call(this);
+    }
+    return getCompactProjectionMetrics(layout);
+  };
+
+  Page(pageDefinition);
 })();

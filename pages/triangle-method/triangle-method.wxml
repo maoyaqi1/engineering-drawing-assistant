@@ -1,0 +1,78 @@
+<view class="lesson-shell">
+  <scroll-view class="lesson-scroll" scroll-y="{{!canvasDragging}}">
+    <!-- 三个页签只改变当前教学投影面，不改变 A/B 几何真值。 -->
+    <view class="plane-tabs" role="tablist" aria-label="选择夹角">
+      <button class="plane-tab {{selectedPlane === 'H' ? 'active' : ''}}" data-plane="H" bindtap="selectPlane"
+        aria-label="α，水平面 H">
+        <text class="plane-symbol">α</text>
+      </button>
+      <button class="plane-tab {{selectedPlane === 'V' ? 'active' : ''}}" data-plane="V" bindtap="selectPlane"
+        aria-label="β，正平面 V">
+        <text class="plane-symbol">β</text>
+      </button>
+      <button class="plane-tab {{selectedPlane === 'W' ? 'active' : ''}}" data-plane="W" bindtap="selectPlane"
+        aria-label="γ，侧平面 W">
+        <text class="plane-symbol">γ</text>
+      </button>
+    </view>
+    <view class="canvas-card">
+      <!-- 重置恢复默认 A/B 和 H 面；说明文字随当前投影面切换。 -->
+      <view class="card-heading">
+        <view>
+          <text class="card-title">空间直线与三面投影</text>
+          <text wx:if="{{selectedPlane === 'H'}}" class="card-caption">H 面直角三角形：B→q 为投影长，q→A 为 Δz，B→A 为实长 L，α 位于 B 点。</text>
+          <text wx:else class="card-caption">拖动下方三视图端点；红边为实长 L，金色边为 {{targetView.deltaLabel}}，紫弧标出 {{targetView.angleName}}。</text>
+        </view>
+        <button class="ghost-button" bindtap="handleReset" aria-label="恢复默认直线端点">重置</button>
+      </view>
+      <!-- 同一 Canvas 依次绘制首页直线场景、本页空间三角形和三视图辅助三角形。 -->
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="triangle-canvas"
+        disable-scroll="true"
+        bindtouchstart="handleTouchStart"
+        bindtouchmove="handleTouchMove"
+        bindtouchend="handleTouchEnd"
+        bindtouchcancel="handleTouchCancel"
+        aria-label="空间直线三面投影与直角三角形投影作图"
+      ></canvas>
+    </view>
+
+    <view class="summary-card">
+      <!-- 四个要素均由同一组 A/B 派生，不在 WXML 中重复计算。 -->
+      <text class="four-title">直角三角形四要素</text>
+      <view class="element-grid">
+        <view class="element-item">
+          <text class="element-index">1</text>
+          <view>
+            <text class="element-label">一直角边</text>
+            <text class="element-value">投影长 l{{targetView.projection}}（∥{{targetView.baseLineLabel}}）</text>
+          </view>
+        </view>
+        <view class="element-item">
+          <text class="element-index">2</text>
+          <view>
+            <text class="element-label">另一直角边</text>
+            <text class="element-value">坐标差 {{targetView.differenceExpression}}（∥{{targetView.deltaAxisLabel}}）</text>
+          </view>
+        </view>
+        <view class="element-item accent">
+          <text class="element-index">3</text>
+          <view>
+            <text class="element-label">斜边</text>
+            <text class="element-value">空间实长 L</text>
+          </view>
+        </view>
+        <view class="element-item angle">
+          <text class="element-index">4</text>
+          <view>
+            <text class="element-label">斜边与投影边的夹角</text>
+            <text class="element-value">{{targetView.angleName}}</text>
+          </view>
+        </view>
+      </view>
+      <text class="formula-note">直角三角形的四要素：投影长、坐标差、空间实长、投影面倾角。</text>
+    </view>
+  </scroll-view>
+</view>

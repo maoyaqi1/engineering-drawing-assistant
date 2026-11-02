@@ -1,0 +1,181 @@
+.lesson-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #eef3f8;
+  color: #203146;
+}
+
+.lesson-scroll { flex: 1; min-height: 0; }
+
+/* 顶部分别选择投影面和演示模式；两者都只改变派生展示，不复制几何真值。 */
+.canvas-card,
+.result-card,
+.lesson-card {
+  margin: 12px 14px 0;
+  border: 1px solid #dce5ef;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.plane-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 8px 14px 0;
+}
+
+.plane-tab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 30px;
+  margin: 0;
+  padding: 0 5px;
+  border: 1px solid #b9c8d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #445b73;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.plane-tab.active {
+  border-color: #2d8ee8;
+  background: #eef6ff;
+  color: #176bb7;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #2d8ee8;
+}
+
+.plane-symbol { font-size: 16px; font-weight: 800; }
+
+.reset-button {
+  height: 30px;
+  margin: 0;
+  padding: 0 11px;
+  border: 1px solid #cad8e7;
+  border-radius: 8px;
+  background: #edf4f8;
+  color: #245a75;
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.reset-button { flex: none; }
+
+.canvas-card {
+  margin-top: 8px;
+  padding: 5px;
+  box-shadow: 0 6px 18px rgba(24,50,83,.09);
+}
+
+.card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  padding: 4px 6px 0;
+  gap: 10px;
+}
+
+.card-title { color: #26384d; font-size: 15px; font-weight: 700; }
+
+.geometry-canvas {
+  display: block;
+  width: 100%;
+  height: 460px;
+  border-radius: 11px;
+  background: #f8fbff;
+}
+
+.result-card {
+  padding: 14px;
+  box-shadow: 0 5px 16px rgba(24,50,83,.06);
+}
+
+.result-card.success { border-color: #bfe5d0; background: #f7fcf9; }
+.result-card.inactive { border-color: #dce1e7; background: #f8f9fa; }
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result-title { color: #29445f; font-size: 13px; font-weight: 750; }
+.angle-value {
+  color: #1f64b3;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.result-card.inactive .angle-value { color: #7b838d; }
+
+.validation-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  margin-top: 11px;
+  padding: 10px;
+  border-radius: 9px;
+}
+
+.validation-panel.pass { background: #eaf8f0; color: #236c46; }
+.validation-panel.fail { background: #fff0ef; color: #a63735; }
+.validation-title {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  font-weight: 800;
+}
+.validation-line {
+  min-width: 0;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.result-hint {
+  display: block;
+  margin-top: 10px;
+  color: #607184;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.lesson-card {
+  margin-bottom: 8px;
+  padding: 10px 11px;
+  background: linear-gradient(145deg, #fffaf0, #fff 62%);
+  border-color: rgba(219,164,69,.22);
+}
+
+.theorem-title { display: block; color: #273a50; font-size: 15px; font-weight: 800; }
+.theorem-label {
+  color: #755627;
+  font-weight: 800;
+}
+.theorem-text {
+  display: block;
+  margin-top: 5px;
+  color: #4f6073;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (min-width: 500px) {
+  .canvas-card,
+  .result-card,
+  .lesson-card {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .plane-tabs {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .geometry-canvas { height: 420px; }
+}

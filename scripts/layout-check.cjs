@@ -3,10 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
-// getLayout 已随拆分移入 pages/index/ 下的模块，这里按目录扫描查找
+// 共享布局基准固定从 projection.js 读取；首页直线模式另有页面级包装，后续单独验证。
 const indexDir = path.join(ROOT, 'pages', 'index');
-const sources = fs.readdirSync(indexDir).filter((f) => f.endsWith('.js'))
-  .map((f) => fs.readFileSync(path.join(indexDir, f), 'utf8'));
+const projectionSource = fs.readFileSync(path.join(indexDir, 'projection.js'), 'utf8');
 
 // ---- 改前的布局公式（从改动前的 index.js 复制，用于逐尺寸对比）----
 function oldLayout(width, height) {
@@ -23,12 +22,7 @@ function oldLayout(width, height) {
 }
 
 // ---- 从源文件里取出改后的 getLayout ----
-let m = null;
-for (const src of sources) {
-  // 容忍缩进（模块文件内的方法比原 index.js 深一层）
-  m = src.match(/getLayout\(\) \{[\s\S]*?\n\s*\},/);
-  if (m) break;
-}
+const m = projectionSource.match(/getLayout\(\) \{[\s\S]*?\n\s*\},/);
 if (!m) { console.log('FAIL 未找到 getLayout'); process.exit(1); }
 const body = m[0].replace(/getLayout\(\) \{/, 'function newLayout() {').replace(/\},$/, '}');
 const newLayout = new Function('return (' + body + ')')();
@@ -105,6 +99,182 @@ for (const c of cases) {
       'iso ' + oldL.unit.toFixed(1) + '→' + newL.unit.toFixed(1) + '，proj ' + oldU.toFixed(1) + '→' + newU.toFixed(1));
   }
 }
+
+// ---- 首页五种空间对象：共用紧凑画布与轴线边界 ----
+const previousPage = global.Page;
+const previousWx = global.wx;
+let pageDefinition = null;
+global.Page = (definition) => { pageDefinition = definition; };
+global.wx = { cloud: undefined };
+try {
+  Object.keys(require.cache).forEach((key) => {
+    if (key.indexOf(indexDir) === 0) delete require.cache[key];
+  });
+  require(path.join(indexDir, 'index.js'));
+} finally {
+  global.Page = previousPage;
+  global.wx = previousWx;
+}
+check('首页紧凑画布布局包装可加载', !!pageDefinition);
+if (pageDefinition) {
+  const canvasWidth = 360.4;
+  const canvasHeight = 540;
+  const expectedUnit = oldLayout(canvasWidth, 641.6).unit;
+  ['point', 'line', 'plane', 'solid', 'section'].forEach((mode) => {
+    const page = Object.assign({}, pageDefinition, {
+      data: Object.assign({}, pageDefinition.data, { mode }),
+      canvasWidth,
+      canvasHeight
+    });
+    const layout = page.getLayout();
+    const projectionMetrics = page.getProjectionMetrics();
+    const zTop = page.projectIsometric({ x: 0, y: 0, z: 10 }).y;
+    const hBottom = layout.isoOrigin.y + layout.unit * 9 * 1.08;
+    check(`${mode} 模式保持原三维 unit`,
+      Math.abs(layout.unit - expectedUnit) < 0.01,
+      `unit=${layout.unit}, legacy=${expectedUnit}`);
+    check(`${mode} 模式黑底高度缩小`,
+      layout.topHeight < oldLayout(canvasWidth, canvasHeight).topHeight,
+      `${layout.topHeight}`);
+    check(`${mode} 模式 Z 箭头顶在黑边内 2px`,
+      Math.abs(zTop - 2) < 1e-9, `zTop=${zTop}`);
+    check(`${mode} 模式 H 面底边贴住黑边内 2px`,
+      Math.abs(hBottom - (layout.topHeight - 2)) < 1e-9,
+      `hBottom=${hBottom}, top=${layout.topHeight}`);
+    check(`${mode} 模式投影区上下留白收紧`,
+      Math.abs(projectionMetrics.origin.y - 8 * projectionMetrics.unit
+        - (layout.projectionTop + 26)) < 1e-9
+      && Math.abs(projectionMetrics.origin.y + 8 * projectionMetrics.unit
+        - (layout.projectionTop + layout.projectionHeight - 8)) < 1e-9,
+    `origin=${projectionMetrics.origin.y}, unit=${projectionMetrics.unit}`);
+    check(`${mode} 模式可见轴线与投影原点完全重合`,
+      Math.abs(layout.projectionOrigin.x - projectionMetrics.origin.x) < 1e-9
+      && Math.abs(layout.projectionOrigin.y - projectionMetrics.origin.y) < 1e-9,
+    `layout=${layout.projectionOrigin.y}, metrics=${projectionMetrics.origin.y}`);
+  });
+  const interactionPage = Object.assign({}, pageDefinition, {
+    data: Object.assign({}, pageDefinition.data, { mode: 'line' }),
+    canvasWidth,
+    canvasHeight
+  });
+  const metrics = interactionPage.getProjectionMetrics();
+  const beyondAxis = interactionPage.screenToModel(-metrics.unit * 100, metrics.unit);
+  const farPositive = interactionPage.screenToModel(metrics.unit * 100, metrics.unit);
+  const axisReach = interactionPage.screenToModel(0, metrics.unit);
+  check('拖动越轴时停在坐标轴且可精确到达坐标轴',
+    beyondAxis === 0 && farPositive === 8 && axisReach === 0,
+  `negative=${beyondAxis}, positive=${farPositive}, reach=${axisReach}`);
+  check('所有模式投影 OZ 从黑边开始',
+    fs.readFileSync(path.join(indexDir, 'render-scene.js'), 'utf8')
+      .includes('const projectionZTop = layout.projectionTop;'));
+  check('手机五种模式画布共用紧凑高度',
+    fs.readFileSync(path.join(ROOT, 'pages', 'index', 'index.wxss'), 'utf8')
+      .includes('.page-shell .geometry-canvas')
+    && fs.readFileSync(path.join(ROOT, 'pages', 'index', 'index.wxss'), 'utf8')
+      .includes('height: calc(100vw * 1.44);'));
+}
+
+// ---- 投影体系页：压缩画布但完整容纳旋转与展开的极限姿态 ----
+const projectionPagePath = path.join(ROOT, 'pages', 'projection', 'projection.js');
+let projectionPageDefinition = null;
+global.Page = (definition) => { projectionPageDefinition = definition; };
+global.wx = { cloud: undefined };
+try {
+  Object.keys(require.cache).forEach((key) => {
+    if (key.indexOf(path.join(ROOT, 'pages', 'projection')) === 0) delete require.cache[key];
+  });
+  require(projectionPagePath);
+} finally {
+  global.Page = previousPage;
+  global.wx = previousWx;
+}
+check('投影体系页面布局包装可加载', !!projectionPageDefinition);
+if (projectionPageDefinition) {
+  const projectionCanvasWidth = 360.4;
+  const projectionCanvasHeight = 546;
+  const projectionPage = Object.assign({}, projectionPageDefinition, {
+    data: Object.assign({}, projectionPageDefinition.data),
+    canvasWidth: projectionCanvasWidth,
+    canvasHeight: projectionCanvasHeight,
+    viewAngle: 0,
+    unfoldAngle: 0
+  });
+  const layout = projectionPage.getLayout();
+  const metrics = projectionPage.getProjectionMetrics();
+  const legacyLayout = oldLayout(projectionCanvasWidth, 641.6);
+  check('投影体系保持原三维 unit',
+    Math.abs(layout.unit - legacyLayout.unit) < 0.01,
+  `unit=${layout.unit}`);
+  check('投影体系黑底高度缩小',
+    layout.topHeight < legacyLayout.topHeight,
+    `${legacyLayout.topHeight.toFixed(1)} → ${layout.topHeight.toFixed(1)}`);
+  check('投影体系下方展开区收紧',
+    layout.projectionHeight < legacyLayout.bottomHeight,
+    `${legacyLayout.bottomHeight.toFixed(1)} → ${layout.projectionHeight.toFixed(1)}`);
+  check('投影体系可见轴线与投影原点重合',
+    Math.abs(layout.projectionOrigin.x - metrics.origin.x) < 1e-9
+    && Math.abs(layout.projectionOrigin.y - metrics.origin.y) < 1e-9,
+  `layout=${layout.projectionOrigin.y}, metrics=${metrics.origin.y}`);
+
+  const extent = 7;
+  const spans = {
+    first: [[0, extent]],
+    octants: [[-extent, 0], [0, extent]]
+  };
+  let boundsFailure = '';
+  ['first', 'octants'].forEach((scope) => {
+    [0, 90, 180, 270].forEach((viewAngle) => {
+      [0, 45, 90].forEach((unfoldAngle) => {
+        projectionPage.data.scope = scope;
+        projectionPage.viewAngle = viewAngle;
+        projectionPage.unfoldAngle = unfoldAngle;
+        const points = [];
+        spans[scope].forEach((spanA) => {
+          spans[scope].forEach((spanB) => {
+            points.push(
+              { x: spanA[0], y: 0, z: spanB[0] },
+              { x: spanA[1], y: 0, z: spanB[0] },
+              { x: spanA[1], y: 0, z: spanB[1] },
+              { x: spanA[0], y: 0, z: spanB[1] },
+              projectionPage.unfoldHPoint({ x: spanA[0], y: spanB[0], z: 0 }, unfoldAngle),
+              projectionPage.unfoldHPoint({ x: spanA[1], y: spanB[1], z: 0 }, unfoldAngle),
+              projectionPage.unfoldWPoint({ x: 0, y: spanA[0], z: spanB[0] }, unfoldAngle),
+              projectionPage.unfoldWPoint({ x: 0, y: spanA[1], z: spanB[1] }, unfoldAngle)
+            );
+          });
+        });
+        points.forEach((point) => {
+          const screen = projectionPage.projectIsometric(
+            projectionPage.rotateViewPoint(point)
+          );
+          if (screen.x < 0 || screen.x > layout.leftWidth
+            || screen.y < 0 || screen.y > layout.topHeight) {
+            boundsFailure = `${scope}/view${viewAngle}/unfold${unfoldAngle} `
+              + `(${screen.x.toFixed(1)}, ${screen.y.toFixed(1)})`;
+          }
+        });
+      });
+    });
+  });
+  check('投影体系三维内容在各种旋转与展开姿态下均不裁切',
+    boundsFailure === '', boundsFailure);
+  const projectionSource = fs.readFileSync(
+    path.join(ROOT, 'pages', 'projection', 'unfold.js'),
+    'utf8'
+  );
+  const projectionWxss = fs.readFileSync(
+    path.join(ROOT, 'pages', 'projection', 'projection.wxss'),
+    'utf8'
+  );
+  check('投影体系展开图 OZ 从黑边开始且 Z 在右侧',
+    projectionSource.includes('{ x: origin.x, y: top }, { x: origin.x, y: top + height - 18 }')
+    && projectionSource.includes("this.drawText(context, 'Z', origin.x + 8, top + 8"));
+  check('投影体系手机画布使用紧凑高度',
+    projectionWxss.includes('height: calc(100vw * 1.4);')
+    && projectionWxss.includes('min-height: 500px;')
+    && !projectionWxss.includes('height: 640px;'));
+}
+
 console.log('---');
 console.log(failures ? ('失败 ' + failures + ' 项') : '全部通过');
 process.exit(failures ? 1 : 0);

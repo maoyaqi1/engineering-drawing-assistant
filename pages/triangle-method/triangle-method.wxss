@@ -1,0 +1,176 @@
+.lesson-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #eef3f8;
+  color: #203146;
+}
+
+/* 整页使用单一滚动容器；拖动时 canvasDragging 会关闭纵向滚动。 */
+.lesson-scroll { flex: 1; min-height: 0; }
+
+/* 页签区：只表达 H/V/W 选择，视觉状态与 selectedPlane 单一数据源同步。 */
+.plane-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 8px 14px 0;
+}
+
+.plane-tab {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+  height: 30px;
+  margin: 0;
+  padding: 0 5px;
+  border: 1px solid #b9c8d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #445b73;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.plane-tab.active {
+  border-color: #2d8ee8;
+  background: #eef6ff;
+  color: #176bb7;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #2d8ee8;
+}
+
+.plane-symbol { font-size: 16px; font-weight: 800; }
+
+.canvas-card {
+  margin: 8px 14px 0;
+  padding: 5px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(24,50,83,.09);
+}
+
+/* 画布标题行沿用首页的重置按钮语义与轻量视觉。 */
+.card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  padding: 3px 5px 0;
+}
+
+.card-heading > view:first-child { display: flex; flex-direction: column; min-width: 0; }
+.card-title { color: #26384d; font-size: 14px; font-weight: 700; }
+.card-caption { margin-top: 4px; color: #718196; font-size: 11px; line-height: 1.4; }
+.ghost-button {
+  flex: none;
+  width: 82px;
+  min-width: 82px;
+  height: 30px;
+  margin: 0;
+  padding: 0 9px;
+  border-radius: 7px;
+  background: #edf4f8;
+  color: #245a75;
+  font-size: 12px;
+  line-height: 30px;
+}
+
+.triangle-canvas {
+  display: block;
+  width: 100%;
+  height: 460px;
+  border-radius: 11px;
+  background: #f8fbff;
+}
+
+/* 结果卡展示四要素，颜色只作辅助编码，文字同时说明几何含义。 */
+.summary-card {
+  margin: 8px 14px 0;
+  padding: 10px 11px;
+  border: 1px solid #dce5ef;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(24,50,83,.06);
+}
+
+.four-title {
+  display: block;
+  margin-top: 0;
+  color: #4f6177;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.element-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.element-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 7px;
+  border-radius: 9px;
+  background: #f4f8fd;
+}
+
+.element-item.accent { background: #edf4ff; }
+.element-item.angle { background: #f5f0ff; }
+.element-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #dce9f8;
+  color: #235786;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.element-item.angle .element-index { background: #e7dcfb; color: #6441a5; }
+.element-label { display: block; color: #718196; font-size: 9.5px; }
+.element-value {
+  display: block;
+  margin-top: 2px;
+  color: #173f72;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.formula-note {
+  display: block;
+  margin-top: 6px;
+  color: #6b7b8e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+@media (min-width: 500px) {
+  .plane-tabs,
+  .canvas-card,
+  .summary-card {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .triangle-canvas { height: 420px; }
+  .card-heading { margin-bottom: 4px; padding: 1px 3px 0; }
+  .card-title { font-size: 14px; }
+  .card-caption { margin-top: 2px; font-size: 11px; }
+  .ghost-button { width: 78px; min-width: 78px; height: 27px; padding: 0 8px; border-radius: 7px; font-size: 11px; line-height: 27px; }
+}
+
+/* 手机窄屏隐藏说明文案，保留标题和重置操作的可达性。 */
+@media (max-width: 520px) {
+  .card-caption { display: none; }
+}

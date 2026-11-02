@@ -1,0 +1,70 @@
+<view class="lesson-shell">
+  <scroll-view class="lesson-scroll" scroll-y="{{!canvasDragging}}">
+    <view class="plane-tabs" role="tablist" aria-label="选择投影面平行线类型">
+      <button class="plane-tab {{selectedLineType === 'horizontal' ? 'active' : ''}}"
+        data-type="horizontal" bindtap="selectLineType"
+        aria-label="α，水平线"
+        aria-selected="{{selectedLineType === 'horizontal'}}">
+        <text class="plane-symbol">α</text>
+      </button>
+      <button class="plane-tab {{selectedLineType === 'frontal' ? 'active' : ''}}"
+        data-type="frontal" bindtap="selectLineType"
+        aria-label="β，正平线"
+        aria-selected="{{selectedLineType === 'frontal'}}">
+        <text class="plane-symbol">β</text>
+      </button>
+      <button class="plane-tab {{selectedLineType === 'profile' ? 'active' : ''}}"
+        data-type="profile" bindtap="selectLineType"
+        aria-label="γ，侧平线"
+        aria-selected="{{selectedLineType === 'profile'}}">
+        <text class="plane-symbol">γ</text>
+      </button>
+    </view>
+
+    <view class="canvas-card">
+      <view class="card-heading">
+        <text class="card-title">空间直角与三面投影</text>
+        <button class="reset-button" bindtap="handleReset">重置</button>
+      </view>
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="geometry-canvas"
+        disable-scroll="true"
+        bindtouchstart="handleTouchStart"
+        bindtouchmove="handleTouchMove"
+        bindtouchend="handleTouchEnd"
+        bindtouchcancel="handleTouchCancel"
+        aria-label="直角投影定理空间关系与当前投影面二维结果"
+      ></canvas>
+    </view>
+
+    <view class="result-card {{validationPassed ? 'success' : 'inactive'}}">
+      <!-- 只保留结果标题、角度和教学提示，不显示明细网格。 -->
+      <view class="result-header">
+        <text class="result-title">空间直角与三面投影同步 · {{intersectionText}}</text>
+        <text class="angle-value">{{projectionAngleText}}</text>
+      </view>
+      <view class="validation-panel {{validationPassed ? 'pass' : 'fail'}}">
+        <text class="validation-title">{{validationPassed ? '定理验证通过' : '条件未满足'}}</text>
+        <text class="validation-line">{{lineTypeName}} l ∥ {{parallelPlane}} 面：{{lineParallelText}}</text>
+        <text class="validation-line">m ⟂ l：{{spatialPerpendicularText}}</text>
+        <text class="validation-line">{{parallelPlane}} 面投影出现直角：{{projectionPerpendicularText}}</text>
+        <text class="validation-line">当前 m 与 {{parallelPlane}} 面夹角 ≈ {{planeAngleText}}°</text>
+      </view>
+      <text class="result-hint">{{relationHint}}</text>
+    </view>
+
+    <view class="lesson-card theorem-card">
+      <text class="theorem-title">直角投影定理</text>
+      <text class="theorem-text">
+        <text class="theorem-label">定理 I：</text>
+          垂直相交的两直线，其中有一条直线平行于一投影面时，则两直线在该投影面的投影仍反映直角。
+      </text>
+      <text class="theorem-text">
+        <text class="theorem-label">定理 II（逆）：</text>
+          相交两直线在同一投影面的投影成直角，且有一条直线平行于该投影面，则空间两直线的夹角必是直角。
+      </text>
+    </view>
+  </scroll-view>
+</view>

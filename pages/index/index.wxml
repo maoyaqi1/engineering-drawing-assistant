@@ -44,6 +44,28 @@
       <button class="type-chip {{lineType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleLineType">正垂线</button>
       <button class="type-chip {{lineType === 'profileProjecting' ? 'active' : ''}}" data-type="profileProjecting" bindtap="handleLineType">侧垂线</button>
     </view>
+    <!-- 直线模式下的两个关键知识点入口；页面各自维护几何，不扩大首页交互职责。 -->
+    <view class="knowledge-entry-row" aria-label="直线关键知识点">
+      <text class="knowledge-entry-label">关键知识点</text>
+      <navigator
+        class="knowledge-entry-card active"
+        url="/pages/triangle-method/triangle-method"
+        hover-class="knowledge-entry-hover"
+        aria-label="进入直角三角形法求实长与倾角"
+      >
+        <text class="knowledge-entry-title">直角三角形法</text>
+        <text class="knowledge-entry-subtitle">求实长与倾角</text>
+      </navigator>
+      <navigator
+        class="knowledge-entry-card active"
+        url="/pages/right-angle-projection/right-angle-projection"
+        hover-class="knowledge-entry-hover"
+        aria-label="进入直角投影定理"
+      >
+        <text class="knowledge-entry-title">直角投影定理</text>
+        <text class="knowledge-entry-subtitle">垂直与投影</text>
+      </navigator>
+    </view>
   </view>
 
   <view class="type-panel" wx:elif="{{mode === 'plane'}}">

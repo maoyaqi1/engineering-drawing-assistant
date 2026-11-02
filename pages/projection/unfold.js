@@ -695,8 +695,8 @@
       context.strokeStyle = '#777d85';
       context.lineWidth = 1;
       this.drawLine(context, { x: left + 10, y: origin.y }, { x: left + width - 10, y: origin.y });
-      this.drawLine(context, { x: origin.x, y: top + 34 }, { x: origin.x, y: top + height - 18 });
-      this.drawText(context, 'Z', origin.x + 5, top + 34, '#525861', 10, '600');
+      this.drawLine(context, { x: origin.x, y: top }, { x: origin.x, y: top + height - 18 });
+      this.drawText(context, 'Z', origin.x + 8, top + 8, '#525861', 10, '600');
       this.drawText(context, 'X', left + 8, origin.y - 5, '#525861', 10, '600');
       this.drawText(context, 'Y', origin.x + 5, top + height - 10, '#525861', 10, '600');
       this.drawText(context, '展开投影图 · 第一角', left + 12, top + 23, '#3b4654', 11, '600');

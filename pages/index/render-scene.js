@@ -6,6 +6,8 @@
   const BasicSolid = require('./basic-solid.js');
 
   module.exports = {
+    // 画布节点和 2D 上下文由 Page 实例独占。尺寸查询失败时短暂重试，
+    // 是因为小程序首次布局可能尚未完成；DPR 上限 3 防止低端设备过度绘制。
     initializeCanvas() {
       const init = (retry) => {
         const query = this.createSelectorQuery();
@@ -29,6 +31,8 @@
       init(4);
     },
 
+    // 唯一重绘入口：同一帧内的多次状态变化合并为一次 drawScene。
+    // _drawScheduled 只表示“已排队”，不能作为渲染完成状态。
     scheduleCanvasDraw() {
       if (this._drawScheduled) return;
       this._drawScheduled = true;
@@ -44,6 +48,8 @@
       }
     },
 
+    // 拖动热路径直接写 this.data 的嵌套值，不经过 setData；调用方在松手时
+    // 再把同一对象整体提交给视图层。因此 path 必须指向已存在的对象字段。
     setLivePath(path, value) {
       const parts = String(path).split('.');
       let cur = this.data;
@@ -54,6 +60,8 @@
       cur[parts[parts.length - 1]] = value;
     },
 
+    // 绘制顺序即视觉层级：先画坐标系与投影底座，再叠加当前模式的对象，
+    // 最后画三视图。各模式 overlay 只读领域数据，不得在这里反推或修补几何真值。
     drawScene() {
       if (!this.context || !this.canvasWidth) return;
       const context = this.context;
@@ -71,6 +79,8 @@
       if (this.data.mode === 'solid') BasicSolid.drawViews(context, this);
     },
 
+    // 空间视图固定使用 H/V/W 三块半透明投影面。这里的四个顶点只定义教学显示范围，
+    // 不是截交平面；点在投影面上的位置仍由同一世界坐标映射得到。
     drawIsometricPanel(context, layout) {
       context.save();
       context.beginPath();
@@ -113,7 +123,11 @@
       ];
       axes.forEach((axis) => {
         this.drawArrow(context, origin, axis.end, axis.color);
-        this.drawText(context, axis.label, axis.end.x + 3, axis.end.y - 5, '#e3e5e8', 10, '600');
+      const isZAxis = axis.label === 'Z';
+      this.drawText(context, axis.label,
+        axis.end.x + (isZAxis ? 10 : 3),
+        axis.end.y + (isZAxis ? 10 : -5),
+        '#e3e5e8', 10, '600');
       });
       const spaceTitle = this.data.mode === 'line' ? '空间直线及投影' : (this.data.mode === 'plane' ? '空间平面及投影' : (this.data.mode === 'section' ? '空间截切及截交线' : (this.data.mode === 'solid' ? '空间立体' : '空间投影面')));
       this.drawText(context, spaceTitle, 12, 22, '#d9dde4', 11, '600');
@@ -141,6 +155,8 @@
       context.restore();
     },
 
+    // 直线在空间图中的投影端点采用与点模式完全相同的正交投影规则；
+    // 颜色仅区分投影面，不改变可见性或几何含义。
     drawLineIsometricOverlay(context) {
       const a = this.data.line.a;
       const b = this.data.line.b;
@@ -176,6 +192,8 @@
       context.restore();
     },
 
+    // 平面以三个顶点的空间位置和三个投影多边形共同表达。投影多边形是派生结果，
+    // 不从屏幕路径回写 this.data.plane。
     drawPlaneIsometricOverlay(context) {
       const points = ['a', 'b', 'c'].map((key) => this.data.plane[key]);
       const spacePoints = points.map((point) => this.projectIsometric(point));
@@ -211,6 +229,8 @@
       context.restore();
     },
 
+    // 下方三视图底座。点模式直接画三个投影点；线、面、立体、截交模式随后由各自
+    // overlay 继续绘制，避免这里重复实现业务图元。
     drawProjectionPanels(context, layout) {
       const contextWidth = this.canvasWidth;
       const height = this.canvasHeight;
@@ -232,9 +252,13 @@
       context.lineWidth = 1;
       this.drawLine(context, { x: layout.projectionLeft + 10, y: origin.y },
         { x: layout.projectionLeft + layout.projectionWidth - 10, y: origin.y });
-      this.drawLine(context, { x: origin.x, y: layout.projectionTop + 34 },
+      const projectionZTop = layout.projectionTop;
+      this.drawLine(context, { x: origin.x, y: projectionZTop },
         { x: origin.x, y: layout.projectionTop + layout.projectionHeight - 18 });
-      this.drawText(context, 'Z', origin.x + 5, layout.projectionTop + 34, '#525861', 10, '600');
+      this.drawText(context, 'Z',
+        origin.x + 8,
+        projectionZTop + 8,
+        '#525861', 10, '600');
       this.drawText(context, 'X', layout.projectionLeft + 8, origin.y - 5, '#525861', 10, '600');
       this.drawText(context, 'Y', origin.x + 5, layout.projectionTop + layout.projectionHeight - 10, '#525861', 10, '600');
 
@@ -259,6 +283,8 @@
       context.restore();
     },
 
+    // 直线三视图必须用同两个端点的三次 view 投影绘制，不能分别重算线方向；
+    // 端点顺序只影响标签，不影响长对正/高平齐/宽相等关系。
     drawLineProjectionOverlay(context) {
       const aViews = this.getProjectionScreenPoints(this.data.line.a);
       const bViews = this.getProjectionScreenPoints(this.data.line.b);
@@ -288,6 +314,8 @@
       context.restore();
     },
 
+    // 平面三视图先画半透明面，再补对应线和顶点标签。先 fill 后重描边是为了
+    // 防止对应线覆盖轮廓色，同时保持顶点标签位于最上层。
     drawPlaneProjectionOverlay(context) {
       const keys = ['a', 'b', 'c'];
       const projections = keys.map((key) => this.getProjectionScreenPoints(this.data.plane[key]));

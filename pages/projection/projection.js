@@ -11,8 +11,29 @@
   const renderScene = require('../index/render-scene.js');
   const session = require('../index/session.js');
   const unfold = require('./unfold.js');
+  const COMPACT_SPATIAL_PADDING = 2;
+  const COMPACT_SPATIAL_HALF_UNITS = 10.761235134321746;
+  const COMPACT_SPATIAL_UNIT_DIVISOR = 29.3;
+  const COMPACT_PROJECTION_TOP_PADDING = 26;
+  const COMPACT_PROJECTION_BOTTOM_PADDING = 8;
 
-  Page(Object.assign({
+  function getCompactProjectionMetrics(layout) {
+    const unit = Math.min(
+      layout.rightWidth / 21,
+      (layout.bottomHeight
+        - COMPACT_PROJECTION_TOP_PADDING
+        - COMPACT_PROJECTION_BOTTOM_PADDING) / 16
+    );
+    return {
+      origin: {
+        x: layout.projectionOrigin.x,
+        y: layout.projectionTop + COMPACT_PROJECTION_TOP_PADDING + 8 * unit
+      },
+      unit
+    };
+  }
+
+  const pageDefinition = Object.assign({
     data: {
       // 章节标识（学习埋点用）：详见 unfold.js 的 trackEvent 覆盖
       mode: 'system',
@@ -59,5 +80,46 @@
       this.canvas = null;
       this.context = null;
     }
-  }, session, projection, drawHelpers, renderScene, unfold));
+  }, session, projection, drawHelpers, renderScene, unfold);
+
+  const getBaseLayout = projection.getLayout;
+  pageDefinition.getLayout = function getLayout() {
+    const baseLayout = getBaseLayout.call(this);
+    if (baseLayout.split) return baseLayout;
+    const unit = Math.min(
+      baseLayout.leftWidth / 27,
+      baseLayout.leftWidth / COMPACT_SPATIAL_UNIT_DIVISOR
+    );
+    const topHeight = COMPACT_SPATIAL_HALF_UNITS * 2 * unit
+      + COMPACT_SPATIAL_PADDING * 2;
+    const bottomHeight = this.canvasHeight - topHeight;
+    const projectionMetrics = getCompactProjectionMetrics({
+      rightWidth: baseLayout.rightWidth,
+      bottomHeight,
+      projectionTop: topHeight,
+      projectionOrigin: { x: baseLayout.leftWidth * 0.5 }
+    });
+    return Object.assign({}, baseLayout, {
+      dividerY: topHeight,
+      topHeight,
+      bottomHeight,
+      projectionTop: topHeight,
+      projectionHeight: bottomHeight,
+      unit,
+      isoOrigin: {
+        x: baseLayout.leftWidth * 0.5,
+        y: topHeight * 0.5
+      },
+      projectionOrigin: projectionMetrics.origin
+    });
+  };
+
+  const getBaseProjectionMetrics = projection.getProjectionMetrics;
+  pageDefinition.getProjectionMetrics = function getProjectionMetrics() {
+    const layout = this.getLayout();
+    if (layout.split) return getBaseProjectionMetrics.call(this);
+    return getCompactProjectionMetrics(layout);
+  };
+
+  Page(pageDefinition);
 })();
