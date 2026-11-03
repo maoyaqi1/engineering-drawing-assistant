@@ -1,3 +1,5 @@
+// 用户协议与隐私政策页。正文是随小程序发布的本地静态内容，
+// 打开页面时只根据路由参数选择 user / privacy，不请求远端服务。
 const DOCS = {
   user: {
     title: '用户协议',
@@ -36,6 +38,7 @@ Page({
     sections: []
   },
 
+  // 兼容旧链接：除显式 type=privacy 外一律显示用户协议。
   onLoad(options) {
     const type = options.type === 'privacy' ? 'privacy' : 'user';
     const doc = DOCS[type];

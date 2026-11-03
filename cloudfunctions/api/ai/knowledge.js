@@ -37,10 +37,13 @@ const FOLLOW_UP_PHRASES = [
 let fileCache = null;
 let pointRegistry = null;
 
+// 支持中文/英文逗号、分号、顿号和空白分隔；知识点 ID 顺序不影响匹配。
 function splitIds(raw) {
   return raw.split(/[\s,，、;/；]+/).map((s) => s.trim()).filter(Boolean);
 }
 
+// 首次调用读取全部 Markdown 并建立 ID -> 内容登记表；云函数实例复用期间只读缓存，
+// 因此知识库文件更新后必须重新部署，不能期待热更新。
 function loadKnowledge() {
   if (fileCache) return fileCache;
   const files = fs.readdirSync(KNOWLEDGE_DIR).filter((f) => f.endsWith('.md')).sort();
@@ -66,11 +69,15 @@ function loadKnowledge() {
   return fileCache;
 }
 
+// 只按显式追问短语判断，不做语义猜测。调用方会先跑显式关键词匹配，
+// 因而“我还是不懂，讲讲相贯线”不会被旧知识点锁死。
 function isFollowUp(text) {
   const t = text.trim().toLowerCase();
   return FOLLOW_UP_PHRASES.some((p) => t.includes(p));
 }
 
+// 关键词计分为“命中词长度之和”；更具体的长词自然获得更高权重。
+// 这是可解释的路由启发式，不代替大模型理解，也不产生外部调用。
 function scoreByKeywords(text) {
   const lower = text.toLowerCase();
   let bestId = null;
@@ -88,6 +95,8 @@ function scoreByKeywords(text) {
   return { bestId, bestScore };
 }
 
+// 关键词计分无命中时的有序兜底规则。顺序代表歧义优先级：
+// 装配图、标准件、零件图等专有主题必须先于泛化的“面/线/点”判断。
 function fallbackId(text) {
   const lower = text.toLowerCase();
   // 装配图是独立章节（课程第 8 章），「装配」不出现在其它章节标题中，故优先判定，
@@ -111,21 +120,27 @@ function fallbackId(text) {
   return null;
 }
 
+// 知识点路由优先级：显式关键词 > 纯追问继承 > 有序兜底。
+// 返回值只包含知识点 ID；内容注入和权限由调用方负责。
 function matchKnowledgePoint(text, ctx = {}) {
   if (!text || typeof text !== 'string') return null;
   const t = text.trim();
   if (!t) return null;
-  if (isFollowUp(t)) return ctx.current || ctx.kp || null;
   const { bestId, bestScore } = scoreByKeywords(t);
   if (bestScore >= 1) return bestId;
+  // 纯追问才继承上下文；如果追问句里同时出现了新主题关键词，
+  // 上一次判定已经优先命中新知识点，避免“我还是不懂，讲讲相贯线”被旧主题锁死。
+  if (isFollowUp(t)) return ctx.current || ctx.kp || null;
   return fallbackId(t);
 }
 
+// 按已登记 ID 取完整教学内容；未知 ID 返回 null，让 Prompt 层只注入可信资料。
 function getKnowledgeContent(knowledgePointId) {
   loadKnowledge();
   return pointRegistry.get(knowledgePointId) || null;
 }
 
+// 返回稳定 ID 与标题，供测试、路由校验和调试使用；不暴露文件系统路径。
 function listKnowledgePoints() {
   loadKnowledge();
   return Array.from(pointRegistry.entries()).map(([id, p]) => ({ id, title: p.title, knowledgePoint: id }));

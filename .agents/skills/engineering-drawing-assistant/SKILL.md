@@ -17,9 +17,9 @@ metadata:
 
 - **技术栈**：原生微信小程序（WXML/WXSS/JS）+ 微信云开发（云函数/云数据库/云存储）。**几何渲染使用 Canvas 2D，不是 Three.js。**
 - **两个云函数**：`cloudfunctions/api`（学生端）、`cloudfunctions/teacher`（教师端），彼此独立。
-- **两套教师前端**：小程序页 `pages/teacher/` 与网页 `teacher-web/`，共用 `teacher` 云函数。
-- **核心几何文件**：`pages/index/index.js`（约 1900 行的主画布）、`pages/index/section-geometry.js`（截交几何真值）、`pages/index/basic-solid.js`（基本立体）、`utils/geo.js`（尺规作图纯几何工具）。
-- **无自动化测试**：目前依赖人工 / 真机回归测试，详见 references/testing.md。
+- **教师前端**：当前只有网页 `teacher-web/`；小程序端 `pages/teacher/`、名单页 `pages/roster/` 和尺规页 `pages/ruler/` 均已删除。
+- **首页几何模块**：`pages/index/index.js` 只保留页面 data、生命周期和模块装配（约 104 行）；点线面、立体、截交、绘制与交互分布在同目录模块中。`section-geometry.js` 仍是截交几何真值层。
+- **测试边界**：本地检查和离线行为测试可自动执行，但没有 CI；真实云环境、浏览器和真机必须单独验收，详见 references/testing.md。
 
 详细模块地图、数据流与数据库集合见 references/architecture.md。
 
@@ -52,7 +52,7 @@ metadata:
 
 ## 探索模块（不冻结）
 
-`pages/teacher/`、`teacher-web/`、`cloudfunctions/teacher/`（教师端）与 `pages/ruler/`、`web/ruler.html`（尺规作图）属于探索阶段：它们不在 v0.6.2 的版本记录中，**不属于冻结范围**，也不作为版本基线的一部分。
+`teacher-web/` 与 `cloudfunctions/teacher/`（教师端）属于探索阶段，不属于 v0.6.2 的冻结范围。已删除的 `pages/teacher/`、`pages/roster/`、`pages/ruler/` 和 `web/ruler.html` 不得作为当前功能引用。
 
 探索模块可以改动，但不得顺带改动冻结模块；改动前先说明范围，改后做基本自测。
 

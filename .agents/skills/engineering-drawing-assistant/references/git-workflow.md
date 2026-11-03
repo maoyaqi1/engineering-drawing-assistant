@@ -9,7 +9,7 @@
 | 基准提交 | `aaf75d0` — `chore: establish engineering drawing assistant v0.6.2 baseline` |
 | 远端跟踪 | `master` 已跟踪 `origin/master` |
 | 提交身份 | 本地 `user.name = maoyaqi1`，`user.email` 见 `.git/config`（本地作用域，未设全局） |
-| 自动化测试 / CI | **无** |
+| 本地自动检查 / CI | 有 `node scripts/run-all.js` 与离线行为测试；**无 CI** |
 
 ## 铁律
 

@@ -6,6 +6,8 @@
   const { ISOMETRIC_DEPTH_Z } = require('./constants.js');
 
   module.exports = {
+    // 依据画布宽高比选择上下/左右布局。所有面板位置和统一单位都从这一处返回，
+    // 绘制函数不得自行估算边距，否则空间图和三视图会失配。
     getLayout() {
       const width = this.canvasWidth;
       const height = this.canvasHeight;
@@ -53,6 +55,7 @@
       };
     },
 
+    // 三视图专用的原点与单位长度。它只影响屏幕映射，不改变模型坐标。
     getProjectionMetrics() {
       const layout = this.getLayout();
       return {
@@ -61,6 +64,8 @@
       };
     },
 
+    // 同一空间点的 front/top/left 三个屏幕点。第一角关系分别为：
+    // front=(x,z)、top=(x,-y)、left=(-y,z)，再乘统一单位并翻转屏幕 Y。
     getProjectionScreenPoints(sourcePoint) {
       const metrics = this.getProjectionMetrics();
       const { origin, unit } = metrics;
@@ -72,6 +77,8 @@
       };
     },
 
+    // 空间视图的“主点”：点模式取点，直线/平面取首控制点。
+    // 该选择只影响空间场景中的投射线，不影响三视图完整对象。
     getPrimaryPoint() {
       if (this.data.mode === 'plane') return this.data.plane.a;
       return this.data.mode === 'line' ? this.data.line.a : this.data.point;
@@ -89,6 +96,8 @@
       };
     },
 
+    // 单点版三视图映射，供立体与截交模块使用；必须与 getProjectionScreenPoints
+    // 保持完全一致，避免点模式和其他模式产生不同投影。
     projectPointToView(point, viewType) {
       const metrics = this.getProjectionMetrics();
       const { origin, unit } = metrics;
@@ -97,16 +106,22 @@
       return { x: origin.x + point.y * unit, y: origin.y - point.z * unit };
     },
 
+    // 返回未缩放、未平移、未翻转屏幕 Y 的模型视图坐标 (u,v)。
+    // 该函数用于数学层与测试，不作为最终 Canvas 像素坐标。
     worldToView(point, viewType) {
       if (viewType === 'front') return { u: point.x, v: point.z };
       if (viewType === 'top') return { u: point.x, v: -point.y };
       return { u: -point.y, v: point.z };
     },
 
+    // 固定等轴测观察方向的深度标量：值越大越靠近观察者。
+    // 只用于可见性排序，不写回点坐标。
     getIsometricDepth(point) {
       return point.x + point.y + point.z * ISOMETRIC_DEPTH_Z;
     },
 
+    // 正交三视图各自保留的朝向轴；这三条映射决定“谁遮挡谁”，
+    // 不能与屏幕坐标轴交换混用。
     getViewDepth(point, viewType) {
       // 第一分角：正视观察者位于 +Y，俯视观察者位于 +Z，左视观察者位于 +X。
       // 深度值越大表示越靠近观察者。

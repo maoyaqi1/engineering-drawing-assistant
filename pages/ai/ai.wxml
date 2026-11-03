@@ -1,4 +1,4 @@
-<view class="ai-shell">
+<view wx:if="{{aiVisible}}" class="ai-shell">
   <scroll-view
     class="chat"
     scroll-y
@@ -60,7 +60,7 @@
     <view class="quick-chip" data-text="请把这题的作图步骤一步一步讲清楚" bindtap="onSuggestion">讲解步骤</view>
   </view>
 
-  <view wx:if="{{notice}}" class="notice" bindtap="handleNoticeTap">{{notice}}</view>
+  <view wx:if="{{notice}}" class="notice">{{notice}}</view>
 
   <!-- 隐私授权弹窗：同意按钮必须是 open-type="agreePrivacyAuthorization"（微信硬性要求，
        用 wx.showModal 冒充会导致 requirePrivacyAuthorize 直接失败） -->

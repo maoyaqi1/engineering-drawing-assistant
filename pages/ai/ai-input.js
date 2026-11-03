@@ -5,6 +5,7 @@
 //
 // 输入模块只准备文字草稿和待发送图片，不在本地判定权限或配额。
 module.exports = {
+  // 文本草稿只保存在页面状态，发送成功后才随 ai.ask 一起提交。
   onInput(event) {
     this.setData({ input: event.detail.value });
   },
@@ -18,6 +19,8 @@ module.exports = {
   // 图片提问链路：
   // 隐私授权 → 选图 → 压缩 → base64 → 暂存页面内存。
   // 图片不写数据库、不写云存储；配额和服务端视觉开关在云函数执行。
+  // 图片处理链使用临时文件与 base64，不持久化；quality=40 用于降低传输体积。
+  // 先请求微信隐私授权，再打开相机/相册；任何异步失败都回到统一错误反馈。
   pickImage() {
     if (!this.data.enableImage) return;
     const openPicker = () => {
@@ -73,6 +76,7 @@ module.exports = {
     });
   },
 
+  // 移除待发送图片时只清空 data URL，不涉及云端配额或已提交消息。
   clearImage() {
     this.setData({ imageDataUrl: '' });
   }

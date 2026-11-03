@@ -8,25 +8,21 @@
 // 都由 api 云函数完成。发送状态必须在每个终止分支恢复。
 const api = require('../../utils/api.js');
 
+// 图片请求的客户端幂等键。只保证同一页面发送会话内足够唯一；
+// 服务端还会按 request_id/图片哈希校验预占租约，不能把随机数当安全凭证。
+function createImageRequestId() {
+  return 'img_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
+
 module.exports = {
+  // AI 对话发送主流程。所有终止分支都必须恢复 sending=false；页面 canAsk 只是提示，
+  // 真正的名册、班级、配额和内容边界由云函数再次校验。
+  // 顺序：本地门禁 -> 乐观插入用户消息 -> ai.ask -> 错误/降级映射 -> 追加助手消息。
   send() {
     const text = (this.data.input || '').trim();
     const image = this.data.enableImage ? this.data.imageDataUrl : '';
     if (this.data.sending || (!text && !image)) return;
-    if (!this.data.canAsk) {
-      const titles = {
-        no_profile: '请先完善学校、姓名和学号',
-        not_in_roster: '你不在名册中，暂时无法提问',
-        class_archived: '班级已停用，暂时无法提问',
-        no_class: '你还没有被分到班级',
-        check_failed: '系统繁忙，请稍后重试'
-      };
-      wx.showToast({
-        title: titles[this.data.accessReason] || '暂时无法提问',
-        icon: 'none'
-      });
-      return;
-    }
+    if (!this.data.canAsk) return;
     if (this.data.messages.length >= 60) {
       wx.showToast({ title: '对话较长，请点“新对话”', icon: 'none' });
       return;
@@ -42,9 +38,10 @@ module.exports = {
       scrollTop: this.data.scrollTop + 10000
     });
 
-    api.aiAsk(text, this.data.conversationId, null, image).then((res) => {
-      // 图片配额由服务端按 learning_records.ai_photo_ask 计算；
-      // 超额时回到文字提问能力，不进入视觉模型。
+    // 同一次图片发送在重试时必须复用 request_id；服务端还会对旧客户端使用图片哈希回退。
+    const requestId = image ? createImageRequestId() : '';
+    api.aiAsk(text, this.data.conversationId, null, image, requestId).then((res) => {
+      // 图片配额由服务端原子预占；成功后仍写入 learning_records.ai_photo_ask 作为审计事件。
       if (res && res.ok === false && res.code === 'IMAGE_QUOTA_EXCEEDED') {
         this.setData({
           sending: false,
@@ -61,6 +58,21 @@ module.exports = {
           content: (res && res.msg) || '每天可以拍照提问 2 次，可以直接用文字描述问题。',
           showCancel: false,
           confirmText: '知道了'
+        });
+        return;
+      }
+
+      if (res && res.ok === false &&
+          (res.code === 'PHOTO_REQUEST_IN_PROGRESS' || res.code === 'PHOTO_REQUEST_ALREADY_COMPLETED')) {
+        this.setData({
+          sending: false,
+          imageDataUrl: '',
+          photoQuota: res.photo_quota || this.data.photoQuota,
+          messages: this.data.messages.concat([{
+            role: 'assistant',
+            content: (res && res.msg) || '这张图片正在处理中，请稍后查看已有回答。'
+          }]),
+          scrollTop: this.data.scrollTop + 10000
         });
         return;
       }
@@ -84,6 +96,8 @@ module.exports = {
           name: this.data.accessName,
           student_id: this.data.accessStudentId
         });
+        this.setData({ sending: false });
+        return;
       }
 
       const content = (res && res.ok && res.message && res.message.content)
@@ -126,6 +140,7 @@ module.exports = {
     });
   },
 
+  // 新对话只清空页面会话引用，不删除服务端历史；下次提问会创建新的 conversation。
   newConversation() {
     this.setData({
       messages: [],

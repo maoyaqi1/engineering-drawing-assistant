@@ -4,6 +4,8 @@
 // 运行：node scripts/offline/run-quality.cjs（或 node scripts/run-all.js 统一运行）
 // 内部账号名单必须在 require 云函数之前设置（模块加载时读取环境变量）
 process.env.INTERNAL_OPENIDS = 'o-internal';
+// 历史一次性测试账号只从环境变量读取；离线用例使用合成标识，不写入真实学号或姓名。
+process.env.LEGACY_TEST_ACCOUNT_KEYS = 'T0001|测试账号甲';
 
 const {
   repoPath,
@@ -39,7 +41,7 @@ seed('classes', [
 ]);
 seed('students', [
   { _id: 'S1', school: '安徽建筑大学', class_id: 'C1', class_name: '26机械①②', name: '张三', student_no: '26210010101', owner_teacher_id: 'T2', owner_teacher_name: '教师二', source: 'teacher', created_at: nowIso },
-  { _id: 'S2', school: '安徽建筑大学', class_id: 'C2', class_name: '教师组', name: '毛亚岐', student_no: '500450', owner_teacher_id: 'T2', owner_teacher_name: '教师二', source: 'teacher', created_at: nowIso },
+  { _id: 'S2', school: '安徽建筑大学', class_id: 'C2', class_name: '教师组', name: '内部测试', student_no: '500001', owner_teacher_id: 'T2', owner_teacher_name: '教师二', source: 'teacher', created_at: nowIso },
   { _id: 'S3', school: '安徽建筑大学', class_id: '', class_name: '', name: '李四', student_no: '999999', owner_teacher_id: 'T2', owner_teacher_name: '教师二', source: 'teacher', created_at: nowIso },
   { _id: 'S4', school: '安徽建筑大学', class_id: 'C3', class_name: '26机械③④', name: '赵六', student_no: '26210010202', owner_teacher_id: 'T3', owner_teacher_name: '教师三', source: 'teacher', created_at: nowIso }
   ,
@@ -48,9 +50,9 @@ seed('students', [
 ]);
 seed('users', [
   { _id: 'U1', openid: 'o-stu', role: 'student', school: '安徽建筑大学', name: '张三', student_id: '26210010101', profile_completed: true, created_at: '2026-09-10T01:00:00.000Z' },
-  { _id: 'U2', openid: 'o-internal', role: 'student', school: '安徽建筑大学', name: '毛亚岐', student_id: '500450', profile_completed: true, created_at: '2026-09-10T01:10:00.000Z' },
-  { _id: 'U3', openid: 'o-demo', role: 'student', school: '安徽建筑大学', name: '毛亚岐', student_id: '500450', profile_completed: true, created_at: '2026-09-10T01:20:00.000Z' },
-  { _id: 'U4', openid: 'o-test', role: 'student', name: 'csj', student_id: '86804388', profile_completed: true, created_at: '2026-09-03T01:00:00.000Z' },
+  { _id: 'U2', openid: 'o-internal', role: 'student', school: '安徽建筑大学', name: '内部测试', student_id: '500001', profile_completed: true, created_at: '2026-09-10T01:10:00.000Z' },
+  { _id: 'U3', openid: 'o-demo', role: 'student', school: '安徽建筑大学', name: '内部测试', student_id: '500001', profile_completed: true, created_at: '2026-09-10T01:20:00.000Z' },
+  { _id: 'U4', openid: 'o-test', role: 'student', name: '测试账号甲', student_id: 'T0001', profile_completed: true, created_at: '2026-09-03T01:00:00.000Z' },
   { _id: 'U5', openid: 'o-guest', role: 'student', school: '某校', name: '王五', student_id: '123456', profile_completed: true, created_at: '2026-09-10T02:00:00.000Z' },
   { _id: 'U6', openid: 'o-old', role: 'student', created_at: '2026-09-01T02:00:00.000Z' },
   { _id: 'U7', openid: 'o-stu3', role: 'student', school: '安徽建筑大学', name: '赵六', student_id: '26210010202', profile_completed: true, created_at: '2026-09-11T02:00:00.000Z' }
@@ -95,7 +97,7 @@ const t3Call = (p) => teacherFn.main(Object.assign({ token: 'tok-t3' }, p));
   // ---------- 2. 线归属与三条线 ----------
   const dashAll = await superCall({ action: 'dashboard' });
   check('2a 超管 scope=all', dashAll.scope === 'all', dashAll.scope);
-  // 注意：此时尚未回填，U4（86804388 csj）还没有 data_quality，因此落 guest 线
+  // 注意：此时尚未回填，U4（T0001 测试账号甲）还没有 data_quality，因此落 guest 线
   check('2b 线归属计数正确（internal1 / demo1 / test0 / guest3 / student2）',
     JSON.stringify(dashAll.line_detail) === JSON.stringify({ internal: 1, demo: 1, test: 0, guest: 3, student: 2 }),
     JSON.stringify(dashAll.line_detail));

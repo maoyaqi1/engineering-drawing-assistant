@@ -97,8 +97,14 @@ if (pageObj) {
   // C6/C7 真实调用跳转方法，确认目标地址正确（尺规入口已移除，AI 入口仍可用）
   const visited = [];
   global.wx.navigateTo = ({ url }) => { visited.push(url); };
+  pageObj.data.mode = 'solid';
+  pageObj.data.canUseAi = true;
   pageObj.goToAi();
-  check('C6 点“问老师”仍跳转到 AI 页', visited.includes('/pages/ai/ai'), visited.join(', '));
+  check('C6 基本立体且已准入时“问老师”跳转到 AI 页', visited.includes('/pages/ai/ai'), visited.join(', '));
+  visited.length = 0;
+  pageObj.data.mode = 'plane';
+  pageObj.goToAi();
+  check('C9 非基本立体模式不提供 AI 页跳转', visited.length === 0, visited.join(', '));
   visited.length = 0;
   pageObj.goProfile();
   check('C7 点“个人信息”仍跳转到注册/资料页', visited.includes('/pages/register/register'), visited.join(', '));

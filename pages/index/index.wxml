@@ -19,8 +19,7 @@
   </view>
 
   <scroll-view class="page-scroll" scroll-y="{{!canvasDragging}}" scroll-top="0">
-  <view class="type-panel" wx:if="{{mode === 'point'}}">
-    <text class="type-label">类型</text>
+  <view class="type-panel type-panel-compact" wx:if="{{mode === 'point'}}">
     <view class="type-toolbar">
       <button class="type-chip {{pointType === 'general' ? 'active' : ''}}" data-type="general" bindtap="handlePointType">一般点</button>
       <button class="type-chip {{pointType === 'origin' ? 'active' : ''}}" data-type="origin" bindtap="handlePointType">原点</button>
@@ -33,8 +32,7 @@
     </view>
   </view>
 
-  <view class="type-panel" wx:elif="{{mode === 'line'}}">
-    <text class="type-label">类型</text>
+  <view class="type-panel type-panel-compact" wx:elif="{{mode === 'line'}}">
     <view class="type-toolbar">
       <button class="type-chip {{lineType === 'general' ? 'active' : ''}}" data-type="general" bindtap="handleLineType">一般线</button>
       <button class="type-chip {{lineType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handleLineType">水平线</button>
@@ -68,8 +66,7 @@
     </view>
   </view>
 
-  <view class="type-panel" wx:elif="{{mode === 'plane'}}">
-    <text class="type-label">类型</text>
+  <view class="type-panel type-panel-compact" wx:elif="{{mode === 'plane'}}">
     <view class="type-toolbar">
       <button class="type-chip {{planeType === 'general' ? 'active' : ''}}" data-type="general" bindtap="handlePlaneType">一般面</button>
       <button class="type-chip {{planeType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handlePlaneType">水平面</button>
@@ -79,15 +76,27 @@
       <button class="type-chip {{planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handlePlaneType">正垂面</button>
       <button class="type-chip {{planeType === 'profileProjecting' ? 'active' : ''}}" data-type="profileProjecting" bindtap="handlePlaneType">侧垂面</button>
     </view>
+    <!-- 平面模式知识点入口：只增加导航，不改变平面顶点、拖动与三视图逻辑。 -->
+    <view class="knowledge-entry-row" aria-label="平面关键知识点">
+      <text class="knowledge-entry-label">关键知识点</text>
+      <navigator
+        class="knowledge-entry-card active"
+        url="/pages/maximum-slope-line/maximum-slope-line"
+        hover-class="knowledge-entry-hover"
+        aria-label="进入最大斜度线互动"
+      >
+        <text class="knowledge-entry-title">最大斜度线</text>
+        <text class="knowledge-entry-subtitle">求平面倾角</text>
+      </navigator>
+    </view>
   </view>
 
-  <view class="type-panel" wx:elif="{{mode === 'solid'}}">
+  <view class="type-panel solid-panel-compact" wx:elif="{{mode === 'solid'}}">
     <view class="solid-type-tabs">
       <button wx:for="{{solidTypes}}" wx:key="index" class="solid-type-chip {{solidTypeIndex === index ? 'active' : ''}}" data-type="{{index}}" bindtap="handleBasicSolidType">{{item}}</button>
     </view>
 
     <view class="solid-group">
-      <text class="solid-group-label">尺寸</text>
       <view class="solid-size-row">
         <view class="slider-row" wx:if="{{solid.type === 'prism' || solid.type === 'pyramid'}}">
           <text class="param-name">棱数</text>
@@ -121,7 +130,6 @@
     </view>
 
     <view class="solid-group">
-      <text class="solid-group-label">姿态</text>
       <view class="pose-line">
         <view class="pose-tabs">
           <button wx:for="{{poseTabs}}" wx:key="index" class="pose-tab {{poseTabIndex === index ? 'active' : ''}}" data-index="{{index}}" bindtap="handlePoseTab">{{item}}</button>
@@ -276,7 +284,12 @@
   </view>
   </scroll-view>
 
-      <view class="ai-fab" bindtap="goToAi" aria-label="AI 教师">
+      <view
+        wx:if="{{mode === 'solid' && canUseAi}}"
+        class="ai-fab"
+        bindtap="goToAi"
+        aria-label="AI 教师"
+      >
     <image class="ai-fab-avatar" src="/images/ai-avatar.png" mode="aspectFill" />
     <text class="ai-fab-label">问老师</text>
   </view>

@@ -65,6 +65,10 @@
       {
         "value": "README.md",
         "type": "file"
+      },
+      {
+        "value": "THIRD_PARTY_NOTICES.md",
+        "type": "file"
       }
     ],
     "include": []

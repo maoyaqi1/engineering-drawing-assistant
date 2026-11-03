@@ -13,6 +13,7 @@ const db = cloud.database();
 const CONVERSATIONS = 'ai_conversations';
 const MESSAGES = 'ai_messages';
 
+// AI 领域错误统一带可映射的 code/status；conversation 内不直接构造前端文案以外的数据。
 function makeError(code, status, message) {
   const err = new Error(message);
   err.code = code;
@@ -24,10 +25,12 @@ function now() {
   return new Date().toISOString();
 }
 
+// 集合创建是幂等兜底，失败（通常因已存在）不应阻断后续数据库操作。
 async function ensureCollections() {
   await Promise.all([CONVERSATIONS, MESSAGES, EVENTS_COLLECTION].map((name) => db.createCollection(name).catch(() => null)));
 }
 
+// 新对话只在首条回答成功生成后创建，避免网络失败留下无可恢复内容的空会话。
 async function createConversation({ openid, title, knowledgePoint }) {
   const added = await db.collection(CONVERSATIONS).add({ data: {
     openid,
@@ -38,6 +41,7 @@ async function createConversation({ openid, title, knowledgePoint }) {
   return added._id;
 }
 
+// 直接按文档 ID 读取；数据库异常与不存在都返回 null，由上层决定统一 404 语义。
 async function getConversation(id) {
   try {
     const res = await db.collection(CONVERSATIONS).doc(id).get();
@@ -47,6 +51,16 @@ async function getConversation(id) {
   }
 }
 
+// 对话详情的统一归属语义：不存在、读库失败和属于他人统一返回 null，
+// 避免调用方通过错误差异判断他人的对话 ID 是否存在。
+async function getOwnedConversation(openid, conversationId) {
+  if (!conversationId) return null;
+  const conversation = await getConversation(conversationId);
+  if (!conversation || conversation.openid !== openid) return null;
+  return conversation;
+}
+
+// 数据库按 created_at 倒序取最近 n 条，再反转成时间正序供模型理解上下文。
 async function lastNMessages(conversationId, n) {
   const res = await db.collection(MESSAGES)
     .where({ conversation_id: conversationId })
@@ -56,6 +70,8 @@ async function lastNMessages(conversationId, n) {
   return res.data.reverse();
 }
 
+// ai_messages 的字段结构是统计契约的一部分。模型与 token 字段只在有值时写入，
+// 不得在这里增加图片正文或其他旁路字段。
 async function addMessage({ conversationId, role, content, model, knowledgePoint, promptTokens, completionTokens, totalTokens }) {
   const record = {
     conversation_id: conversationId,
@@ -72,6 +88,11 @@ async function addMessage({ conversationId, role, content, model, knowledgePoint
   return added._id;
 }
 
+/**
+ * AI 回答主链：校验归属 -> 选择知识点 -> 读取有限历史 -> 检索服务(可降级)
+ * -> 本仓库生成 -> 持久化消息 -> 写旁路教学事件 -> 返回前端投影。
+ * 图片配额预占在入口层完成；本函数失败时由入口释放租约。
+ */
 async function answerQuestion({ openid, conversationId, message, knowledgePoint, imageBase64, studentId }) {
   const text = (message || '').trim();
   const hasImage = typeof imageBase64 === 'string' && imageBase64.length > 40;
@@ -82,7 +103,8 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
 
   let conversation = null;
   if (conversationId) {
-    conversation = await getConversation(conversationId);
+    // 必须在读取历史、调用检索/模型和写消息之前完成归属校验。
+    conversation = await getOwnedConversation(openid, conversationId);
     if (!conversation) throw makeError('CONVERSATION_NOT_FOUND', 404, '对话不存在或已过期。');
   }
 
@@ -119,7 +141,6 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
     question: useImage ? '' : text,
     conversationId: conversation ? conversation.id : null,
     knowledgePoint: currentKp,
-    history,
     imageBase64: useImage ? imageBase64 : null
   });
   if (!fromService && useImage && text) {
@@ -127,7 +148,6 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
       question: text,
       conversationId: conversation ? conversation.id : null,
       knowledgePoint: currentKp,
-      history,
       imageBase64: null
     });
   }
@@ -178,8 +198,8 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
     conversationId: conv.id,
     role: 'user',
     content: text || (hasImage ? '（学生上传了一张图）' : ''),
-    knowledgePoint: currentKp,
-    has_image: !!hasImage
+    // ai_messages 结构受保护，不保存 has_image；图片标记由学习记录 metadata 表达。
+    knowledgePoint: currentKp
   });
   const assistantId = await addMessage({
     conversationId: conv.id, role: 'assistant', content: result.content, model: result.model,
@@ -199,7 +219,10 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
     messageId: assistantId,
     knowledgePoint: currentKp,
     videoRef: ref
-  }).catch(() => null)));
+  }).catch(() => {
+    // 旁路事件失败不影响回答；只记录关联 ID，不记录学生问题正文。
+    console.warn('[AI教学事件] video_recommend 写入失败 conversation=' + conv.id + ' video=' + (ref && ref.video_id));
+  })));
 
   return {
     conversation_id: conv.id,
@@ -223,6 +246,7 @@ async function answerQuestion({ openid, conversationId, message, knowledgePoint,
   };
 }
 
+// 会话列表始终按 openid 收窄，limit 只限制返回量，不能越过当前用户范围。
 async function listConversations({ openid, limit }) {
   const res = await db.collection(CONVERSATIONS)
     .where({ openid })
@@ -232,9 +256,10 @@ async function listConversations({ openid, limit }) {
   return res.data.map((c) => ({ id: c._id, title: c.title, knowledge_point: c.knowledge_point, created_at: c.created_at }));
 }
 
+// 详情读取前先验证 conversation 归属；消息查询只使用已确认属于自己的会话 ID。
 async function getConversationDetail({ openid, conversationId }) {
-  const conversation = await getConversation(conversationId);
-  if (!conversation || conversation.openid !== openid) return null;
+  const conversation = await getOwnedConversation(openid, conversationId);
+  if (!conversation) return null;
   const res = await db.collection(MESSAGES)
     .where({ conversation_id: conversationId })
     .orderBy('created_at', 'asc')
@@ -251,6 +276,8 @@ async function getConversationDetail({ openid, conversationId }) {
   };
 }
 
+// 反馈只允许写 assistant 消息；消息存在但与当前用户无关时仍返回 404，
+// 避免通过错误差异枚举他人的消息 ID。
 async function recordFeedback({ openid, messageId, rating, reason }) {
   if (!rating || !['positive', 'negative'].includes(rating)) {
     throw makeError('INVALID_RATING', 400, '无效的评价类型。');
@@ -260,6 +287,13 @@ async function recordFeedback({ openid, messageId, rating, reason }) {
   }
   const msg = await db.collection(MESSAGES).doc(messageId).get().catch(() => null);
   if (!msg || !msg.data) throw makeError('MESSAGE_NOT_FOUND', 404, '消息不存在。');
+  // 消息存在但与当前用户无关时也回 MESSAGE_NOT_FOUND，避免暴露他人的消息 ID。
+  const conversation = await getOwnedConversation(openid, msg.data.conversation_id);
+  if (!conversation) throw makeError('MESSAGE_NOT_FOUND', 404, '消息不存在。');
+  // 评分针对 AI 回答；用户自己的提问没有可评价的助手回答语义。
+  if (msg.data.role !== 'assistant') {
+    throw makeError('MESSAGE_NOT_FEEDBACKABLE', 400, '该消息不支持评价。');
+  }
   await db.collection(MESSAGES).doc(messageId).update({
     data: { feedback_rating: rating, feedback_reason: reason || null }
   });

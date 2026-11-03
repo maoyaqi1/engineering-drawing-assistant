@@ -8,7 +8,8 @@
     "pages/ai/ai",
     "pages/terms/terms",
     "pages/triangle-method/triangle-method",
-    "pages/right-angle-projection/right-angle-projection"
+    "pages/right-angle-projection/right-angle-projection",
+    "pages/maximum-slope-line/maximum-slope-line"
   ],
   "lazyCodeLoading": "requiredComponents",
   "resizable": true,

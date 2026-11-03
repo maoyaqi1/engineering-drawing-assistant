@@ -129,6 +129,10 @@ ROUTES.forEach(([query, expected]) => {
 // 追问：无上下文时不应凭空落到某个知识点；有会话上下文时沿用会话知识点
 suite.equal(matchKnowledgePoint('我还是不懂'), null, '无上下文的追问「我还是不懂」不误报到知识点');
 suite.equal(matchKnowledgePoint('我还是不懂', { current: 'G02' }), 'G02', '有会话上下文时追问沿用当前知识点');
+suite.equal(matchKnowledgePoint('我还是不懂，相贯线怎么画', { current: 'G02' }), 'G15',
+  '追问中出现明确新知识点时优先于旧上下文');
+suite.equal(matchKnowledgePoint('我还是不懂，请讲讲装配图', { current: 'G02' }), 'G06',
+  '追问中出现装配图关键词时优先于旧上下文');
 suite.equal(matchKnowledgePoint('今天天气怎么样', null), null, '课程外提问不落到知识点');
 
 // —— C 注入正文长度上限 ——

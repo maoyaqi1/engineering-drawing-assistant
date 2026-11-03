@@ -8,6 +8,8 @@
   const VIEW_TRIANGLE_BOX_TOLERANCE = 0.02;
 
   module.exports = {
+    // 绘制某视图的可见/不可见结构棱。先画虚线再画实线，确保共边处可见线
+    // 不会被隐藏线样式覆盖；lineSets 由几何判定层缓存。
     drawSolidProjection(context, solid, viewType) {
       const lineSets = this.getProjectionLineSets(solid, viewType);
       context.save();
@@ -35,6 +37,8 @@
       context.restore();
     },
 
+    // 回转体的中心线由实体包围盒和固定中心 (4,4,4) 推导；
+    // 多面体没有统一的旋转对称轴，因此不画中心线。
     drawProjectionCenterLines(context, solid, solidType, viewType) {
       const rotationalTypes = ['cylinder', 'cone', 'sphere', 'torus'];
       if (!rotationalTypes.includes(solidType) || !solid.renderTriangles.length) return;
@@ -94,6 +98,8 @@
       context.restore();
     },
 
+    // 每个视图只构建一次候选棱和遮挡索引。候选棱来源包括：
+    // 单面边界、视图轮廓（邻居朝向异号/相切）以及超过 35° 的结构折痕。
     getProjectionLineSets(solid, viewType) {
       if (!solid.projectionLineSets) solid.projectionLineSets = {};
       if (solid.projectionLineSets[viewType]) return solid.projectionLineSets[viewType];

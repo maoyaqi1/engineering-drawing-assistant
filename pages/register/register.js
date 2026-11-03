@@ -1,6 +1,8 @@
 const api = require('../../utils/api.js');
 const app = getApp();
 
+// 实名资料页（冻结 F5）。页面只收集学校、姓名和学号，并负责提交中的防重；
+// 学号冲突、名册命中、班级状态和测试账号判定全部以 api 云函数返回为准。
 Page({
   data: {
     isEdit: false,
@@ -12,7 +14,11 @@ Page({
   },
 
   onLoad() {
-    const user = app.globalData.user || {};
+    const user = app.globalData.user;
+    if (!user || !user.openid) {
+      wx.redirectTo({ url: '/pages/login/login' });
+      return;
+    }
     this.setData({
       isEdit: !!user.student_id,
       school: user.school || '',
@@ -25,6 +31,8 @@ Page({
     this.setData({ [event.currentTarget.dataset.key]: event.detail.value, error: '' });
   },
 
+  // 客户端非空校验只用于快速反馈；服务端 register action 会再次规范化和校验身份。
+  // 成功后将服务端返回的用户快照写回 app.globalData，随后再进入互动首页。
   submit() {
     if (this.data.submitting) return;
     const school = (this.data.school || '').trim();

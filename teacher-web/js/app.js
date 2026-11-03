@@ -1,9 +1,16 @@
+// 教师后台单页应用。文件仍按既有单体结构维护，不借本次注释任务拆分。
+//
+// 状态边界：
+//   - localStorage 只保存 token 与教师展示快照，服务端每次 action 仍重新鉴权；
+//   - 前端按钮显隐只改善交互，不能替代 cloudfunctions/teacher 的权限校验；
+//   - hash 路由只决定渲染页面，数据查询范围始终由服务端按登录教师收窄。
 (function () {
   const CFG = window.TEACHER_CONFIG || {};
   const api = window.TeacherApi;
 
   const $ = (id) => document.getElementById(id);
 
+  // 路由表同时提供标题、副标题和合法页面白名单；currentHashKey 会回退到 dashboard。
   const routes = {
     dashboard: { title: '教学驾驶舱', sub: '学生如何学习点线面与 AI 教师' },
     classes: { title: '班级管理', sub: '班级列表与学生归属' },
@@ -17,6 +24,7 @@
     settings: { title: '系统设置', sub: '个人信息与退出' }
   };
 
+  // superOnly 只控制导航可见性；对应云函数 action 仍会执行 requireSuper/归属校验。
   const navItems = [
     { key: 'dashboard', label: '驾驶舱', icon: '📊' },
     { key: 'classes', label: '班级', icon: '🏫' },
@@ -28,6 +36,8 @@
     { key: 'settings', label: '设置', icon: '⚙️' }
   ];
 
+  // 当前页面内的教师缓存。刷新或换标签页后以 localStorage 快照恢复，
+  // 但真正的身份与角色以 token 调用 me() 的结果为准。
   let currentTeacher = null;
 
   function getToken() { return localStorage.getItem(CFG.tokenKey || 'hfjh_teacher_token') || ''; }
@@ -132,11 +142,14 @@
     $('avatarLetter').textContent = ((t && t.name) || 'T').slice(0, 1).toUpperCase();
   }
 
+  // hash 是唯一页面状态源；未知路由统一回退驾驶舱，避免渲染半初始化页面。
   function currentHashKey() {
     const h = location.hash.replace(/^#\//, '').split('?')[0];
     return routes[h] ? h : 'dashboard';
   }
 
+  // 路由渲染入口。每次切换先清空容器，再由具体 renderXxx 异步填充；
+  // 这里只做超管页面的前端提示性跳转，服务端权限仍是最终边界。
   async function renderRoute() {
     const key = currentHashKey();
     const route = routes[key];
@@ -359,6 +372,8 @@
     });
   }
 
+  // 按人清理必须先 dry_run：服务端返回人数与各集合记录数，前端展示后才允许确认。
+  // 前端选择集只决定 targets，实际可删范围仍由服务端超管校验重新计算。
   async function previewPersonPurge(thenRun) {
     const out = $('personResult');
     if (!personSelected.size) {
@@ -386,6 +401,8 @@
     if (thenRun) openPersonConfirm(res, scope);
   }
 
+  // 破坏性操作使用“输入人数”二次确认，并额外警告待激活名册记录。
+  // confirm_count 会随执行请求提交，服务端用它与最新预览比对，防止预览后数据变化。
   function openPersonConfirm(pre, scope) {
     const count = pre.people_count;
     // 安全提示：选中的是"名册已录入但学生还没注册"的人时，删名册记录等于把学生移出名单
@@ -439,23 +456,55 @@
     });
   }
 
+  // 驾驶舱汇总服务端已按 visible scope 过滤的数据；前端不再按本地名册重算权限。
   async function renderDashboard(container) {
-    const dash = await api.dashboard();
-    const d = (dash && dash.ok) ? dash : {};
+    let dash;
+    try {
+      dash = await api.dashboard();
+    } catch (error) {
+      dash = { ok: false, code: error && error.code, msg: describeError(error), retryable: true };
+    }
+    if (!dash || !dash.ok) {
+      // 接口失败时不能用 0 值驾驶舱冒充“真实空数据”。
+      container.innerHTML =
+        '<div class="card" role="alert">' +
+          '<div class="card-title">统计加载失败</div>' +
+          '<div class="form-err">' + esc((dash && dash.msg) || '无法读取驾驶舱数据') + '</div>' +
+          '<button class="login-btn filter-btn" id="dashboardRetry">重新加载</button>' +
+        '</div>';
+      const retry = container.querySelector('#dashboardRetry');
+      if (retry) {
+        retry.addEventListener('click', async () => {
+          retry.disabled = true;
+          retry.textContent = '加载中…';
+          await renderDashboard(container);
+        });
+      }
+      return;
+    }
+
+    const d = dash;
+    const metric = (value) => (value === null ? '—' : (value || 0));
     const mainCards = [
       { label: '学生总数', value: d.total_students || 0 },
       { label: '今日活跃', value: d.today_active_students || 0 },
       { label: '点线面今日', value: d.plp_today || 0 },
-      { label: 'AI提问今日', value: d.ai_today || 0 }
+      { label: 'AI提问今日', value: metric(d.ai_today) }
     ];
     // 名册维度：反映「录入了多少人、其中多少人已注册微信」，是教师最关心的口径
     const rosterCards = [
       { label: '名册人数', value: d.roster_total || 0 },
       { label: '名册已注册', value: d.registered_count || 0 },
       { label: '名册未注册', value: d.unregistered_count || 0 },
-      { label: '近7天AI提问', value: d.ai_week || 0 }
+      { label: '近7天AI提问', value: metric(d.ai_week) }
     ];
     let html = '<div class="stat-grid">';
+    if (d.partial && Array.isArray(d.warnings) && d.warnings.length) {
+      html += '<div class="card" role="status" style="grid-column:1/-1;border-color:#d9a441">' +
+        '<div class="card-title">部分统计不可用</div>' +
+        '<div class="hint">' + esc(d.warnings.map((warning) => warning.msg || warning.code).join('；')) + '</div>' +
+        '<button class="mini-btn" id="dashboardRetry">重试统计</button></div>';
+    }
     mainCards.forEach((c) => {
       html += '<div class="stat-card"><div class="stat-num">' + c.value + '</div><div class="stat-label">' + c.label + '</div></div>';
     });
@@ -580,9 +629,13 @@
     container.querySelectorAll('button[data-unassigned]').forEach((btn) => {
       btn.addEventListener('click', () => openUnassignedModal());
     });
-    if (!dash || !dash.ok) {
-      container.insertAdjacentHTML('beforeend',
-        '<div class="card" style="margin-top:16px;color:#e04444">' + ((dash && dash.msg) || '统计加载失败') + '</div>');
+    const retry = container.querySelector('#dashboardRetry');
+    if (retry) {
+      retry.addEventListener('click', async () => {
+        retry.disabled = true;
+        retry.textContent = '加载中…';
+        await renderDashboard(container);
+      });
     }
   }
 
@@ -662,6 +715,7 @@
     await loadStudents();
   }
 
+  // 学生筛选状态只在当前页面内保存；重新登录或刷新后从默认筛选开始。
   async function loadStudents() {
     const table = $('stuTable');
     if (!table) return;
@@ -1061,6 +1115,7 @@
   }
 
   // ---- 批量导入 ----
+  // CSV 导入分“解析预览”和“确认提交”两步：预览不写库，提交前必须存在有效行。
   async function openImportStudents(forcedClass) {
     await refreshTeacherClasses();
     const forcedId = forcedClass && forcedClass.id ? String(forcedClass.id) : '';
@@ -1187,6 +1242,10 @@
     }[t] || t || '');
   }
 
+  // 学生详情由 student.detail 一次返回基础信息、统计、轨迹和 AI 记录；
+  // 页面只负责分组展示与分页，不自行拼装跨集合查询。
+  // 学生详情页所有区块来自同一次 student.detail 响应；
+  // 不存在跨区块自行请求数据库或重新判权的逻辑。
   async function renderStudentDetail(container) {
     const docId = hashParam('id');
     container.innerHTML = '<div class="card"><div class="placeholder">加载中…</div></div>';
@@ -1612,6 +1671,7 @@
     await loadClasses();
   }
 
+  // 班级列表加载成功后同时重建筛选下拉和页面计数；空数据必须保留可读空态。
   async function loadClasses() {
     const table = $('clsTable');
     if (!table) return;
@@ -1765,6 +1825,8 @@
   }
 
   // 班级详情：班级信息 + 学生名单（已停用班级只读）
+  // 班级详情先解析 hash 中的 class_id，再由服务端决定可见范围与 canWrite。
+  // classOwnerId 只用于前端按钮显隐，写操作仍由 requireOwnClass 最终把关。
   async function renderClassDetail(container) {
     const classId = hashParam('id');
     container.innerHTML = '<div class="card"><div class="placeholder">加载中…</div></div>';
@@ -1967,6 +2029,8 @@
   }
 
   // ---- 班级名单的批量管理（勾选后统一移出班级 / 从名册删除）----
+  // 批量选择状态只属于当前班级详情；进入/退出时必须清空上次勾选，
+  // 防止跨班级误删。
   function enterClassBatch(classId, archived) {
     classMemberSelectMode = true;
     classMemberSelected.clear();
@@ -2010,6 +2074,8 @@
     updateClassBatchBar();
   }
 
+  // 批量“移出班级”只清 class_id/class_name，保留学生名册和学习数据；
+  // 成功后重新加载当前路由，确保服务端返回的成员数成为最新事实。
   async function batchRemoveClassMembers(classId) {
     const ids = Array.from(classMemberSelected);
     if (!ids.length) return;
@@ -2023,6 +2089,8 @@
     alert(classErrText(res, '移出失败'));
   }
 
+  // 批量“从名册删除”会撤销 AI 准入，且逐个调用服务端接口：
+  // 某些成功、某些失败时必须分别计数，不能汇总成单一成功提示。
   async function batchDeleteFromRoster() {
     const ids = Array.from(classMemberSelected);
     if (!ids.length) return;
@@ -2148,6 +2216,8 @@
     setTimeout(() => { const el = $('cnSchool'); if (el) el.focus(); }, 50);
   }
 
+  // 历史名册并入分预览和提交两步：预览给出 matched 数，提交携带 confirm_count；
+  // adopt_unmatched 只影响班级名不匹配的本班学生，不修改姓名、学号和过程数据。
   async function openSyncMembers(classId, className) {
     const first = await api.syncClassMembers({ class_id: classId, dry_run: true });
     if (!first || !first.ok) { alert(classErrText(first, '预览失败')); return; }
@@ -2236,6 +2306,7 @@
     return EVENT_TYPES.map((e) => '<option value="' + esc(e.v) + '">' + esc(e.t) + '</option>').join('');
   }
 
+  // 学习记录按服务端可见范围过滤，前端仅追加姓名/学号、类型和分页条件。
   async function renderLearning(container) {
     container.innerHTML =
       '<div class="page-title">学习记录</div>' +
@@ -2317,6 +2388,7 @@
   // ---- AI 教师分析（提问统计 + 高频知识点 + 问答明细）----
   const aiFilter = { keyword: '', limit: 100 };
 
+  // AI 分析页展示学生提问与高频知识点；当前无学生时仍应保留筛选项和空态。
   async function renderAi(container) {
     container.innerHTML =
       '<div class="page-title">AI 教师分析</div>' +
@@ -2499,6 +2571,8 @@
     try { return JSON.stringify(e); } catch (err) { return '未知错误'; }
   }
 
+  // 应用启动顺序：绑定静态事件 -> 尝试用已有 token 调 me() -> 成功进入应用，
+  // 失败清本地会话并显示登录页。不得因 localStorage 中“看起来是超管”而放行。
   async function init() {
     $('loginBtn').addEventListener('click', handleLogin);
     $('loginPassword').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });

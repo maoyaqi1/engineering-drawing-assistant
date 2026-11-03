@@ -24,7 +24,7 @@ const aiRoot = path.join(__dirname, '..', 'pages', 'ai');
 require(path.join(aiRoot, 'ai.js'));
 
 const moduleMethods = {
-  'ai-access.js': ['refreshAccess', 'applyAccess', 'accessNotice', 'handleNoticeTap'],
+  'ai-access.js': ['refreshAccess', 'applyAccess', 'leaveHiddenAiPage'],
   'ai-input.js': ['onInput', 'onSuggestion', 'pickImage', 'reportPickFailure', 'clearImage'],
   'ai-privacy.js': ['onNeedPrivacy', 'openPrivacyContract', 'handleAgreePrivacyAuthorization', 'handleRefusePrivacy'],
   'ai-conversation.js': ['send', 'newConversation']
@@ -65,6 +65,49 @@ if (!page) {
   console.log('AI 页面模块：' + Object.keys(moduleMethods).length + ' 个');
   console.log('WXML 事件：' + handlers.length + ' 个');
   console.log('页面 data：' + Object.keys(page.data || {}).length + ' 个字段');
+  if (page.data.canAsk !== false || page.data.aiVisible !== false) {
+    failures.push('AI 页面必须默认隐藏并等待准入结果');
+  }
+  if (!wxml.startsWith('<view wx:if="{{aiVisible}}"')) {
+    failures.push('AI 页面根节点必须由 aiVisible 控制');
+  }
+  const homeWxml = fs.readFileSync(
+    path.join(__dirname, '..', 'pages', 'index', 'index.wxml'),
+    'utf8'
+  );
+  if (!homeWxml.includes("wx:if=\"{{mode === 'solid' && canUseAi}}\"")) {
+    failures.push('首页 AI 入口必须仅在基本立体且准入成功时显示');
+  }
+
+  const accessDefinition = require(path.join(aiRoot, 'ai-access.js'));
+  let hiddenRedirects = 0;
+  const accessPage = {
+    data: {},
+    setData(patch) {
+      Object.assign(this.data, patch);
+    },
+    leaveHiddenAiPage() {
+      hiddenRedirects += 1;
+    }
+  };
+  accessDefinition.applyAccess.call(accessPage, {
+    ok: true,
+    level: 'guest',
+    reason: 'not_in_roster'
+  });
+  if (accessPage.data.aiVisible !== false
+    || accessPage.data.notice !== ''
+    || hiddenRedirects !== 1) {
+    failures.push('游客状态必须静默隐藏 AI 页面并返回首页');
+  }
+  accessDefinition.applyAccess.call(accessPage, {
+    ok: true,
+    level: 'student',
+    reason: 'ok'
+  });
+  if (accessPage.data.aiVisible !== true || accessPage.data.canAsk !== true) {
+    failures.push('在册学生必须正常显示 AI 页面');
+  }
 }
 
 if (failures.length) {

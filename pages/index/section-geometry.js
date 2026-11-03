@@ -1,9 +1,26 @@
+// 平面切割立体的几何真值层（冻结模块 F2）。
+//
+// 坐标与单位：
+//   · 所有点均为教学模型空间中的右手坐标 (x, y, z)，教学范围为 0..8；
+//   · EPSILON / 各容差均使用模型单位，不是屏幕像素；
+//   · 截平面统一写作 n·p = constant，n 为单位法向量。
+//
+// 输出边界：
+//   · createSolid 返回三角网格、候选棱线和低精度 renderTriangles；
+//   · intersectSolid 只返回空间线段，不决定环序、可见性或颜色；
+//   · 绘制层必须复用 createSectionLoops / createSectionCaps 的结果，
+//     不得在空间图和三视图各自重建另一套几何真值。
+//
+// 曲面体用参数网格近似。求交网格比绘制网格更密，原因是数学精度不能由
+// renderTriangles 的视觉细分等级决定；两者仍共享同一参数曲面语义。
 const EPSILON = 1e-8;
 
+// 构造教学模型空间点。该模块内所有函数都返回新对象，不修改调用方输入。
 function point(x, y, z) {
   return { x, y, z };
 }
 
+// 三角形和结构棱分开收集：三角形用于求交/裁剪，棱用于教学线框与可见性。
 function addTriangle(triangles, a, b, c) {
   triangles.push([a, b, c]);
 }
@@ -12,10 +29,12 @@ function addEdge(edges, a, b) {
   edges.push([a, b]);
 }
 
+// 在给定高度的水平圆上取参数点；angle 使用弧度，供多面体和回转体共享。
 function ringPoint(cx, cy, z, radius, angle) {
   return point(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle), z);
 }
 
+// 教学用多面体：直接给出闭合三角面与结构棱，不保存通用凸多面体拓扑。
 function createTriangularPyramid() {
   const centerX = 4;
   const centerY = 4;
@@ -39,6 +58,8 @@ function createTriangularPyramid() {
 }
 
 function createPentagonalPrism() {
+  // 底/顶面按扇形三角化，侧面按“底边-顶边-下一点”两个三角形拆分；
+  // edges 同时保留底/顶环和竖向结构棱，供绘制层裁剪。
   const count = 5;
   const bottom = Array.from({ length: count }, (_, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
@@ -63,6 +84,8 @@ function createPentagonalPrism() {
 }
 
 function createCylinder(radialSegments = 72) {
+  // 曲面求交使用高密度参数圆；上下端盖以中心扇形封闭，侧面每个径向区间
+  // 生成两个三角形。edges 是候选结构线，不表示最终可见线框。
   const bottom = [];
   const top = [];
   const triangles = [];
@@ -90,6 +113,8 @@ function createCylinder(radialSegments = 72) {
 }
 
 function createCone(radialSegments = 72) {
+  // 圆锥由底面扇形和“底边上一点-下一点-顶点”的侧面三角形组成。
+  // 每条底边到顶点的母线都作为候选边，最终可见性由 projection 层筛选。
   const base = [];
   const triangles = [];
   const edges = [];
@@ -112,6 +137,8 @@ function createCone(radialSegments = 72) {
 }
 
 function createSphere(latitudeSegments = 32, longitudeSegments = 64) {
+  // 球面使用经纬参数网格；首尾经线通过取模连接，不重复保存闭合点。
+  // 提取的经纬候选线只服务绘制，不参与球体截交的数学定义。
   const center = point(4, 4, 4);
   const radius = 2.5;
   const vertices = [];
@@ -135,6 +162,8 @@ function createSphere(latitudeSegments = 32, longitudeSegments = 64) {
       addTriangle(triangles, vertices[latitude][longitude], vertices[latitude + 1][next], vertices[latitude][next]);
     }
   }
+  // 球面没有真实结构棱；这里抽取少量经纬候选线，仅用于绘制层生成
+  // 曲面轮廓和教学辅助线，不参与球的截交判定本身。
   for (let latitude = 4; latitude < latitudeSegments; latitude += 4) {
     for (let longitude = 0; longitude < longitudeSegments; longitude += 1) {
       addEdge(edges, vertices[latitude][longitude], vertices[latitude][(longitude + 1) % longitudeSegments]);
@@ -149,6 +178,8 @@ function createSphere(latitudeSegments = 32, longitudeSegments = 64) {
 }
 
 function createTorus(majorSegments = 72, minorSegments = 28) {
+  // 圆环由主环参数 u 和管截面参数 v 组成：
+  // radial = R + r*cos(v)，z = center.z + r*sin(v)，u/v 均闭环。
   const center = point(4, 4, 4);
   const majorRadius = 2;
   const minorRadius = 0.72;
@@ -175,6 +206,8 @@ function createTorus(majorSegments = 72, minorSegments = 28) {
       const nextMinor = (minor + 1) % minorSegments;
       addTriangle(triangles, vertices[major][minor], vertices[nextMajor][minor], vertices[nextMajor][nextMinor]);
       addTriangle(triangles, vertices[major][minor], vertices[nextMajor][nextMinor], vertices[major][nextMinor]);
+      // 圆环同样没有离散网格意义上的结构棱。按较大步长抽取经向、纬向候选线，
+      // 避免把参数网格全部画成线框；绘制层会再用投影边界筛选可见轮廓。
       if (minor % 7 === 0) addEdge(edges, vertices[major][minor], vertices[nextMajor][minor]);
       if (major % 9 === 0) addEdge(edges, vertices[major][minor], vertices[major][nextMinor]);
     }
@@ -191,6 +224,8 @@ function createSolid(type) {
     const solid = createPentagonalPrism();
     return { ...solid, renderTriangles: solid.triangles };
   }
+  // 曲面体的求交网格保留较高细分；renderTriangles 使用较低细分供 Canvas 填充。
+  // 两者的顶点由同一参数方程生成，但密度不同，渲染精度不得反向影响截交结果。
   if (type === 'cylinder') {
     const solid = createCylinder();
     return { ...solid, renderTriangles: createCylinder(32).triangles };
@@ -211,9 +246,12 @@ function createSolid(type) {
 }
 
 function signedDistance(vertex, plane) {
+  // 平面使用单位法向量 n 和常数 d 表示，s=n·p-d；s>0 位于法向一侧。
   return vertex.x * plane.normal.x + vertex.y * plane.normal.y + vertex.z * plane.normal.z - plane.constant;
 }
 
+// 用有符号距离线性插值求棱/三角形边与平面的交点。
+// 仅当两端距离异号时调用，因此分母不会为零。
 function interpolate(a, b, distanceA, distanceB) {
   const t = distanceA / (distanceA - distanceB);
   return point(
@@ -224,6 +262,7 @@ function interpolate(a, b, distanceA, distanceB) {
 }
 
 function squaredDistance(a, b) {
+  // 去重和退化判断比较平方距离，避免不必要的开方并向调用方暴露距离量纲。
   const dx = a.x - b.x;
   const dy = a.y - b.y;
   const dz = a.z - b.z;
@@ -231,12 +270,16 @@ function squaredDistance(a, b) {
 }
 
 function addUnique(points, candidate) {
+  // 候选点可能在顶点、棱和相邻三角形上重复出现；以模型空间的平方距离去重，
+  // 避免开方并保持与 EPSILON 的量纲一致。
   if (!points.some((existing) => squaredDistance(existing, candidate) < EPSILON * EPSILON * 100)) {
     points.push(candidate);
   }
 }
 
 function intersectTriangle(triangle, plane) {
+  // 逐边收集顶点共面和穿面交点，再按模型空间最大间距选出该三角形对截交环的
+  // 一条贡献段。返回值是两点的无序对，不负责相邻三角形之间的连接顺序。
   const intersections = [];
   const distances = triangle.map((vertex) => signedDistance(vertex, plane));
   for (let index = 0; index < 3; index += 1) {
@@ -250,6 +293,8 @@ function intersectTriangle(triangle, plane) {
       addUnique(intersections, interpolate(a, b, distanceA, distanceB));
     }
   }
+  // 不到两点无法构成面状截交；共面三角形或经过顶点时可能收集到多于两点，
+  // 此时取距离最远的一对作为该三角形对截交环的边贡献。
   if (intersections.length < 2) return null;
   if (intersections.length === 2) return intersections;
   let bestPair = [intersections[0], intersections[1]];
@@ -267,13 +312,16 @@ function intersectTriangle(triangle, plane) {
 }
 
 function intersectSolid(solid, plane) {
+  // 遍历全部求交三角形，返回空间线段集合。这里不闭合环、不判断可见性、
+  // 不生成屏幕坐标；这些职责分别由 createSectionLoops 和绘制层承担。
   const segments = [];
   const n = plane.normal;
   const c = plane.constant;
   const len = solid.triangles.length;
   for (let i = 0; i < len; i += 1) {
     const triangle = solid.triangles[i];
-    // 快速剔除：三顶点都在平面同一侧则本三角形不与平面相交，无需完整求交
+    // 快速剔除：三顶点都在平面同一侧则本三角形不与平面相交，无需完整求交。
+    // 距离恰好落在 EPSILON 内的顶点按“在平面上”保留，交由去重和闭环阶段收敛。
     const d0 = triangle[0].x * n.x + triangle[0].y * n.y + triangle[0].z * n.z - c;
     const d1 = triangle[1].x * n.x + triangle[1].y * n.y + triangle[1].z * n.z - c;
     const d2 = triangle[2].x * n.x + triangle[2].y * n.y + triangle[2].z * n.z - c;
@@ -287,6 +335,8 @@ function intersectSolid(solid, plane) {
 }
 
 function createCuttingPlane(angleDegrees, offset) {
+  // 角度只旋转正垂面方向：n=(sinθ, 0, cosθ)。offset 沿法向量平移，
+  // 因此 constant 从过模型中心 (4,4,4) 的平面值开始累加。
   const angle = angleDegrees * Math.PI / 180;
   const normal = point(Math.sin(angle), 0, Math.cos(angle));
   const center = point(4, 4, 4);
@@ -297,6 +347,9 @@ function createCuttingPlane(angleDegrees, offset) {
 }
 
 function createSectionLoops(segments, tolerance = 1e-5) {
+  // 将无序截交线段贪心连接成闭合环。tolerance 使用模型单位，默认值与
+  // geometry-test.js 的闭环端点基准一致；未能闭合成环的残段会被丢弃，
+  // 因为调用方只把返回环当作可填充的截面轮廓。
   const remaining = segments.map((segment) => [segment[0], segment[1]]);
   const loops = [];
   const isClose = (a, b) => squaredDistance(a, b) <= tolerance * tolerance;
@@ -325,6 +378,8 @@ function createSectionLoops(segments, tolerance = 1e-5) {
 }
 
 function createSectionCaps(segments, plane, outwardSign) {
+  // 为每个闭合截面环生成扇形三角面。顶点按环序排列，三角面法向统一翻转
+  // 到 outwardSign 指定的一侧；该符号来自 getSectionSideSigns，必须与裁剪侧一致。
   const capTriangles = [];
   createSectionLoops(segments).forEach((loop) => {
     const center = loop.reduce((sum, vertex) => point(sum.x + vertex.x, sum.y + vertex.y, sum.z + vertex.z), point(0, 0, 0));

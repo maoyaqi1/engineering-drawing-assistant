@@ -1,0 +1,220 @@
+.lesson-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #eef3f8;
+  color: #203146;
+}
+
+.lesson-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.plane-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 8px 14px 0;
+}
+
+.plane-tab {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 30px;
+  margin: 0;
+  padding: 0 5px;
+  border: 1px solid #b9c8d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #445b73;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.plane-tab.active {
+  border-color: #2d8ee8;
+  background: #eef6ff;
+  color: #176bb7;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #2d8ee8;
+}
+
+.plane-symbol {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.canvas-card {
+  margin: 8px 14px 0;
+  padding: 5px;
+  border: 1px solid #dce5ef;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(24, 50, 83, 0.09);
+}
+
+.card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+  padding: 4px 6px 0;
+}
+
+.card-title {
+  color: #26384d;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reset-button {
+  flex: none;
+  height: 30px;
+  margin: 0;
+  padding: 0 11px;
+  border: 1px solid #cad8e7;
+  border-radius: 8px;
+  background: #edf4f8;
+  color: #245a75;
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.geometry-canvas {
+  display: block;
+  width: 100%;
+  height: 460px;
+  border-radius: 11px;
+  background: #f8fbff;
+}
+
+.angle-card {
+  margin: 8px 14px 0;
+  padding: 10px 11px;
+  border: 1px solid #dce5ef;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 5px 16px rgba(24, 50, 83, 0.06);
+}
+
+.angle-card.maximum {
+  border-color: #f0aaa6;
+  background: #fff7f6;
+}
+
+.angle-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 7px;
+}
+
+.angle-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 8px 9px;
+  border-radius: 9px;
+  background: #f4f8fd;
+}
+
+.current-angle {
+  background: #fff8ed;
+}
+
+.angle-label {
+  color: #718196;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.angle-value {
+  margin-top: 3px;
+  color: #1f64b3;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.current-angle .angle-value {
+  color: #d97706;
+}
+
+.angle-comparator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c7888;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.angle-comparator.equal {
+  color: #e53935;
+  font-size: 30px;
+  text-shadow: 0 0 10px rgba(229, 57, 53, 0.22);
+}
+
+.angle-card.maximum .angle-item {
+  background: #fff0ef;
+}
+
+.angle-card.maximum .angle-value {
+  color: #d7322d;
+}
+
+.angle-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: #6e7b8c;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.angle-card.maximum .angle-state {
+  color: #c62828;
+}
+
+.lesson-card {
+  margin: 8px 14px 8px;
+  padding: 10px 11px;
+  border: 1px solid rgba(219, 164, 69, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #fffaf0, #fff 62%);
+}
+
+.lesson-title {
+  display: block;
+  color: #273a50;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.lesson-text {
+  display: block;
+  margin-top: 5px;
+  color: #4f6073;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@media (min-width: 500px) {
+  .plane-tabs,
+  .canvas-card,
+  .angle-card,
+  .lesson-card {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .geometry-canvas {
+    height: 420px;
+  }
+}

@@ -3,6 +3,10 @@
 const store = new Map();
 // 故障注入（仅离线用例用）：把某个集合的读取改成抛错，用来验证 fail closed 行为
 const faults = new Set();
+// 单次写入故障：只让下一个匹配的 update 失败，用来模拟部分成功和可重试路径。
+const updateFaults = [];
+const addFaults = [];
+let transactionTail = Promise.resolve();
 
 function failIfInjected(name) {
   if (!faults.has(name)) return;
@@ -11,9 +15,32 @@ function failIfInjected(name) {
   throw err;
 }
 
+function failUpdateIfInjected(name, id) {
+  const index = updateFaults.findIndex((fault) =>
+    fault.collection === name && (!fault.id || fault.id === id));
+  if (index < 0) return;
+  updateFaults.splice(index, 1);
+  const err = new Error('simulated update failure: ' + name + '/' + (id || '*'));
+  err.errCode = -502001;
+  throw err;
+}
+
 function collectionMap(name) {
   if (!store.has(name)) store.set(name, new Map());
   return store.get(name);
+}
+
+function cloneStore() {
+  const copy = new Map();
+  store.forEach((rows, name) => {
+    copy.set(name, new Map(Array.from(rows.entries()).map(([id, row]) => [id, Object.assign({}, row)])));
+  });
+  return copy;
+}
+
+function restoreStore(snapshot) {
+  store.clear();
+  snapshot.forEach((rows, name) => store.set(name, rows));
 }
 
 function match(doc, cond) {
@@ -59,6 +86,7 @@ function makeQuery(name, cond, opts) {
       return { stats: { removed: rows.length } };
     },
     async update({ data }) {
+      failUpdateIfInjected(name, null);
       let updated = 0;
       Array.from(collectionMap(name).entries()).forEach(([id, d]) => {
         if (!match(d, cond)) return;
@@ -92,6 +120,7 @@ function makeCollection(name) {
             err.errCode = -502004;
             throw err;
           }
+          failUpdateIfInjected(name, id);
           collectionMap(name).set(id, Object.assign({}, d, data));
           return { stats: { updated: 1 } };
         },
@@ -102,11 +131,77 @@ function makeCollection(name) {
       };
     },
     async add({ data }) {
+      const faultIndex = addFaults.indexOf(name);
+      if (faultIndex >= 0) {
+        addFaults.splice(faultIndex, 1);
+        const err = new Error('simulated add failure: ' + name);
+        err.errCode = -502002;
+        throw err;
+      }
       const id = 'id_' + (collectionMap(name).size + 1) + '_' + Math.random().toString(36).slice(2, 8);
       collectionMap(name).set(id, Object.assign({ _id: id }, data));
       return { _id: id };
     }
   });
+}
+
+function makeTransactionCollection(name) {
+  const collection = makeCollection(name);
+  return {
+    doc(id) {
+      return {
+        async get() {
+          failIfInjected(name);
+          const row = collectionMap(name).get(id);
+          if (!row) {
+            const err = new Error('document not exists');
+            err.errCode = -502004;
+            throw err;
+          }
+          return { data: Object.assign({}, row) };
+        },
+        async set({ data }) {
+          failUpdateIfInjected(name, id);
+          collectionMap(name).set(id, Object.assign({ _id: id }, data));
+          return { stats: { updated: 1 } };
+        },
+        async update({ data }) {
+          const row = collectionMap(name).get(id);
+          if (!row) {
+            const err = new Error('document not exists');
+            err.errCode = -502004;
+            throw err;
+          }
+          failUpdateIfInjected(name, id);
+          collectionMap(name).set(id, Object.assign({}, row, data));
+          return { stats: { updated: 1 } };
+        }
+      };
+    },
+    add(args) {
+      return collection.add(args);
+    }
+  };
+}
+
+async function runTransaction(work) {
+  const previous = transactionTail;
+  let release;
+  transactionTail = new Promise((resolve) => { release = resolve; });
+  await previous;
+  const snapshot = cloneStore();
+  try {
+    return await work({
+      collection(name) {
+        return makeTransactionCollection(name);
+      }
+    });
+  } catch (error) {
+    restoreStore(snapshot);
+    throw error;
+  } finally {
+    release();
+  }
 }
 
 const command = {
@@ -123,11 +218,19 @@ module.exports = {
   __fault(name, on) {
     if (on) faults.add(name); else faults.delete(name);
   },
+  // 只让下一个匹配 id（省略 id 时匹配该集合下一次操作）的 update 抛错。
+  __failNextUpdate(name, id) {
+    updateFaults.push({ collection: name, id: id || null });
+  },
+  __failNextAdd(name) {
+    addFaults.push(name);
+  },
   getWXContext() { return { OPENID: global.__CURRENT_OPENID || 'self-test-openid', UNIONID: null }; },
   database() {
     return {
       collection: (name) => makeCollection(name),
       command,
+      runTransaction,
       async createCollection(name) { collectionMap(name); return { ok: true }; }
     };
   },

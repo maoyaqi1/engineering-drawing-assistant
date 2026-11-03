@@ -6,7 +6,7 @@
 > 全局优先：`AGENTS.md` C9（编码规范中的三条硬约束）与 C7（文件分级、冻结模块）始终优先于本文件。
 > 加载触发：任何写或改 JavaScript、WXML、WXSS、HTML、CSS 的任务；普通 UI/小修改默认只需本文件。
 > 交叉引用：分层与几何真值规则见 `docs/rules/geometry.md` §6/§12/§29；§58（版本与迁移）权威正文见 `docs/rules/git-release.md`；完成定义与交付摘要模板 §61/§62 保留在 `AGENTS.md`；测试与回归见 `docs/rules/testing.md`。
-> 适用范围与事实注记（非规则，不改写原文）：§46（CSS）、§47（HTML）、§56（兼容性）、§57（安全与稳健性中的浏览器侧条目）面向浏览器端 `web/`、`web-release/`、`teacher-web/`；小程序端为 WXML/WXSS，不能因本文件引入 DOM 或浏览器 API。§5（推荐目录职责）写于源码落盘之前，其中的 `js/*.js`、`pages/roster/`、`pages/teacher/` 已与现状不一致，现行目录以 `AGENTS.md` C4 与 `app.json` 为准。事实见 `docs/rules/project-facts.md`。
+> 适用范围与事实注记（非规则，不改写原文）：§46（CSS）、§47（HTML）、§56（兼容性）、§57（安全与稳健性中的浏览器侧条目）面向浏览器端 `web/`、`web-release/`、`teacher-web/`；小程序端为 WXML/WXSS，不能因本文件引入 DOM 或浏览器 API。§5 保留源码落盘前的历史目录设想；现行目录以 `AGENTS.md` C4 与 `app.json` 为准。事实见 `docs/rules/project-facts.md`。
 > 迁移基线：`docs/rules/AGENTS-pre-layering.snapshot.md`（2026-09-11 快照）。
 
 ## 本文件章节索引
@@ -61,8 +61,8 @@
 
 以下 `js/*.js` 清单是本章程写于源码落盘前的网页版设想，**当前仓库中并不存在**。实际布局如下：
 
-- `pages/`：小程序页面——`index/` 主画布与交互、`ai/` AI 教师、`roster/` 名单、`teacher/` 教师端、`ruler/` 尺规作图、`login/`、`register/`、`survey/`、`terms/`。
-- `utils/`：与页面无关的共享模块（如 `geo.js` 尺规作图纯几何工具）。
+- `pages/`：当前注册 `index/` 主画布、`projection/` 投影体系、`triangle-method/`、`right-angle-projection/`、`maximum-slope-line/` 三个知识点页、`ai/` AI 教师、`login/`、`register/`、`survey/`、`terms/`；`video/` 源码保留但未注册。
+- `utils/`：当前只有 `api.js` 云函数调用封装。
 - `cloudfunctions/api`、`cloudfunctions/teacher`：学生端、教师端云函数，彼此独立。
 - `web/`、`web-release/`：网页版；`teacher-web/`：教师网页控制台。
 - `docs/`：设计与方案文档；`images/`、`screen/`：素材与截图。

@@ -8,6 +8,8 @@ const IMAGE_SYSTEM_PROMPT_PATH = path.join(__dirname, '..', 'prompts', 'teacher_
 let systemPromptCache = null;
 let imageSystemPromptCache = null;
 
+// 两套系统提示词在云函数实例内只读缓存。文件是部署包的一部分，
+// 修改后必须重新部署，内存缓存不会自动失效。
 function getSystemPrompt() {
   if (systemPromptCache) return systemPromptCache;
   systemPromptCache = fs.readFileSync(SYSTEM_PROMPT_PATH, 'utf8').trim();
@@ -59,6 +61,8 @@ const METHOD_RULES = [
   '- 引用老师的规定句、标准号、具体数值时，**一个数字都不要改写**。'
 ].join('\n');
 
+// 系统内容由“教师角色 Prompt + 当前教学知识点标签”组成；
+// 具体章节正文由 buildKnowledgeBlock 单独注入，避免角色规则和资料混在一起。
 function buildSystemContent(currentKnowledgePoint) {
   const base = getSystemPrompt();
   if (!currentKnowledgePoint) return base;
@@ -67,6 +71,8 @@ function buildSystemContent(currentKnowledgePoint) {
   return `${base}\n\n【当前教学知识点】本节课正在学习：${label}。请围绕这个知识点进行辅导。`;
 }
 
+// 将知识点全文截断到配置上限，防止历史知识库增长挤占模型上下文。
+// 截断只影响本次 Prompt，不修改知识文件原内容。
 function buildKnowledgeBlock(currentKnowledgePoint) {
   if (!currentKnowledgePoint) return null;
   const kp = getKnowledgeContent(currentKnowledgePoint);
@@ -94,6 +100,8 @@ function buildSegmentBlock(segments) {
     + lines.join('\n\n');
 }
 
+// 文本 Prompt 的稳定顺序：角色/当前章节 -> 解题方法 -> 本地知识库 ->
+// 外部检索片段 -> 最近历史 -> 当前问题。历史只保留配置上限内的 user/assistant 消息。
 function buildPrompt({ message, history = [], currentKnowledgePoint, segments = null }) {
   const messages = [{ role: 'system', content: buildSystemContent(currentKnowledgePoint) }];
   messages.push({ role: 'system', content: METHOD_RULES });
@@ -111,6 +119,8 @@ function buildPrompt({ message, history = [], currentKnowledgePoint, segments = 
   return messages;
 }
 
+// 图片请求使用独立视觉系统 Prompt，并在 user content 中先放图片再放固定读图指令
+// 和学生文字；图片只是输入证据，不写入数据库。
 function buildImageMessages({ message, imageDataUrl, currentKnowledgePoint, segments = null }) {
   const systemMessages = [{ role: 'system', content: getImageSystemPrompt() }];
   systemMessages.push({ role: 'system', content: IMAGE_CORE_RULES });
@@ -127,6 +137,7 @@ function buildImageMessages({ message, imageDataUrl, currentKnowledgePoint, segm
   return systemMessages;
 }
 
+// 标题由首条用户文字的纯文本前缀生成，不调用模型；空题或纯图片使用“新对话”。
 function generateTitle(firstUserMessage) {
   const text = (firstUserMessage || '').trim().replace(/\s+/g, ' ');
   if (!text) return '新对话';

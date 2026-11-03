@@ -45,6 +45,9 @@
 .selector-arrow { margin-left: 16rpx; color: rgba(255,255,255,.8); font-size: 26rpx; }
 
 .type-panel { display: flex; flex-direction: column; width: 100%; padding: 6rpx 12rpx 8rpx; border-bottom: 1rpx solid #e3e8ef; background: #ffffff; box-shadow: 0 2rpx 10rpx rgba(20,40,80,.04); box-sizing: border-box; }
+.type-panel-compact { padding-top: 2rpx; padding-bottom: 4rpx; }
+.type-panel-compact .type-toolbar { gap: 6rpx; }
+.type-panel-compact .knowledge-entry-row { margin-top: 6rpx; }
 .type-toolbar { display: flex; flex-wrap: wrap; gap: 8rpx; width: 100%; min-width: 0; }
 .type-label { margin: 0 0 6rpx; color: #e04444; font-size: 23rpx; font-weight: 700; }
 .type-chip { display: flex; flex: 0 0 calc((100% - 24rpx) / 4); align-items: center; justify-content: center; box-sizing: border-box; min-width: 0; max-width: calc((100% - 24rpx) / 4); height: 52rpx; margin: 0; padding: 0 2rpx; border: 1rpx solid #aeb3ba; border-radius: 8rpx; background: #fff; color: #252b34; font-size: 22rpx; line-height: 1; text-align: center; white-space: nowrap; overflow: hidden; }
@@ -107,6 +110,19 @@
 .solid-type-tabs { display: flex; gap: 10rpx; margin: 0 0 12rpx; }
 .solid-type-chip { flex: 1; height: 56rpx; line-height: 56rpx; margin: 0; padding: 0; border-radius: 12rpx; border: 1rpx solid #c9d3de; background: #fff; color: #4c596b; font-size: 24rpx; text-align: center; }
 .solid-type-chip.active { border-color: #1684ff; background: #1684ff; color: #fff; }
+.solid-panel-compact { padding-top: 2rpx; padding-bottom: 4rpx; }
+.solid-panel-compact .solid-type-tabs { gap: 6rpx; margin-bottom: 6rpx; }
+.solid-panel-compact .solid-type-chip { height: 50rpx; line-height: 50rpx; border-radius: 9rpx; font-size: 22rpx; }
+.solid-panel-compact .solid-group { width: 100%; gap: 4rpx; }
+.solid-panel-compact .solid-size-row { gap: 4rpx; }
+.solid-panel-compact .pose-line { gap: 4rpx; }
+.solid-panel-compact .solid-size-row,
+.solid-panel-compact .pose-line { flex: 1 1 100%; }
+.solid-panel-compact .solid-size-row > .slider-row { flex: 1 1 0; }
+.solid-panel-compact .slider-row { gap: 4rpx; min-height: 44rpx; }
+.solid-panel-compact .pose-tabs { gap: 6rpx; margin-bottom: 4rpx; }
+.solid-panel-compact .pose-tab { height: 46rpx; line-height: 46rpx; font-size: 22rpx; }
+.solid-panel-compact .axis-row { gap: 6rpx; margin: 0; }
 .solid-group-label { display: block; margin: 10rpx 0 6rpx; padding-left: 12rpx; border-left: 6rpx solid #1684ff; color: #0e3c73; font-size: 23rpx; font-weight: 700; }
 .slider-row { display: flex; align-items: center; gap: 8rpx; min-height: 48rpx; }
 .param-name { flex: none; width: 92rpx; color: #3b4654; font-size: 23rpx; }
@@ -224,6 +240,18 @@
   .knowledge-entry-subtitle { font-size: 9px; }
   .selector-arrow { margin-left: 8px; font-size: 13px; }
   .type-panel { padding: 3px 6px 4px; border-bottom: 0.5px solid #e3e8ef; box-shadow: 0 1px 5px rgba(20,40,80,.04); }
+  .type-panel-compact { padding-top: 1px; padding-bottom: 2px; }
+  .type-panel-compact .knowledge-entry-row { margin-top: 3px; }
+  .solid-panel-compact { padding-top: 1px; padding-bottom: 2px; }
+  .solid-panel-compact .solid-type-tabs { gap: 3px; margin-bottom: 3px; }
+  .solid-panel-compact .solid-type-chip { height: 24px; line-height: 24px; border-radius: 4px; font-size: 11px; }
+  .solid-panel-compact .solid-group { gap: 2px; }
+  .solid-panel-compact .solid-size-row { gap: 2px; }
+  .solid-panel-compact .pose-line { gap: 2px; }
+  .solid-panel-compact .slider-row { gap: 2px; min-height: 22px; }
+  .solid-panel-compact .pose-tabs { gap: 3px; margin-bottom: 2px; }
+  .solid-panel-compact .pose-tab { height: 22px; line-height: 22px; font-size: 11px; }
+  .solid-panel-compact .axis-row { gap: 3px; }
   .type-toolbar { gap: 4px; }
   .type-label { margin: 0 0 3px; font-size: 11.5px; }
   .type-chip { flex: 0 0 calc((100% - 12px) / 4); max-width: calc((100% - 12px) / 4); height: 26px; padding: 0 1px; border: 0.5px solid #aeb3ba; border-radius: 4px; font-size: 11px; }
@@ -326,6 +354,13 @@
   .profile-avatar { width: 18px; height: 18px; line-height: 18px; font-size: 11px; }
   .profile-link { font-size: 11px; }
   .type-panel { padding: 2px 6px 3px; }
+  .type-panel-compact { padding-top: 0; padding-bottom: 1px; }
+  .type-panel-compact .knowledge-entry-row { margin-top: 2px; }
+  .solid-panel-compact { padding-top: 0; padding-bottom: 1px; }
+  .solid-panel-compact .solid-type-tabs { margin-bottom: 2px; }
+  .solid-panel-compact .solid-type-chip { height: 22px; line-height: 22px; }
+  .solid-panel-compact .slider-row { gap: 2px; min-height: 20px; }
+  .solid-panel-compact .pose-tab { height: 20px; line-height: 20px; }
   .type-label { margin: 0 0 2px; font-size: 11px; }
   .type-toolbar { gap: 3px; }
   .type-chip { height: 22px; font-size: 11px; border-radius: 4px; }

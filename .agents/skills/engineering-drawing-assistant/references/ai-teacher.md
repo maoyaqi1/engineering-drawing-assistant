@@ -52,14 +52,16 @@
 
 ## 权限与准入
 
-- AI 提问受名单控制：`ai.ask` 中通过 `isInRoster(user.student_id)` 判断。
+- AI 提问受名册控制：`ai.ask` 由服务端 `resolveAccess()` 读取 `students` 与 `classes` 实时判断。
 - 不在名单内：**仍可正常使用互动工具**，只是不能提问。这是既定产品规则，不得擅自更改。
-- `ADMIN_OPENIDS` 控制谁能进入名单管理页。
+- `ADMIN_OPENIDS` 控制旧名单管理能力；小程序当前没有名单管理页。
 
 ## 数据
 
 - `ai_conversations`：`openid` / `title` / `knowledge_point` / `created_at`
 - `ai_messages`：`conversation_id` / `role` / `content` / `knowledge_point` / `model` / token 统计 / 反馈字段
+- `ai_photo_quota_daily`：每日拍照配额的 pending / confirmed 租约，不保存图片正文
+- `learning_records.ai_photo_ask`：图片处理成功后的审计事件
 
 教师端统计会读取 `ai_messages`（`role = 'user'`）计算提问量，**不要更改其字段结构**，否则教师端统计会失效。
 

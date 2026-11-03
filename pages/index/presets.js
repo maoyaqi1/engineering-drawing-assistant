@@ -6,6 +6,7 @@
   const { DEFAULT_POINT } = require('./constants.js');
 
   module.exports = {
+    // 返回点的深拷贝预设。调用方可以拖动修改，不会污染下一次预设。
     getPointTypePreset(pointType) {
       const presets = {
         general: { ...DEFAULT_POINT },
@@ -20,6 +21,8 @@
       return { ...presets[pointType] };
     },
 
+    // 直线预设只改变端点 b，端点 a 固定为第一分角中的一般位置起点。
+    // 返回新对象，避免预设表被拖动状态修改。
     getLineTypePreset(lineType) {
       // 当前课程统一限定在第一分角，两个端点的坐标均不小于零。
       const a = { x: 2, y: 2, z: 6 };
@@ -35,6 +38,8 @@
       return { a: { ...a }, b: { ...endpoints[lineType] } };
     },
 
+    // 平面预设返回三个新顶点。特殊位置由至少一个坐标轴固定表达，
+    // 拖动后 UI 会把 planeType 回退为 general。
     getPlaneTypePreset(planeType) {
       const presets = {
         general: {
@@ -63,6 +68,8 @@
       return { a: { ...preset.a }, b: { ...preset.b }, c: { ...preset.c } };
     },
 
+    // UI 只允许 0..180°；先归一化到半圈再分类。0°=水平面，90°=侧平面，
+    // 其余一般正垂面。分类用于标签，不改变 createCuttingPlane 的法向量公式。
     getSectionPlaneType(angle) {
       const normalizedAngle = ((angle % 180) + 180) % 180;
       if (normalizedAngle === 0) return 'horizontal';
@@ -70,6 +77,8 @@
       return 'frontProjecting';
     },
 
+    // 新实体默认参数。圆环需要单独的主/管半径和较低中心，其余实体共用参数槽位；
+    // 未使用字段仍保留，便于切换类型时保持数据结构一致。
     defaultSolidParams(type) {
       return {
         type,

@@ -146,7 +146,7 @@ resolveLine(user, ctx) → 'internal' | 'demo' | 'test' | 'guest' | 'student'
 
 **回填（一次性，可重复）**
 
-1. 超管执行 `data.backfillQuality`（dry-run）→ 预览按类别计数。**现网实测预期（脚本核过，合计 73）**：`internal` 跳过 7、`test` 3（`86804388` / `0000001` / `23210010119`）、`production` 62（T0 当天及之后注册的非 internal/test 账号，含 21 个已注册游客与 41 个未填资料账号）、`unknown` 1（T0 之前注册的 09-04 空账号）。
+1. 超管执行 `data.backfillQuality`（dry-run）→ 预览按类别计数。**现网实测预期（脚本核过，合计 73）**：`internal` 跳过 7、`test` 3（历史测试账号甲 / 乙 / 丙，具体标识只在控制台环境变量）、`production` 62（T0 当天及之后注册的非 internal/test 账号，含 21 个已注册游客与 41 个未填资料账号）、`unknown` 1（T0 之前注册的 09-04 空账号）。
 2. 核对条数 → 带 `dry_run: false` + `confirm_count` 执行。
 3. 再次 dry-run 应显示 0 待处理（幂等证据）。
 

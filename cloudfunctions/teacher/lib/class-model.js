@@ -20,9 +20,11 @@ const CLASS_NOTE_MAX = 200;
 const CLASS_BATCH_MAX = 200;
 
 function normalizeClassName(value) {
+  // 班级名只做 trim 和连续空白压缩；重复判定还必须同时比较负责人与学校。
   return String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
 }
 
+// 批量成员接口的 ID 输入去空、去重并保持原顺序，防止一次操作重复计数。
 function normalizeDocIds(raw) {
   const list = Array.isArray(raw) ? raw : (raw ? [raw] : []);
   const output = [];
@@ -47,6 +49,7 @@ async function ensureClassCollection() {
 }
 
 function publicClass(classDoc, memberStat) {
+  // 班级对外投影不包含数据库内部字段；成员统计由已加载学生集合派生。
   const stat = memberStat || { member_count: 0, registered_count: 0 };
   return {
     id: classDoc._id,
@@ -70,11 +73,16 @@ async function getClassById(id) {
     const result = await db.collection('classes').doc(id).get();
     return result.data ? Object.assign({ _id: id }, result.data) : null;
   } catch (error) {
-    return null;
+    if (error && (error.errCode === -502004 || /not exists/i.test(String(error.message || '')))) {
+      return null;
+    }
+    // 数据库故障不能伪装成“班级不存在”，否则调用方会误判为普通空态。
+    throw error;
   }
 }
 
 function canManageClass(teacher, classDoc) {
+  // 前端只据此显示按钮；真正写操作在 requireOwnClass 中再次由服务端执行。
   return isSuper(teacher) || classDoc.owner_teacher_id === teacher._id;
 }
 
@@ -87,9 +95,11 @@ function requireOwnClass(teacher, classDoc, action) {
 }
 
 async function loadAllStudents() {
-  return await fetchAll('students').catch(() => []);
+  // 名单匹配、班级统计和权限候选都要求完整集合，读取失败必须上抛。
+  return await fetchAll('students');
 }
 
+// 一次遍历学生集合，按 class_id 汇总成员和注册匹配数；未分班学生不创建统计项。
 function buildClassStats(students, registeredMap) {
   const stats = new Map();
   students.forEach((student) => {
@@ -104,6 +114,7 @@ function buildClassStats(students, registeredMap) {
 }
 
 function classMemberScope(students, classDoc) {
+  // 班级成员严格限定为该班负责人自己的名册，防止跨教师班级数据混入。
   return students.filter((student) => student.owner_teacher_id === classDoc.owner_teacher_id);
 }
 
@@ -131,11 +142,13 @@ function findDuplicateClass(classes, ownerId, name, school, excludeId) {
 
 async function loadTeacherActiveClasses(teacherId) {
   if (!teacherId) return [];
-  const classes = await fetchAll('classes').catch(() => []);
+  const classes = await fetchAll('classes');
   return classes.filter((classDoc) => classDoc.owner_teacher_id === teacherId && isClassActive(classDoc));
 }
 
 async function resolveClassForTeacher(teacher, className, classId, noClass) {
+  // classId 优先于名称；只有 id/名称都无法唯一确定时，才回退到“该教师只有一个
+  // active 班级”的兼容逻辑。多个候选不会猜测，返回 null 交由调用方报错。
   if (noClass) return null;
   const ownerId = teacher ? teacher._id : '';
   const classes = await loadTeacherActiveClasses(ownerId);

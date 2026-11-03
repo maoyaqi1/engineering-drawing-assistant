@@ -15,6 +15,7 @@
         wx.redirectTo({ url: '/pages/login/login' });
         return;
       }
+      this.refreshAiEntrance();
       this._sessionStart = Date.now();
       this._interactionCount = 0;
       this._sessionEnded = false;
@@ -26,6 +27,20 @@
         if (res && res.ok && !res.survey_completed && res.can_invite && res.valid_session_count >= 5) {
           this.inviteSurvey();
         }
+      });
+    },
+
+    // AI 教师是基本立体模式中的隐藏功能：只有服务端确认当前账号
+    // 具备 student 级准入时才显示入口，失败或游客状态保持隐藏。
+    refreshAiEntrance() {
+      if (!api || !api.rosterStatus) return;
+      api.rosterStatus().then((res) => {
+        const canUseAi = !!(res && res.ok && res.level === 'student');
+        if (this.data.canUseAi !== canUseAi) {
+          this.setData({ canUseAi });
+        }
+      }).catch(() => {
+        if (this.data.canUseAi) this.setData({ canUseAi: false });
       });
     },
 

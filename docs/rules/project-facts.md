@@ -32,11 +32,13 @@
 
 ---
 
-## 现状核对（核对日期 2026-11-03，基准提交 `fc108fa` + `v1.4.1` 补丁工作区）
+## 现状核对（核对日期 2026-11-03，上一发布基线 `v1.4.1 = 8bca382` + `v1.5.0` 工作区）
 
 > **2026-10-28 设计审查修复**：知识点匹配改为“显式关键词优先于纯追问继承”；外部课程检索不再发送历史对话；历史测试账号只由 `teacher` 环境变量 `LEGACY_TEST_ACCOUNT_KEYS` 提供，源码和离线夹具改用合成标识；注册页增加本地登录态守卫。
 
-> **2026-11-01 知识点页更新**：`pages/triangle-method/` 以工作区文件哈希冻结；新增 `pages/right-angle-projection/` 第一阶段原型并从首页“直线”模式关键知识点入口进入。`node scripts/run-all.js` 当前汇总 38 项检查。
+> **2026-11-01 知识点页更新**：`pages/triangle-method/` 以工作区文件哈希冻结；新增 `pages/right-angle-projection/` 第一阶段原型并从首页“直线”模式关键知识点入口进入。
+
+> **2026-11-03 v1.5.0 冻结**：新增 `pages/maximum-slope-line/` 独立互动页并从首页“平面”模式进入；首页点、直线、平面删除“类型”标题，基本立体删除“尺寸”“姿态”行首标签并将尺寸控件改为弹性单行；AI 教师改为仅在基本立体模式且服务端准入通过后显示的隐藏入口。`node scripts/run-all.js` 当前汇总 39 项检查。
 
 > **2026-11-02 紧凑画布 UI 冻结**：首页五模式、投影体系、直角三角形法和直角投影定理页完成用户验收，以工作区文件哈希冻结为 `ui-compact-2026-11-02`；详见 `docs/freeze-ui-compact-2026-11-02.md`。该冻结不是 Git commit/tag。
 
@@ -70,7 +72,7 @@
 
 ### 1. 小程序页面清单
 
-`app.json` 的 `pages` 数组当前注册 9 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`。`pages/triangle-method/` 已以工作区哈希冻结；`pages/right-angle-projection/` 是直角投影定理第一阶段原型，两者都从首页“直线”模式的关键知识点入口进入。`pages/video/` 源码保留但未注册、不进入小程序包；`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 已删除。
+`app.json` 的 `pages` 数组当前注册 10 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`、`pages/maximum-slope-line/maximum-slope-line`。`pages/triangle-method/` 已以工作区哈希冻结；`pages/right-angle-projection/` 是直角投影定理第一阶段原型；`pages/maximum-slope-line/` 从首页“平面”模式进入。`pages/video/` 源码保留但未注册、不进入小程序包；`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 已删除。
 
 ### 2. 目录结构（顶层）
 
@@ -93,7 +95,7 @@
 
 ### 4. 自动化测试与 CI
 
-仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 38 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
+仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 39 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
 
 ### 5. 云函数结构
 
@@ -125,7 +127,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 | L7 | §34、§36、§43 描述的状态机、动画系统、事件总线在当前 `pages/index/index.js` 未发现实现 | 关键词检索 2026-09-11 |
 | L8 | 已关闭：README、Skill、architecture 与 frozen-modules 已移除当前功能中的已删除页面和尺规模块表述 | `README.md`；项目 Skill |
 | L9 | 已关闭：`.agent/`、`docs/requirements/`、`docs/test/`、`docs/rules/` 已纳入版本控制；未跟踪资产只保留 C10 明确列出的用户文件 | `git ls-files` |
-| L10 | 三种“基线”含义不同：冻结基线 `aaf75d0`、上一发布 tag `v1.4.0 = fc108fa`、当前源码基线 `v1.4.1 = 8bca382` | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.4.1-2026-11-03.md`、C1 |
+| L10 | 各基线含义不同：冻结基线 `aaf75d0`、上一发布 tag `v1.4.1 = 8bca382`、当前源码冻结 `v1.5.0`（tag 指向本冻结提交） | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.5.0-2026-11-03.md`、C1 |
 | L11 | C1 与 §2 的指令优先级次序冲突已关闭：2026-09-11 用户裁决采用 C1 的六级次序，§2 已按其重写；§2 原文（“用户 > 更深目录 AGENTS.md > 本文件 > README 与项目规格 > 注释”）仅存于快照第 294–307 行 | `AGENTS.md` C1/§2；`docs/rules/AGENTS-pre-layering.snapshot.md` |
 
 以上均为事实登记，**未对规则文字做任何修改**；是否修订由用户裁决。

@@ -42,12 +42,12 @@
 > 详见 `docs/requirements/REQ-003-phase1-plan.md`、`docs/requirements/REQ-003-phase2-plan.md`。
 
 1. `teacher-web/` 为原生静态页面：`index.html`、`css/`、`js/`、`README.md`，经 CloudBase HTTP 网关调用 `teacher` 云函数（`docs/交接说明.md` 第 4 节）。
-2. `cloudfunctions/teacher/` 含 `index.js`（1,240 行）与 `package.json`。
-3. `teacher` 云函数的分发入口为 `action` 分支，2026-09-11 检索到的 action 共 20 个：`login`、`logout`、`me`、`teacher.list`、`teacher.create`、`teacher.update`、`teacher.delete`、`dashboard`、`student.list`、`student.create`、`student.update`、`student.import`、`student.delete`、`student.adopt`、`student.records`、`student.detail`、`note.add`、`note.delete`、`learning.list`、`ai.questions`（与 `docs/交接说明.md` 第 8 节一致）。
+2. `cloudfunctions/teacher/` 含入口 `index.js`（当前约 2,435 行）、`package.json` 与 `lib/runtime.js`、`lib/identity.js`、`lib/class-model.js`。
+3. `teacher` 云函数的分发入口为 `action` 分支；2026-10-24 的静态接线检查覆盖 34 个 action，完整清单以 `docs/交接说明.md` 第 8 节和 `integrity-check.js` 为准。
 4. 权限模型为超级管理员 / 普通教师 / 学生三级；据 `docs/交接说明.md` 第 6 节，普通教师只能查看自己名册范围内的学生及学习数据，云函数按 `owner_teacher_id` 强制校验，不靠前端隐藏。
-5. 小程序端 `pages/teacher/`、`pages/roster/` 已删除，当前 `app.json` 注册 7 个页面；教师端入口为 `teacher-web/`。
-6. `teacher-web/js/app.js` 与 `cloudfunctions/teacher/index.js` 在工作区存在**用户未提交的改动**（见 `git status`）；分层迁移未触碰这两个文件。
-7. `README.md` 仍含“学生名单管理”等过期表述，Skill 与部分 reference 文档仍列出 `pages/teacher/`；属文档滞后，见 `docs/rules/project-facts.md`。
+5. 小程序端 `pages/teacher/`、`pages/roster/` 已删除，当前 `app.json` 注册 7 个页面；教师端入口只有 `teacher-web/`。
+6. `teacher-web/js/app.js` 当前约 2,563 行，教师云函数约 2,435 行；两者仍存在单体大文件债务，渐进方案见 `docs/architecture-optimization-plan-2026-10-24.md`。
+7. 2026-10-24 代码审查修复增加了超过 1000 条记录、读取/写入故障、部分成功和驾驶舱失败态测试；本地入口为 `node scripts/run-all.js`，没有 CI。
 
 ## 已知限制与待办
 

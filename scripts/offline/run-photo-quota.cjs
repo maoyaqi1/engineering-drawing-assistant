@@ -2,7 +2,7 @@
 // 覆盖：
 //   1. 正式学生：第 1、2 次放行并回传剩余次数；第 3 次被拒且**不进入 AI 模块**（不产生视觉调用）
 //   2. 纯文字提问不受限额影响
-//   3. 计数以服务端事件 ai_photo_ask 为准（客户端计数不可信）
+//   3. 放行由服务端 ai_photo_quota_daily 原子预占，成功后写 ai_photo_ask 审计事件
 //   4. 内部/测试账号不限次（unlimited=true）
 // 运行：node scripts/offline/run-photo-quota.cjs（run-all.js 会自动收录本文件）
 //
@@ -68,14 +68,14 @@ seed('teacher_sessions', [{ _id: 's1', token: 'tok-1', teacher_id: 'T1', expires
   check('A0 前置：该账号是在册学生', status.level === 'student', JSON.stringify({ level: status.level, reason: status.reason }));
 
   const callsBefore = aiCalls.length;
-  const p1 = await api({ action: 'ai.ask', message: '', image_base64: IMG });
+  const p1 = await api({ action: 'ai.ask', message: '', image_base64: IMG, request_id: 'seq-1' });
   check('A1 第 1 次拍照提问放行', p1.ok === true, JSON.stringify(p1.code || p1.ok));
   check('A2 回传配额且剩余 1 次', !!(p1.photo_quota && p1.photo_quota.remaining === 1), JSON.stringify(p1.photo_quota));
 
-  const p2 = await api({ action: 'ai.ask', message: '', image_base64: IMG });
+  const p2 = await api({ action: 'ai.ask', message: '', image_base64: IMG, request_id: 'seq-2' });
   check('A3 第 2 次拍照提问放行', p2.ok === true && p2.photo_quota.remaining === 0, JSON.stringify(p2.photo_quota));
 
-  const p3 = await api({ action: 'ai.ask', message: '', image_base64: IMG });
+  const p3 = await api({ action: 'ai.ask', message: '', image_base64: IMG, request_id: 'seq-3' });
   check('A4 第 3 次被拒（IMAGE_QUOTA_EXCEEDED）', p3.ok === false && p3.code === 'IMAGE_QUOTA_EXCEEDED', JSON.stringify(p3));
   check('A5 被拒时不进入 AI 模块（不产生视觉调用）', aiCalls.length === callsBefore + 2, JSON.stringify({ aiCalls: aiCalls.length }));
 
@@ -88,7 +88,7 @@ seed('teacher_sessions', [{ _id: 's1', token: 'tok-1', teacher_id: 'T1', expires
   await teacherCall({ action: 'student.create', school: '安徽建筑大学', name: '李四', student_no: '880002', class_id: classId });
   asOpenid('openid-stu2');
   await api({ action: 'register', school: '安徽建筑大学', name: '李四', studentId: '880002' });
-  const q1 = await api({ action: 'ai.ask', message: '', image_base64: IMG });
+  const q1 = await api({ action: 'ai.ask', message: '', image_base64: IMG, request_id: 'seq-other-1' });
   check('B1 另一名学生的额度独立（第 1 次仍放行）', q1.ok === true && q1.photo_quota.remaining === 1, JSON.stringify(q1.photo_quota));
   check('B2 第一名学生的事件数不受影响', countEvents('openid-stu', 'ai_photo_ask') === 2,
     String(countEvents('openid-stu', 'ai_photo_ask')));
@@ -99,7 +99,7 @@ seed('teacher_sessions', [{ _id: 's1', token: 'tok-1', teacher_id: 'T1', expires
   let allOk = true;
   let lastQuota = null;
   for (let i = 0; i < 4; i += 1) {
-    const r = await api({ action: 'ai.ask', message: '', image_base64: IMG });
+    const r = await api({ action: 'ai.ask', message: '', image_base64: IMG, request_id: 'internal-' + i });
     if (!r.ok) allOk = false;
     lastQuota = r.photo_quota;
   }

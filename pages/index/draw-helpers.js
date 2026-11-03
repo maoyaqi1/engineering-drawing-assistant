@@ -31,6 +31,8 @@
       context.restore();
     },
 
+    // 点由半透明光晕和实心圆组成：光晕用于深色/浅色背景下保持可见，
+    // 标签沿右上方向偏移，不参与命中判定。
     drawPoint(context, point, color, radius, label) {
       context.save();
       context.beginPath();
@@ -107,6 +109,8 @@
       context.closePath();
     },
 
+    // 用原点为圆心、|y|*unit 为半径的四分之一圆弧表示“宽相等”的转位关系。
+    // 半径下限 8px 只保证 y=0 时仍有可见反馈，不改变模型坐标。
     drawQuarterTurnForY(context, y, origin, unit) {
       const radius = Math.max(8, Math.abs(y * unit));
       context.save();
@@ -119,6 +123,8 @@
       context.restore();
     },
 
+    // 画出同一空间点在 V/H/W 三视图之间的长对正、高平齐与宽相等辅助线。
+    // views 必须是同一几何点经统一 getProjectionScreenPoints 映射后的三个屏幕点。
     drawProjectionCorrespondence(context, views, y, origin, unit, color) {
       const topAxisPoint = { x: origin.x, y: views.top.y };
       const leftAxisPoint = { x: views.left.x, y: origin.y };
@@ -133,6 +139,8 @@
       this.drawQuarterTurnForY(context, this.getPrimaryPoint().y, origin, unit);
     },
 
+    // 单视图小面板的通用绘制：面板内部重新计算单位长度，不能复用全画布 unit；
+    // 该函数用于旧版/辅助视图，主三视图仍由 drawProjectionPanels 统一布局。
     drawSingleProjection(context, panel) {
       context.save();
       this.roundRect(context, panel.x, panel.y, panel.width, panel.height, 10);
@@ -158,6 +166,7 @@
       context.restore();
     },
 
+    // 投影辅助线使用固定细实线，调用前无需修改全局 context 状态。
     drawProjectionLine(context, start, end, color) {
       context.save();
       context.setLineDash([]);

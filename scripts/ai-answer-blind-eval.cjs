@@ -120,8 +120,7 @@ async function run() {
     const fromService = await askTeacherService({
       question,
       conversationId: null,
-      knowledgePoint: matchKnowledgePoint(question, {}) || null,
-      history: []
+      knowledgePoint: matchKnowledgePoint(question, {}) || null
     });
     const segments = fromService ? fromService.sources.filter((s) => s && s.text) : [];
 

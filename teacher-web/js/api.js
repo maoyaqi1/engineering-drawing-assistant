@@ -6,11 +6,14 @@
   const CFG = window.TEACHER_CONFIG || {};
 
   function gatewayUrl() {
+    // 默认读取静态配置；URL 参数 api=... 只用于本地联调和临时网关切换。
     const url = CFG.gatewayUrl || (new URLSearchParams(location.search).get('api') || '');
     if (!url) throw new Error('缺少网关地址：请在 config.js 填写 gatewayUrl');
     return url;
   }
 
+  // 所有教师请求的唯一传输层：自动附加 token，把 HTTP/JSON/网络异常归一化为
+  // {ok:false, code, msg}。UNAUTHORIZED 时只清理本地会话，不尝试刷新凭据。
   async function callTeacher(action, payload) {
     const token = localStorage.getItem(CFG.tokenKey || 'hfjh_teacher_token') || '';
     const data = Object.assign({}, payload || {}, { action, token });

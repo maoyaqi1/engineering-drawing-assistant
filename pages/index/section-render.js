@@ -7,6 +7,8 @@
   const { ISOMETRIC_DEPTH_Z } = require('./constants.js');
 
   module.exports = {
+    // 截面结果的唯一页面级缓存。key 必须覆盖立体类型、角度和偏移；
+    // 缓存值同时包含截交线、两侧裁切三角面与封盖，供空间图和三视图共用。
     getSectionResult() {
       if (!this.sectionSolidCache) this.sectionSolidCache = {};
       const solidType = this.data.section.solidType;
@@ -41,6 +43,8 @@
       return value;
     },
 
+    // 空间视图绘制顺序：先画被切除部分（低透明度），再画保留部分，
+    // 最后叠加截平面和截交线。辅助面始终位于顶层，不参与实体深度排序。
     drawSectionIsometricOverlay(context) {
       const { solid, plane, sectionSegments, sideSigns, retainedTriangles, removedTriangles } = this.getSectionResult();
       const planeBoundary = this.getCuttingPlaneBoundary(plane);
@@ -67,6 +71,8 @@
       context.restore();
     },
 
+    // 对一组结构棱按平面裁剪后，再根据保留侧/切除侧选择不同线型。
+    // surfaceTriangles 是该侧裁切后的表面，用于遮挡测试，不能传原始完整实体。
     drawSpatialSolidEdges(context, solid, plane, keepSign, isRetained, surfaceTriangles) {
       const featureEdges = this.getSpatialFeatureEdges(solid);
       const lineSets = { visible: [], hidden: [] };
@@ -100,6 +106,8 @@
       context.restore();
     },
 
+    // 截交线通常点很多，这里先删除共线冗余点，再均匀抽样最多约 6 个代表点，
+    // 只画对应辅助线，避免三视图被密集投影线淹没。
     drawSectionPointCorrespondence(context) {
       const result = this.getSectionResult();
       const segments = result.sectionSegments;
@@ -144,6 +152,8 @@
       context.restore();
     },
 
+    // 三视图中的截交轮廓直接投影 F2 返回的世界坐标闭环；若闭环失败，
+    // 才退回逐段绘制以保留可见线段，不能在前端重新求交。
     drawSectionProjectionOverlay(context) {
       const { solid, plane, sectionSegments, retainedSolid } = this.getSectionResult();
       const views = ['front', 'top', 'left'];
@@ -203,6 +213,8 @@
       context.restore();
     },
 
+    // Canvas 没有真实 z-buffer，这里用固定等轴测深度对裁切三角形做画家排序。
+    // 颜色明暗只是教学示意，不能作为几何可见性或截交结果。
     drawRenderedSolid(context, solid, plane, keepSign, isRetained) {
       const light = { x: -0.35, y: -0.45, z: 0.82 };
       const renderTriangles = [];
@@ -249,6 +261,8 @@
       });
     },
 
+    // 截平面在 XZ 平面上的可见边界：分别求与 x=0/x=8/z=0/z=8 的交点，
+    // 去重后选择最长的一对，供正视图画出 Pv 迹线。
     getCuttingPlaneXZSegment(plane) {
       const candidates = [];
       const addCandidate = (x, z) => {
@@ -281,6 +295,7 @@
       return pair;
     },
 
+    // 将 XZ 迹线沿 Y 方向拉伸到教学范围 0..8，得到空间截平面四边框。
     getCuttingPlaneBoundary(plane) {
       const frontLine = this.getCuttingPlaneXZSegment(plane);
       if (frontLine.length !== 2) return [];

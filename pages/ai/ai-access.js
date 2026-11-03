@@ -23,7 +23,9 @@ module.exports = {
   refreshAccess() {
     api.rosterStatus().then((res) => {
       this.applyAccess(res);
-    }).catch(() => {});
+    }).catch(() => {
+      this.applyAccess({ ok: false, reason: 'check_failed' });
+    });
   },
 
   // 将服务端结果统一映射为页面字段：
@@ -36,51 +38,40 @@ module.exports = {
     const studentId = (res && res.student_id) || '';
     const canAsk = level === 'student';
     const testAccount = !!ok && !!res.test_account;
+    if (!canAsk) {
+      this.setData({
+        canAsk: false,
+        aiVisible: false,
+        accessReason: reason,
+        accessName: name,
+        accessStudentId: studentId,
+        testAccount: false,
+        notice: ''
+      });
+      this.leaveHiddenAiPage();
+      return;
+    }
     this.setData({
-      canAsk,
-      accessReason: canAsk ? '' : reason,
+      canAsk: true,
+      aiVisible: true,
+      accessReason: '',
       accessName: name,
       accessStudentId: studentId,
       testAccount,
-      notice: canAsk
-        ? (testAccount ? '测试账号：全功能开放，本次使用不计入真实学情。' : '')
-        : this.accessNotice(reason, name, studentId)
+      notice: testAccount
+        ? '测试账号：全功能开放，本次使用不计入真实学情。'
+        : ''
     });
   },
 
-  // 拒绝原因对应不同修复路径：只有资料类问题才引导去注册页。
-  accessNotice(reason, name, studentId) {
-    if (reason === 'no_profile') {
-      return '你还没有填写学校、姓名和学号，填好后才能向 AI 教师提问。点这里完善资料（投影、立体等互动工具不受影响）。';
+  // AI 教师属于基本立体模式中的隐藏功能；准入失败时不展示提示，
+  // 直接静默返回首页。服务端仍会在每次请求上执行最终鉴权。
+  leaveHiddenAiPage() {
+    if (this._hiddenAiRedirectPending) return;
+    this._hiddenAiRedirectPending = true;
+    if (typeof wx !== 'undefined' && wx.redirectTo) {
+      wx.redirectTo({ url: '/pages/index/index' });
     }
-    if (reason === 'class_archived') {
-      return '你所在班级已被老师停用，暂时不能向 AI 教师提问。请联系老师恢复班级（投影、立体等互动工具不受影响）。';
-    }
-    if (reason === 'no_class') {
-      return '你还没有被分到班级，暂时不能向 AI 教师提问。请联系老师把你加入班级（投影、立体等互动工具不受影响）。';
-    }
-    if (reason === 'check_failed') {
-      return '系统繁忙，暂时无法确认你的名册与班级信息。请稍后重试（投影、立体等互动工具不受影响）。';
-    }
-    const who = name && studentId ? '（当前资料：' + name + ' · ' + studentId + '）' : '';
-    return '老师还没把你的「姓名 + 学号」录入名册，暂时不能提问' + who +
-      '。点这里核对或修改资料；投影、立体等互动工具不受影响。';
   },
 
-  // 资料类原因可进入资料页；班级类原因只提示联系老师；
-  // 读库失败执行一次显式重试，不误导学生修改个人资料。
-  handleNoticeTap() {
-    if (this.data.canAsk) return;
-    const reason = this.data.accessReason;
-    if (reason === 'class_archived' || reason === 'no_class') {
-      wx.showToast({ title: '请联系老师处理班级', icon: 'none' });
-      return;
-    }
-    if (reason === 'check_failed') {
-      wx.showToast({ title: '正在重试…', icon: 'none' });
-      this.refreshAccess();
-      return;
-    }
-    wx.navigateTo({ url: '/pages/register/register' });
-  }
 };

@@ -1,11 +1,25 @@
+// 学生端云函数入口。负责统一 openid 获取、用户自愈、名册/班级准入、学习记录、
+// 问卷、AI 对话和拍照配额路由；具体 AI 生成和配额事务分别下沉到 ai/ 领域模块。
+//
+// 稳定边界：action 名与返回字段供小程序和离线测试共用。所有身份参数从
+// getWXContext() 获取，前端传入的 user/openid/role 不参与鉴权。
 const cloud = require('wx-server-sdk');
 const ai = require('./ai/conversation.js');
+const photoQuota = require('./ai/photo-quota.js');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
 // 说明：roster 集合已下线（REQ-003 D16）；AI 放行判定源 = students 名册 + classes 班级状态。
-const COLLECTIONS = ['users', 'learning_sessions', 'survey_responses', 'survey_invites', 'learning_records', 'classes'];
+const COLLECTIONS = [
+  'users',
+  'learning_sessions',
+  'survey_responses',
+  'survey_invites',
+  'learning_records',
+  'classes',
+  photoQuota.QUOTA_COLLECTION
+];
 const SURVEY_ID = 'geometry_learning_2026';
 const SURVEY_VERSION = 'v1';
 
@@ -82,6 +96,7 @@ function defaultDataQuality() {
 }
 
 async function ensureCollections() {
+  // 集合创建用于首次部署/测试环境初始化；已存在时 SDK 会报错，这里按幂等成功处理。
   await Promise.all(COLLECTIONS.map((name) => db.createCollection(name).catch(() => null)));
 }
 
@@ -113,6 +128,8 @@ async function removeDuplicateUsers(openid, keepId) {
   return removed;
 }
 
+// 读取或创建当前 openid 的唯一用户记录。对历史并发重复账号执行“选主 + 自愈删除”，
+// 并在每次登录刷新 last_login_at、internal 标记和缺失的 data_quality。
 async function ensureUser(openid, unionid) {
   const existing = await db.collection('users').where({ openid }).get();
   if (existing.data.length) {
@@ -307,28 +324,40 @@ function surveyDeniedResult(access) {
   };
 }
 
+// 学生端管理员只用于只读诊断字段，不替代名册/班级准入判定。
 function isAdmin(openid) {
   return ADMIN_OPENIDS.includes(openid);
 }
 
 // 拍照提问每日限额（2026-09-25 用户要求）：视觉调用比文字贵，按学生账号限次；
 // 测试账号与内部账号不限次。计数一律以服务端记录为准（客户端计数不可信）。
-const PHOTO_DAILY_LIMIT = 2;
-const PHOTO_ASK_EVENT = 'ai_photo_ask';
+const PHOTO_DAILY_LIMIT = photoQuota.PHOTO_DAILY_LIMIT;
+const PHOTO_ASK_EVENT = photoQuota.PHOTO_ASK_EVENT;
+// 学习会话由客户端计时，但服务端负责拒绝明显越界的伪造值。
+// 24 小时覆盖单日最长会话；300 秒允许客户端与函数运行时钟的正常偏差。
+const MAX_SESSION_DURATION_SECONDS = 24 * 60 * 60;
+const SESSION_END_CLOCK_TOLERANCE_SECONDS = 5 * 60;
+const MAX_SESSION_INTERACTIONS = 100000;
 
-// 北京时间当天 00:00 对应的 UTC ISO 字符串（云函数运行时时区不固定，必须显式换算）
-function startOfTodayInBeijing(atMs) {
-  const OFFSET_MS = 8 * 60 * 60 * 1000;
-  const nowMs = typeof atMs === 'number' ? atMs : Date.now();
-  const dayStartMs = Math.floor((nowMs + OFFSET_MS) / 86400000) * 86400000 - OFFSET_MS;
-  return new Date(dayStartMs).toISOString();
+function parseSessionInteger(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  const number = Number(value);
+  return Number.isFinite(number) && Number.isInteger(number) && number >= 0 ? number : null;
 }
 
-async function countPhotoAsksToday(openid) {
-  const res = await db.collection('learning_records')
-    .where({ openid, event_type: PHOTO_ASK_EVENT, created_at: db.command.gte(startOfTodayInBeijing()) })
-    .count();
-  return res.total || 0;
+async function getOwnedLearningSession(sessionId, openid) {
+  let result;
+  try {
+    result = await db.collection('learning_sessions').doc(sessionId).get();
+  } catch (error) {
+    if (error && (error.errCode === -502004 || /not exists/i.test(String(error.message || '')))) {
+      return null;
+    }
+    throw error;
+  }
+  const session = result && result.data;
+  if (!session || String(session.openid || '') !== String(openid || '')) return null;
+  return Object.assign({ _id: sessionId }, session);
 }
 
 // 记一次拍照提问；字段与 record.event 的事件结构保持一致，教师端统计口径不变
@@ -356,6 +385,8 @@ async function recordPhotoAsk(user, access) {
   }});
 }
 
+// 统一入口先要求微信身份，再确保顶层集合存在。各 action 内部继续执行所需的
+// 服务端鉴权；任何未分类异常最终收敛为 SERVER_ERROR，避免泄露数据库细节。
 exports.main = async (event) => {
   const { OPENID, UNIONID } = cloud.getWXContext();
   if (!OPENID) {
@@ -451,23 +482,72 @@ exports.main = async (event) => {
     }
 
     if (action === 'session.end') {
-      const user = await ensureUser(OPENID, UNIONID);
       const sid = event && event.session_id;
       if (!sid) {
         return { ok: false, code: 'NO_SESSION', msg: '会话不存在' };
       }
-      const duration = Math.max(0, Number(event.duration) || 0);
-      const interactions = Math.max(0, Number(event.interaction_count) || 0);
+      // 先按 openid 验归属；他人的会话与不存在会话返回同一错误，避免枚举资源。
+      const session = await getOwnedLearningSession(sid, OPENID);
+      if (!session) {
+        return { ok: false, code: 'SESSION_NOT_FOUND', msg: '会话不存在或已过期' };
+      }
+      // 已确认的结束结果不可被延迟请求或重试覆盖。
+      if (session.end_time) {
+        const endedUser = await ensureUser(OPENID, UNIONID);
+        return {
+          ok: true,
+          is_valid: !!session.is_valid,
+          valid_session_count: await validSessionCount(endedUser._id),
+          already_ended: true
+        };
+      }
+
+      const duration = parseSessionInteger(event && event.duration);
+      if (duration === null || duration > MAX_SESSION_DURATION_SECONDS) {
+        return { ok: false, code: 'INVALID_DURATION', msg: '学习时长必须是 0 到 24 小时之间的整数秒' };
+      }
+      const interactions = parseSessionInteger(event && event.interaction_count);
+      if (interactions === null || interactions > MAX_SESSION_INTERACTIONS) {
+        return { ok: false, code: 'INVALID_INTERACTION_COUNT', msg: '交互次数必须是合理范围内的非负整数' };
+      }
+      const startMs = Date.parse(session.start_time);
+      if (!Number.isFinite(startMs)) {
+        return { ok: false, code: 'INVALID_SESSION_STATE', msg: '会话开始时间异常，请重新进入学习页面' };
+      }
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      if (duration > elapsedSeconds + SESSION_END_CLOCK_TOLERANCE_SECONDS) {
+        return { ok: false, code: 'INVALID_DURATION', msg: '学习时长与服务器记录的会话开始时间不一致' };
+      }
+
+      // 归属和全部数值校验通过后再确保用户记录存在，失败请求不产生任何用户或会话写入。
+      const user = await ensureUser(OPENID, UNIONID);
       const isValid = duration >= 60 || interactions >= 3;
-      await db.collection('learning_sessions').doc(sid).update({ data: {
+      // 条件更新 end_time='' 让并发/重试只有一个请求能提交首次结束结果。
+      const updated = await db.collection('learning_sessions').where({
+        _id: sid,
+        openid: OPENID,
+        end_time: ''
+      }).update({ data: {
         end_time: now(),
         duration,
         interaction_count: interactions,
         is_valid: isValid
       }});
+      if (!updated || !updated.stats || updated.stats.updated !== 1) {
+        const confirmed = await getOwnedLearningSession(sid, OPENID);
+        if (confirmed && confirmed.end_time) {
+          return {
+            ok: true,
+            is_valid: !!confirmed.is_valid,
+            valid_session_count: await validSessionCount(user._id),
+            already_ended: true
+          };
+        }
+        return { ok: false, code: 'SESSION_END_CONFLICT', msg: '会话状态已变化，请刷新后重试', retryable: true };
+      }
       const count = await validSessionCount(user._id);
       await db.collection('users').doc(user._id).update({ data: { valid_session_count: count } });
-      return { ok: true, is_valid: isValid, valid_session_count: count };
+      return { ok: true, is_valid: isValid, valid_session_count: count, already_ended: false };
     }
 
     // 学习行为事件上报（章节进入/退出、AI 提问等），用于教师端学习轨迹与章节进度
@@ -573,40 +653,124 @@ exports.main = async (event) => {
       const access = await resolveAccess(user);
       if (access.level !== 'student') return accessDeniedResult(access);
       const imageBase64 = (event && event.image_base64) || null;
+      const hasPhoto = typeof imageBase64 === 'string' && imageBase64.length > 40;
       // 拍照提问每日限额：测试/内部账号不限次；超额直接拒绝，不再触发视觉调用（省钱）
       const photoUnlimited = !!access.test_account || !!access.is_internal;
-      let photoUsed = 0;
-      if (imageBase64 && !photoUnlimited) {
-        photoUsed = await countPhotoAsksToday(OPENID);
-        if (photoUsed >= PHOTO_DAILY_LIMIT) {
+      let reservation = null;
+      if (hasPhoto && !photoUnlimited) {
+        try {
+          reservation = await photoQuota.reserve({
+            openid: OPENID,
+            imageBase64,
+            requestId: event && event.request_id
+          });
+        } catch (error) {
+          return {
+            ok: false,
+            code: 'PHOTO_QUOTA_UNAVAILABLE',
+            msg: '图片配额暂时无法确认，请稍后重试；文字提问不受影响。',
+            retryable: true
+          };
+        }
+        if (reservation.state === 'exceeded') {
           return {
             ok: false,
             code: 'IMAGE_QUOTA_EXCEEDED',
             msg: '今天的拍照提问已用完（每天 ' + PHOTO_DAILY_LIMIT + ' 次），可以直接用文字提问。',
-            photo_quota: { limit: PHOTO_DAILY_LIMIT, used: photoUsed, remaining: 0, unlimited: false }
+            photo_quota: reservation.quota
+          };
+        }
+        if (reservation.state === 'in_progress') {
+          return {
+            ok: false,
+            code: 'PHOTO_REQUEST_IN_PROGRESS',
+            msg: '这张图片正在处理中，请稍后查看对话结果。',
+            retryable: true,
+            photo_quota: reservation.quota
+          };
+        }
+        if (reservation.state === 'completed') {
+          return {
+            ok: false,
+            code: 'PHOTO_REQUEST_ALREADY_COMPLETED',
+            msg: '这张图片已经处理过，请查看已有回答。',
+            conversation_id: reservation.lease.conversation_id || '',
+            message_id: reservation.lease.assistant_message_id || '',
+            retryable: false,
+            photo_quota: reservation.quota
           };
         }
       }
-      const answer = await ai.answerQuestion({
-        openid: OPENID,
-        conversationId: (event && event.conversation_id) || null,
-        message: (event && event.message) || '',
-        knowledgePoint: (event && event.knowledge_point) || null,
-        imageBase64: imageBase64,
-        // 教学事件（V2.1）需要学号快照；与 learning_records 一样在写入时取值
-        studentId: user.student_id || ''
-      });
-      if (imageBase64) {
-        // 服务端记账：拍照次数以这里写入的事件为唯一依据
-        await recordPhotoAsk(user, access).catch(() => null);
-        photoUsed += 1;
+
+      let answer;
+      try {
+        answer = await ai.answerQuestion({
+          openid: OPENID,
+          conversationId: (event && event.conversation_id) || null,
+          message: (event && event.message) || '',
+          knowledgePoint: (event && event.knowledge_point) || null,
+          imageBase64: imageBase64,
+          // 教学事件（V2.1）需要学号快照；与 learning_records 一样在写入时取值
+          studentId: user.student_id || ''
+        });
+      } catch (error) {
+        const releaseResult = reservation
+          ? await photoQuota.release(reservation, 'ai_failed')
+          : { released: true, quota: null };
+        return {
+          ok: false,
+          code: (error && error.code) || 'AI_REQUEST_FAILED',
+          msg: error && error.status ? String(error.message || '图片处理失败') : '图片处理失败，请稍后重试',
+          retryable: true,
+          quota_release_pending: !releaseResult.released,
+          photo_quota: releaseResult.quota || undefined
+        };
       }
+
+      let quotaResult = photoUnlimited
+        ? { limit: null, used: null, remaining: null, unlimited: true }
+        : { limit: PHOTO_DAILY_LIMIT, used: 0, remaining: PHOTO_DAILY_LIMIT, unlimited: false };
+      let auditPending = false;
+      let confirmationPending = false;
+      if (reservation) {
+        try {
+          const confirmed = await photoQuota.confirm(reservation, {
+            conversationId: answer.conversation_id,
+            messageId: answer.message_id
+          });
+          quotaResult = Object.assign({}, confirmed.quota, {
+            request_id: String((event && event.request_id) || ''),
+            audit_pending: false
+          });
+        } catch (error) {
+          confirmationPending = true;
+          quotaResult = Object.assign({}, reservation.quota, {
+            request_id: String((event && event.request_id) || ''),
+            confirmation_pending: true
+          });
+          console.warn('[photo-quota] 成功确认失败 request=' + reservation.requestKey);
+        }
+
+      }
+
+      if (hasPhoto) {
+        let auditEventId = '';
+        try {
+          const auditEvent = await recordPhotoAsk(user, access);
+          auditEventId = auditEvent && auditEvent._id || '';
+        } catch (error) {
+          auditPending = true;
+          console.warn('[photo-quota] ai_photo_ask 审计写入失败 request=' +
+            (reservation ? reservation.requestKey : 'unlimited'));
+        }
+        if (reservation) await photoQuota.updateAudit(reservation, auditEventId, auditPending);
+        quotaResult.audit_pending = auditPending;
+      }
+
       return {
         ok: true,
         ...answer,
-        photo_quota: photoUnlimited
-          ? { limit: null, used: null, remaining: null, unlimited: true }
-          : { limit: PHOTO_DAILY_LIMIT, used: photoUsed, remaining: Math.max(0, PHOTO_DAILY_LIMIT - photoUsed), unlimited: false }
+        photo_quota: Object.assign(quotaResult, confirmationPending ? { confirmation_pending: true } : {})
       };
     }
 
@@ -668,6 +832,13 @@ exports.main = async (event) => {
     if (RETIRED_ACTIONS[action]) return { ok: false, code: 'ACTION_RETIRED', msg: RETIRED_ACTIONS[action] };
     return { ok: false, code: 'UNKNOWN_ACTION', msg: '未知操作' };
   } catch (error) {
-    return { ok: false, code: 'SERVER_ERROR', msg: String(error && error.message || error) };
+    return {
+      ok: false,
+      code: (error && error.code) || 'SERVER_ERROR',
+      // 业务错误由 makeError 标记 status；数据库/运行时原始错误不回传细节。
+      msg: error && error.status
+        ? String(error.message || '请求失败')
+        : '服务器错误，请稍后重试'
+    };
   }
 };

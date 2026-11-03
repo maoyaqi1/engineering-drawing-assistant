@@ -177,7 +177,8 @@ fileMapping.forEach((m) => {
 
 head('集合概览');
 const NAMES = ['users', 'students', 'classes', 'roster', 'learning_sessions', 'learning_records',
-  'ai_conversations', 'ai_messages', 'survey_responses', 'survey_invites', 'teachers',
+  'ai_conversations', 'ai_messages', 'ai_teaching_events', 'ai_photo_quota_daily',
+  'survey_responses', 'survey_invites', 'teachers',
   'teacher_sessions', 'teacher_notes', 'maintenance_logs', 'teacher_classes', 'schools'];
 NAMES.forEach((name) => {
   const list = rows(name);

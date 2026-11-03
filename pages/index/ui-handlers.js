@@ -7,6 +7,8 @@
 
 
   module.exports = {
+    // 模式是互斥状态机。切换前先清空三种拖动引用，切换后重新测量画布，
+    // 因为宽屏布局会随模式面板高度改变；章节埋点只在模式真正变化时切换。
     handleModulePicker(event) {
       this.recordInteraction();
       const moduleIndex = Number(event.detail.value);
@@ -34,12 +36,16 @@
       this.setData({ 'section.solidType': solidType }, () => this.drawScene());
     },
 
+    // 滑杆有两套事件：Live 只改热路径并节流重绘，最终 change/end 再 setData，
+    // 以兼顾拖动流畅性和松手后的可持久页面状态。
     handleSectionSlider(event) {
       this.recordInteraction();
       this.applySectionLive(event);
       this.setData({ section: this.data.section }, () => this.scheduleCanvasDraw());
     },
 
+    // 统一校验截面滑杆输入并归一化显示值：offset 保留一位小数，angle 取整数。
+    // angle 变化同时重新分类 planeType，使数据与 UI 标签保持一致。
     applySectionLive(event) {
       const key = event.currentTarget.dataset.key;
       const value = Number(event.detail.value);
@@ -66,6 +72,8 @@
       }, () => this.drawScene());
     },
 
+    // 尺寸滑杆的 Live 分支直接修改 solid 热状态；站位随后重新钳制，
+    // 防止半径或高度变大后实体越出 0..8 教学范围。
     handleSizeSliderLive(event) {
       this.recordInteraction();
       const key = event.currentTarget.dataset.key;
@@ -154,6 +162,8 @@
       this.setData({ solid, translationValue: solid.position[axis] }, () => this.drawScene());
     },
 
+    // 按当前实体外形计算可移动包围范围：x/y 使用半径，z 使用半高；
+    // 圆环取主半径+管半径，球统一用半径。返回新对象，不修改输入。
     sanitizeSolidPosition(solid) {
       const type = solid.type;
       let r = Math.max(0.5, Number(solid.radius) || 2);
@@ -211,6 +221,8 @@
       }, () => this.drawScene());
     },
 
+    // 立体重置只重置当前类型和姿态，不切换立体类型；这保证用户点击重置时
+    // 不会丢失刚刚选择的几何对象。
     handleReset() {
       this.recordInteraction();
       const currentType = this.data.solid.type || 'prism';
@@ -256,6 +268,8 @@
       this.setData({ pointType, point }, () => this.drawScene());
     },
 
+    // 顶栏“重置”是上下文操作：按当前模式恢复该模式的预设/截平面默认参数。
+    // 不同模式之间没有共享的可重置对象，因此不能统一恢复整个页面 data。
     resetPoint() {
       if (this.data.mode === 'solid') {
         this.handleReset();
@@ -284,6 +298,7 @@
     },
 
     goToAi() {
+      if (this.data.mode !== 'solid' || !this.data.canUseAi) return;
       if (typeof wx !== 'undefined' && wx.navigateTo) {
         wx.navigateTo({ url: '/pages/ai/ai' });
       }

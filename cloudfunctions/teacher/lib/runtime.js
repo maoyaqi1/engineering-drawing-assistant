@@ -46,6 +46,8 @@ function makeError(code, status, message) {
   return err;
 }
 
+// scrypt 参数固定并随记录保存 salt；同一密码每次会得到不同哈希，
+// 登录时必须使用该教师自己的 salt 重新派生后比较。
 function hashPassword(password, salt) {
   return new Promise((resolve, reject) => {
     crypto.scrypt(password, salt, SCRYPT_KEYLEN, SCRYPT_OPTIONS, (err, derivedKey) => {
@@ -56,17 +58,22 @@ function hashPassword(password, salt) {
 }
 
 function makeSalt() {
+  // 16 字节随机盐足以区分账号；不是认证凭据的一部分，只随教师记录保存。
   return crypto.randomBytes(16).toString('hex');
 }
 
+// 会话 token 使用 32 字节 CSPRNG；数据库只保存原文以支持按 token 查询，
+// 因此会话集合必须保持服务端私有。
 function makeToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
 function normalizeUsername(value) {
+  // 用户名只做 trim + 小写，避免大小写造成重复账号；密码不经过此函数。
   return String(value == null ? '' : value).trim().toLowerCase();
 }
 
+// 所有返回给前端的教师对象都经此投影，绝不直接返回 password_hash / salt。
 function publicTeacher(teacher) {
   return {
     id: teacher._id,
@@ -82,6 +89,7 @@ function publicTeacher(teacher) {
 }
 
 function isSuper(teacher) {
+  // 角色和 active 状态必须同时成立；停用的超管不具备任何特权。
   return teacher && teacher.role === 'super_admin' && teacher.status === 'active';
 }
 
@@ -114,6 +122,7 @@ async function ensureSuperAdmin() {
 }
 
 async function getTeacherById(id) {
+  // 教师不存在与数据库故障语义不同：不存在返回 null，其他异常继续上抛。
   try {
     const result = await db.collection('teachers').doc(id).get();
     return result.data ? Object.assign({ _id: id }, result.data) : null;
@@ -122,6 +131,8 @@ async function getTeacherById(id) {
   }
 }
 
+// token 会话只在未过期且教师仍 active 时有效；每次业务 action 都重新查询，
+// 因此停用账号会立即失去后续访问权。
 async function authByToken(token) {
   if (!token) return null;
   const result = await db.collection('teacher_sessions').where({ token }).limit(1).get();
@@ -146,6 +157,7 @@ async function requireSuper(event) {
 
 // 教师端统计统一按北京时间（UTC+8）切日。
 function dayKey(ms) {
+  // 固定 UTC+8 切日，不依赖云函数运行环境的本地时区。
   const date = new Date(ms + 8 * 60 * 60 * 1000);
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -171,7 +183,9 @@ async function fetchAll(collection, query) {
     if (batch.data.length < pageSize) break;
     offset += pageSize;
   }
-  return result;
+  // 读取期间没有数据库游标时，至少保证返回顺序按稳定 _id 排序；
+  // 真实高并发写入下的游标分页仍需按架构方案迁移，不能只依赖 skip。
+  return result.sort((a, b) => String(a._id || '').localeCompare(String(b._id || '')));
 }
 
 module.exports = {

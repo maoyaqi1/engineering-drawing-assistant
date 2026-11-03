@@ -68,19 +68,20 @@ const chipRow = 50 * 0.5;                   // ≤520px 媒体块里 .type-chip 
 const pick = (a, b) => (Number.isFinite(a) ? a : b);
 const nameW = pick(get('.solid-size-row .param-name'), get('.param-name'));              // 46px
 const valW = pick(get('.solid-size-row .param-val', 'min-width'), get('.param-val', 'min-width')); // 20px
-const sliderRowGap = 8 * 0.5;               // .slider-row gap 8rpx
+const sliderRowGap = gapOf('.solid-panel-compact .slider-row') || 4 * 0.5;
 
 console.log('手机 尺寸行：param-name=' + nameW + 'px param-val=' + valW + 'px 行间距=' + sliderRowGap + 'px');
 console.log('设备      面板宽  尺寸行数  每行滑块宽   姿态行数  切割-类型行数');
 for (const [w, name] of devices) {
   const panel = w - panelPad;
-  const inner = panel - labelW - gapOf('.solid-group');
+  const inner = panel;
+  const sizeBasis = flexOf('.solid-panel-compact .solid-size-row > .slider-row', 'flex').basis;
   const sizeRowItems = [
-    { basis: flexOf('.solid-size-row > .slider-row', 'flex').basis, grow: 1 },
-    { basis: flexOf('.solid-size-row > .slider-row', 'flex').basis, grow: 1 },
-    { basis: flexOf('.solid-size-row > .slider-row', 'flex').basis, grow: 1 }
+    { basis: sizeBasis, grow: 1 },
+    { basis: sizeBasis, grow: 1 },
+    { basis: sizeBasis, grow: 1 }
   ];
-  const sizeLines = flexLines(inner, sizeRowItems, gapOf('.solid-size-row'));
+  const sizeLines = flexLines(inner, sizeRowItems, gapOf('.solid-panel-compact .solid-size-row'));
   const sliderW = sizeLines[0].map((rw) => rw - nameW - valW - sliderRowGap).map((v) => Math.round(v));
 
   // 姿态行：pose-tabs(2 个) + 坐标轴 + 角度滑块
@@ -95,14 +96,16 @@ for (const [w, name] of devices) {
   const rot90Flex = flexOf('.rot90-chip', 'flex');
   const rot90W = rot90Flex.basis + (get('.axis-row .rot90-chip', 'margin-left') || 0);
   const rot90Min = get('.rot90-chip', 'min-width') || rot90Flex.basis;
-  const axisRowW = get('.axis-row .param-name') + flexOf('.axis-chip', 'flex').basis * 3 + gapOf('.axis-row') * 3 + rot90W;
+  const axisRowW = get('.axis-row .param-name') + flexOf('.axis-chip', 'flex').basis * 3
+    + gapOf('.solid-panel-compact .axis-row') * 3 + rot90W;
   const poseFixed = poseItems[0].basis + axisRowW;
-  const poseLines = flexLines(inner, [{ basis: poseFixed, grow: 0 }, { basis: poseItems[2].basis, grow: 1 }], gapOf('.pose-line'));
+  const poseLines = flexLines(inner, [{ basis: poseFixed, grow: 0 }, { basis: poseItems[2].basis, grow: 1 }], gapOf('.solid-panel-compact .pose-line'));
   const poseSliderRowW = poseLines.length > 1 ? poseLines[1][0] : poseLines[0][1];
   const angleSliderW = Math.round(poseSliderRowW - nameW - valW - sliderRowGap);
   // 姿态第 1 行是否能容下「tabs + 坐标轴 X Y Z + 旋转90°」（按钮最多收缩到 min-width）
-  const tabsW = flexOf('.solid-group .pose-tab', 'flex').basis * 2 + gapOf('.pose-tabs');
-  const line1With = tabsW + gapOf('.pose-line') + axisRowW;
+  const tabsW = flexOf('.solid-group .pose-tab', 'flex').basis * 2
+    + gapOf('.solid-panel-compact .pose-tabs');
+  const line1With = tabsW + gapOf('.solid-panel-compact .pose-line') + axisRowW;
   const line1Min = line1With - (rot90Flex.basis - rot90Min);
 
   // 平面切割：立体工具栏（3 个/行）+ 截平面工具栏
@@ -119,15 +122,15 @@ for (const [w, name] of devices) {
 }
 console.log('');
 console.log('说明：');
-console.log('- 尺寸行每行最多 2 个滑块（basis=' + flexOf('.solid-size-row > .slider-row', 'flex').basis + 'px），宽度不够时自动变 1 个/行');
+console.log('- 尺寸行使用三列弹性布局（basis=' + flexOf('.solid-panel-compact .solid-size-row > .slider-row', 'flex').basis + 'px），极窄屏也会随容器收缩');
 console.log('- 姿态行第 1 行放「旋转/平移 + 坐标轴 X Y Z」，角度滑块放不下时自动折到第 2 行');
 
 // ---- 面板高度：合并前 / 合并后（手机 375px 宽）----
 const sliderH = 28;                                        // <slider> 组件高度估算
 const stepperRowH = Math.max(marginV('.stepper') + 21, 24); // 棱数行：步进器 42rpx
-const tabsRowH = get('.solid-type-chip', 'height') + marginV('.solid-type-tabs');
+const tabsRowH = get('.solid-panel-compact .solid-type-chip', 'height') + (get('.solid-panel-compact .solid-type-tabs', 'margin-bottom') || 0);
 const labelH = textH('.solid-group-label', 11.5) + marginV('.solid-group-label');
-const poseTabRowH = get('.pose-tab', 'height') + marginV('.pose-tabs');
+const poseTabRowH = get('.solid-panel-compact .pose-tab', 'height') + (get('.solid-panel-compact .pose-tabs', 'margin-bottom') || 0);
 const axisRowH = get('.axis-chip', 'height') + marginV('.axis-row');
 const sectionChipH = chipRow;                              // ≤520px 媒体块：50rpx
 const sectionControlsH = marginV('.section-controls') + get('.section-controls', 'padding-top')
@@ -140,8 +143,8 @@ console.log('模式/立体     合并前   合并后   节省');
 for (const [k, n] of Object.entries(solidSizeCount)) {
   const before = tabsRowH + labelH + (n === 3 ? stepperRowH : 0) + sliderH * Math.min(n, 3)
     + labelH + poseTabRowH + axisRowH + sliderH;
-  // 合并后：尺寸按每行 2 个折行，姿态 = 一行（tabs+坐标轴）+ 一行（角度滑块）
-  const sizeRows = Math.min(2, Math.ceil(n / 2));
+  // 合并后：尺寸最多 3 个并排，姿态 = 一行（tabs+坐标轴）+ 一行（角度滑块）
+  const sizeRows = Math.ceil(n / 3);
   const after = tabsRowH + sliderH * sizeRows + poseTabRowH + sliderH;
   console.log(('基本立体·' + k).padEnd(14) + String(before).padEnd(9) + String(after).padEnd(9) + (before - after));
 }

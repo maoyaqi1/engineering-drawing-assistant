@@ -1,0 +1,79 @@
+<view class="lesson-shell">
+  <scroll-view class="lesson-scroll" scroll-y="{{!canvasDragging}}">
+    <view class="plane-tabs" role="tablist" aria-label="选择投影面">
+      <button
+        class="plane-tab {{selectedPlane === 'H' ? 'active' : ''}}"
+        data-plane="H"
+        bindtap="selectPlane"
+        aria-label="α，水平投影面 H"
+        aria-selected="{{selectedPlane === 'H'}}"
+      >
+        <text class="plane-symbol">α</text>
+      </button>
+      <button
+        class="plane-tab {{selectedPlane === 'V' ? 'active' : ''}}"
+        data-plane="V"
+        bindtap="selectPlane"
+        aria-label="β，正投影面 V"
+        aria-selected="{{selectedPlane === 'V'}}"
+      >
+        <text class="plane-symbol">β</text>
+      </button>
+      <button
+        class="plane-tab {{selectedPlane === 'W' ? 'active' : ''}}"
+        data-plane="W"
+        bindtap="selectPlane"
+        aria-label="γ，侧投影面 W"
+        aria-selected="{{selectedPlane === 'W'}}"
+      >
+        <text class="plane-symbol">γ</text>
+      </button>
+    </view>
+
+    <view class="canvas-card">
+      <view class="card-heading">
+        <text class="card-title">平面最大斜度线</text>
+        <button
+          class="reset-button"
+          bindtap="handleReset"
+          aria-label="恢复默认平面与候选线"
+        >重置</button>
+      </view>
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="geometry-canvas"
+        disable-scroll="true"
+        bindtouchstart="handleTouchStart"
+        bindtouchmove="handleTouchMove"
+        bindtouchend="handleTouchEnd"
+        bindtouchcancel="handleTouchCancel"
+        aria-label="平面最大斜度线空间关系与三面投影"
+      ></canvas>
+    </view>
+
+    <view class="angle-card {{isMaximum ? 'maximum' : ''}}">
+      <view class="angle-grid">
+        <view class="angle-item">
+          <text class="angle-label">平面与 {{projectionAngleSymbol}} 面夹角</text>
+          <text class="angle-value plane-angle">{{planeAngleText}}</text>
+        </view>
+        <view class="angle-comparator {{isMaximum ? 'equal' : ''}}">
+          {{isMaximum ? '=' : '>'}}
+        </view>
+        <view class="angle-item current-angle">
+          <text class="angle-label">直线与当前 {{projectionAngleSymbol}} 面夹角</text>
+          <text class="angle-value">{{lineAngleText}}</text>
+        </view>
+      </view>
+      <view class="angle-state">
+        <text>{{isMaximum ? '最大斜度线状态' : '继续调整方向，使两角相等'}}</text>
+      </view>
+    </view>
+
+    <view class="lesson-card">
+      <text class="lesson-title">最大斜度线</text>
+      <text class="lesson-text">定义：平面上对投影面倾角最大的直线称为该平面的最大斜度线；最大斜度线垂直于属于平面的投影面平行线，并属于该平面。最大斜度线对投影面的夹角最大且反映该平面对投影面的倾角。</text>
+    </view>
+  </scroll-view>
+</view>

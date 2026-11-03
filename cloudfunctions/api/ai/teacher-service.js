@@ -18,6 +18,7 @@ const MAX_SOURCES = 4;
 // 命中片段正文：用于本仓库侧生成回答（方案 C 的检索-生成分离），单段截断防爆上下文
 const MAX_SEGMENT_CHARS = 400;
 
+// 外部服务字段属于不可信输入：字符串统一 trim/截断，数值必须有限，否则丢弃。
 function asString(value, maxLength) {
   if (typeof value !== 'string') return '';
   const trimmed = value.trim();
@@ -60,6 +61,8 @@ function normalizeSource(raw) {
   };
 }
 
+// 轻量 HTTPS POST：响应体超过上限即销毁请求；网络、超时和解码异常统一 resolve(null)，
+// 使上层可以无条件回落到本地知识库链路。
 function postJson(url, body, timeoutMs) {
   return new Promise((resolve) => {
     let payload;
@@ -113,11 +116,13 @@ function postJson(url, body, timeoutMs) {
  * 调用 AI 教师服务。
  * @param {object} p
  * @param {string} p.question 学生问题（纯图片提问时可为空串）
+ * @param {?string} p.conversationId 仅用于服务侧检索上下文，不包含历史正文
+ * @param {?string} p.knowledgePoint 路由层选出的知识点 ID
  * @param {string} [p.imageBase64] 学生上传的题目照片（原始 base64 或 data URL）
  * @returns {Promise<null|{content:string, model:string, usage:object, videoRefs:Array, sources:Array}>}
  *          任何异常/未命中/未配置都返回 null，由调用方降级。
  */
-async function askTeacherService({ question, conversationId, knowledgePoint, history, imageBase64 }) {
+async function askTeacherService({ question, conversationId, knowledgePoint, imageBase64 }) {
   const cfg = CONFIG.teacherService;
   if (!cfg.baseUrl || !cfg.token) return null; // 未配置 → 静默走老路径
   if (!question && !imageBase64) return null;
@@ -133,7 +138,6 @@ async function askTeacherService({ question, conversationId, knowledgePoint, his
     question: question || '',
     conversation_id: conversationId || null,
     knowledge_point: knowledgePoint || null,
-    history: Array.isArray(history) ? history.slice(-12) : [],
     top_k: cfg.topK,
     threshold: cfg.threshold
   };
@@ -160,7 +164,11 @@ async function askTeacherService({ question, conversationId, knowledgePoint, his
   if (!content) return null; // 契约 §5：matched=true 时 answer 不得为空
 
   const videoRefs = Array.isArray(data.video_refs)
-    ? data.video_refs.map(normalizeVideoRef).filter(Boolean).slice(0, MAX_VIDEO_REFS)
+    ? data.video_refs
+      .map(normalizeVideoRef)
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_VIDEO_REFS)
     : [];
   const sources = Array.isArray(data.sources)
     ? data.sources.map(normalizeSource).filter(Boolean).slice(0, MAX_SOURCES)

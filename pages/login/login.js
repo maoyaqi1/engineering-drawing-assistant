@@ -1,6 +1,8 @@
 const api = require('../../utils/api.js');
 const app = getApp();
 
+// 微信登录入口。协议勾选、登录请求和跳转只负责客户端流程；
+// 服务端 login 仍会按 openid 恢复/创建用户，并返回是否已完成实名资料。
 Page({
   data: {
     loading: false,
@@ -31,6 +33,8 @@ Page({
     };
   },
 
+  // 登录按钮的 loading 同时用于禁用按钮和防止重复请求。
+  // 已填资料进入首页，否则进入注册页；权限与名册状态不在登录阶段决定。
   tryLogin() {
     if (this.data.loading) return;
     if (!this.data.agreed) {

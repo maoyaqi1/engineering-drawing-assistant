@@ -30,49 +30,49 @@ const teacherCall = (p) => teacherFn.main(Object.assign({ token: 'tok-a' }, p));
   const cls = await teacherCall({ action: 'class.create', name: '教师组', school: '安徽建筑大学' });
   const classId = cls && cls.class && cls.class.id;
   const created = await teacherCall({
-    action: 'student.create', school: '安徽建筑大学', name: '毛亚岐', student_no: '500450', class_id: classId
+    action: 'student.create', school: '安徽建筑大学', name: '内部测试', student_no: '500001', class_id: classId
   });
   check('T1 老师录入学生成功（只写名册，白名单已下线）',
-    created.ok === true && studentRows('500450').length === 1 && table('roster').size === 0,
-    JSON.stringify({ students: studentRows('500450').length, roster: table('roster').size }));
-  const studentSnapshot = JSON.stringify(studentRows('500450').map((r) => r.name));
+    created.ok === true && studentRows('500001').length === 1 && table('roster').size === 0,
+    JSON.stringify({ students: studentRows('500001').length, roster: table('roster').size }));
+  const studentSnapshot = JSON.stringify(studentRows('500001').map((r) => r.name));
 
   // 学生用与老师一致的信息注册 → 在白名单
   asOpenid('openid-stu');
-  const reg = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '毛亚岐', studentId: '500450' });
+  const reg = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '内部测试', studentId: '500001' });
   const s1 = await apiFn.main({ action: 'roster.status' });
   check('T2 学生填写与老师一致的信息 → 在白名单（可提问）',
     reg.ok === true && s1.ok === true && s1.in_roster === true, JSON.stringify({ reg: reg.ok, in: s1.in_roster }));
 
   // 学生自己把姓名改错 → 自己就不在白名单
-  const wrong = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '毛亚奇', studentId: '500450' });
+  const wrong = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '内部测试误写', studentId: '500001' });
   const s2 = await apiFn.main({ action: 'roster.status' });
   check('T3 学生自己改错姓名 → 自己不在白名单（以老师端为准）',
     wrong.ok === true && s2.ok === true && s2.in_roster === false, JSON.stringify({ ok: wrong.ok, in: s2.in_roster }));
 
   // 关键：老师端数据完全没被这次改名影响（老师不需要管）
   check('T4 学生改名不影响老师的名册（老师无需处理）',
-    JSON.stringify(studentRows('500450').map((r) => r.name)) === studentSnapshot,
-    JSON.stringify(studentRows('500450').map((r) => r.name)));
+    JSON.stringify(studentRows('500001').map((r) => r.name)) === studentSnapshot,
+    JSON.stringify(studentRows('500001').map((r) => r.name)));
   check('T4b 名册没有被学生改名改写（仍是老师录入的名字，且不产生多余记录）',
-    studentRows('500450').length === 1 && studentRows('500450').every((r) => r.name === '毛亚岐'),
-    JSON.stringify(studentRows('500450').map((r) => r.name)));
+    studentRows('500001').length === 1 && studentRows('500001').every((r) => r.name === '内部测试'),
+    JSON.stringify(studentRows('500001').map((r) => r.name)));
 
   // 学生自己改回与老师一致 → 自动恢复
-  const back = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '毛亚岐', studentId: '500450' });
+  const back = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '内部测试', studentId: '500001' });
   const s3 = await apiFn.main({ action: 'roster.status' });
   check('T5 学生自己改回与老师一致 → 自动恢复白名单（无需老师操作）',
     back.ok === true && s3.ok === true && s3.in_roster === true, JSON.stringify({ ok: back.ok, in: s3.in_roster }));
 
   // 防冒用：另一个微信号想用相同的「学号+姓名」→ 被拒
   asOpenid('openid-other');
-  const steal = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '毛亚岐', studentId: '500450' });
+  const steal = await apiFn.main({ action: 'register', school: '安徽建筑大学', name: '内部测试', studentId: '500001' });
   check('T6 另一个微信号用相同的「学号+姓名」注册被拒（防冒用）',
     steal.ok === false && steal.code === 'STUDENT_ID_TAKEN', JSON.stringify(steal.code));
 
   // 学号相同但姓名不同 → 允许（不同学校可能同学号），且不在白名单
   asOpenid('openid-real2');
-  const other = await apiFn.main({ action: 'register', school: 'B校', name: '李四', studentId: '500450' });
+  const other = await apiFn.main({ action: 'register', school: 'B校', name: '李四', studentId: '500001' });
   const s4 = await apiFn.main({ action: 'roster.status' });
   check('T7 同学号不同姓名可注册，但不在白名单（不会误放行）',
     other.ok === true && s4.ok === true && s4.in_roster === false, JSON.stringify({ ok: other.ok, in: s4.in_roster }));

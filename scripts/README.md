@@ -16,11 +16,15 @@ node scripts/run-all.js --full   # 打印每一步的完整输出
 ```powershell
 node scripts/geometry-test.js          # 几何真值回归（252 项断言）
 node scripts/geometry-test.js --quiet  # 只打印失败项与备注
+node scripts/triangle-method-check.cjs # 直角三角形法冻结回归
+node scripts/right-angle-projection-check.cjs # 直角投影定理数学与接线检查
 node scripts/section-projection-check.cjs  # 截交三视图可见性等价性守护（17 项）
-node scripts/ai-knowledge-routing-check.cjs  # AI 教师知识点路由检查（126 项）
+node scripts/ai-knowledge-routing-check.cjs  # AI 教师知识点路由检查（128 项）
 node scripts/integrity-check.js        # 静态接线检查
 node scripts/full-check.cjs            # 全仓静态检查
+node scripts/teacher-dashboard-check.cjs # 教师驾驶舱失败态行为检查
 node scripts/offline/run.cjs           # 单个离线云函数自测
+node scripts/offline/run-photo-quota-concurrency.cjs # 拍照配额原子性、幂等和失败返还
 ```
 
 ## 检查清单
@@ -28,6 +32,8 @@ node scripts/offline/run.cjs           # 单个离线云函数自测
 | 脚本 | 作用 | 是否只读 | 失败是否阻断 |
 | --- | --- | --- | --- |
 | `geometry-test.js` | `section-geometry.js`（截交几何真值）+ `basic-solid.js`（基本立体）的数值与拓扑基准 | 只读 | 是 |
+| `triangle-method-check.cjs` | 直角三角形法纯数学、拖动、重置、斜二等轴测和 Canvas 标注意图 | 只读 | 是 |
+| `right-angle-projection-check.cjs` | 直角投影定理 H/V/W 定理与反例、页面接线、重置和 Canvas 绘制 | 只读 | 是 |
 | `section-projection-check.cjs` | 切割模式三视图「可见 / 隐藏棱」分类与改动前基准（blob `4ffcfd8874`）一致，且投影包围盒预筛仍在生效 | 只读 | 是 |
 | `integrity-check.js` | `app.json` ↔ 页面文件、`index.wxml` ↔ 页面方法、客户端 action ↔ 云函数路由、打包忽略列表 | 只读 | 是 |
 | `full-check.cjs` | 全仓 JS 语法、JSON、WXSS/WXML 配平、前后端接口一致性、DOM id、敏感信息、调试输出残留 | 只读 | 是 |
@@ -36,10 +42,12 @@ node scripts/offline/run.cjs           # 单个离线云函数自测
 | `phone-fit-check.cjs` | 手机端参数面板折行估算 | 只读 | 否（仅报告） |
 | `web-loader-check.cjs` | 网页版 `web/index.html` 的模块加载垫片与脚本顺序（模拟到 `pages/index/index.js`） | 只读 | 是 |
 | `ai-page-check.cjs` | AI 教师页的领域模块导出、Page 装配与 WXML 事件接线 | 只读 | 是 |
+| `teacher-dashboard-check.cjs` | 执行真实教师网页脚本，检查驾驶舱接口失败、重试、空数据和 partial 状态 | 只读 | 是 |
 | `test-case-coverage-check.cjs` | 每个当前需求是否至少映射到一个测试用例，以及用例编号是否唯一 | 只读 | 是 |
 | `share-selfcheck.cjs` | 转发声明与 `onShareAppMessage` 行为 | 只读 | 是 |
 | `ruler-removal-selfcheck.cjs` | v1.0.0 移除尺规作图后的残留扫描 | 只读 | 是 |
 | `ai-knowledge-routing-check.cjs` | AI 教师知识文件与 `ai/knowledge.js` 知识点路由一致（含装配图 G06）、注入正文不超 `maxKnowledgeChars` | 只读 | 是 |
+| `offline/run-ai-privacy.cjs` | 外部检索请求不携带历史对话或用户身份，视频结果按相关度降序且最多 3 条 | 只读 | 是 |
 | `ai-teacher-contract-check.cjs` | AI 教师服务（千问侧）接口契约验收：§9 用例字段/长度/无 LaTeX、401/404、`matched=false` 降级 | 只读 | 需设 `QWEN_TEACHER_TOKEN`；未设时只跑负向检查 |
 | `ai-answer-blind-eval.cjs` | AI 教师**回答质量盲评**：同一批问题，A（只用 16 篇）/ B（16 篇+讲稿片段）/ C（服务侧生成）三版回答打乱顺序，输出盲评页 | 只读 | 需 `DEEPSEEK_API_KEY` + `QWEN_TEACHER_*`；输出写到系统临时目录 |
 | `offline/run*.cjs` | 云函数离线行为自测（内存桩，不打真实数据库） | 只读 | 是 |
@@ -48,7 +56,7 @@ node scripts/offline/run.cjs           # 单个离线云函数自测
 
 `scripts/offline/` 下的用例通过 `wx-server-sdk` 内存桩（`scripts/offline/stub/wx-server-sdk/index.js`）直接调用 `cloudfunctions/teacher/index.js` 与 `cloudfunctions/api/index.js`，覆盖：
 
-班级 CRUD 与权限、学生名册写入与归并、跨校同学号、账号唯一性、名单权威性、批量清理与按人清理、学号姓名校验等，合计 210 项断言。
+班级 CRUD 与权限、学生名册写入与归并、跨校同学号、账号唯一性、名单权威性、批量清理与按人清理、学号姓名校验、AI 资源归属、会话幂等、拍照配额原子预占以及超过 1000 条记录的分页完整性。
 
 ```powershell
 node scripts/offline/run.cjs        # class.* 权限/去重/双写/归档
@@ -86,7 +94,7 @@ node scripts/offline/run-datarest.cjs
 
 ## 相关规则
 
-- `AGENTS.md` C3（允许开发者使用独立静态分析工具，运行时不得依赖）、C7（新增文件与目录属 A 级）、C10、C11（本项目没有自动化测试/CI）
+- `AGENTS.md` C3（允许开发者使用独立静态分析工具，运行时不得依赖）、C7（新增文件与目录属 A 级）、C10、C11（本地自动检查可执行，但没有 CI）
 - `docs/rules/testing.md` §49–§55（验证层次、截面测试基准、测试数据原则）
 - `.agents/skills/engineering-drawing-assistant/references/frozen-modules.md`（F2 截交几何、F4 基本立体的改动要求）
 - `docs/freeze-v1.0.0-2026-09-11.md` §10（修改冻结文件后应重跑的检查）

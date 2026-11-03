@@ -37,7 +37,7 @@
 4. `docs/requirements/系统需求规格.md` —— 当前唯一需求基线；先定位受影响的架构章节和需求编号。
 5. 与当前需求直接相关的**现有代码与文档**：
    - 小程序页面：`pages/<name>/*.js|.wxml|.wxss`，`app.json`（页面注册）
-   - 几何核心：`pages/index/index.js`、`section-geometry.js`、`basic-solid.js`、`utils/geo.js`
+   - 首页几何核心：`pages/index/index.js`（装配）、`projection.js`、`section-geometry.js`、`basic-solid.js`、`section-math.js`、`solid-projection.js`
    - 云函数：`cloudfunctions/api/index.js`、`cloudfunctions/api/ai/*`、`cloudfunctions/teacher/index.js`
    - 教学资产：`cloudfunctions/api/knowledge/*.md`、`cloudfunctions/api/prompts/*.md`
    - 网页端：`teacher-web/`、`web/`
@@ -47,7 +47,7 @@
 阅读纪律：
 
 - 不得仅凭文件名、标题或旧文档推断模块行为；**以代码事实为准**。
-- 已知文档滞后点见 `AGENTS.md` §C1（例如 `pages/teacher/`、`pages/roster/` 已删除，`app.json` 现注册 7 个页面），不得据此推断实现。
+- 当前事实与历史滞后点见 `AGENTS.md` §C1；`app.json` 注册 7 个页面，已删除页面不得作为当前功能引用。
 - 需要时用 `git log --oneline`、`git diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/` 确认改动历史与冻结状态。
 
 ## 4. 职责（仅限以下八项）
@@ -192,7 +192,7 @@
 
 分析任何需求时逐项确认：
 
-1. 是否触及冻结模块 F1–F8（`pages/index/*`、`pages/login/`、`pages/register/`、`utils/geo.js`、`cloudfunctions/api/` 及其教学资产）？
+1. 是否触及冻结模块 F1–F8（`pages/index/*`、`pages/login/`、`pages/register/`、`cloudfunctions/api/` 及其教学资产）？
 2. 是否改变数据库集合或字段？是否影响教师端统计所依赖的字段结构（`ai_messages` 结构不得更改）？
 3. 是否影响权限模型（超级管理员 / 普通教师 / 学生）与名册准入规则（不在名册仍可用互动工具、不能提问）？
 4. 是否影响第一角投影布局、三视图联动或截交数据来源？

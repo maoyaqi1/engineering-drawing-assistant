@@ -14,6 +14,8 @@ function cloudAvailable() {
   return typeof wx !== 'undefined' && wx.cloud && typeof wx.cloud.callFunction === 'function';
 }
 
+// 所有客户端调用统一的边界：把 action 变成云函数 data.action，并把网络错误
+// 归一化为 {ok:false, code:'NETWORK'}，避免各页面重复处理 Promise 异常。
 function callApi(action, payload) {
   if (!cloudAvailable()) {
     return Promise.resolve({ ok: false, code: 'NO_CLOUD', msg: '云能力不可用' });
@@ -28,6 +30,8 @@ function login() {
 }
 
 function register(profile) {
+  // 前端只提交三个业务字段；openid 必须由云函数 getWXContext 获取，
+  // 不能被客户端参数覆盖。
   return callApi('register', {
     school: profile.school,
     name: profile.name,
@@ -47,6 +51,7 @@ function startSession(module) {
 }
 
 function endSession(sessionId, duration, interactionCount) {
+  // 时长与交互次数由页面计时后提交，服务端会校验合理范围及会话归属。
   return callApi('session.end', {
     session_id: sessionId,
     duration,
@@ -71,12 +76,16 @@ function submitSurvey(answers) {
   });
 }
 
-function aiAsk(message, conversationId, knowledgePoint, imageBase64) {
+function aiAsk(message, conversationId, knowledgePoint, imageBase64, requestId) {
+  // conversation_id / knowledge_point 为空时由服务端创建或匹配；
+  // request_id 仅用于图片请求幂等，同一次重试必须复用。
   return callApi('ai.ask', {
     message,
     conversation_id: conversationId || null,
     knowledge_point: knowledgePoint || null,
-    image_base64: imageBase64 || null
+    image_base64: imageBase64 || null,
+    // 图片请求的幂等键；同一次发送重试时必须复用。
+    request_id: requestId || null
   });
 }
 
