@@ -76,7 +76,7 @@
 
 ## F5. 学生登录 / 注册 / 名单鉴权
 
-**位置**：`pages/login/`、`pages/register/`、`pages/roster/`、`cloudfunctions/api/index.js`（`login` / `register` / `roster.*` / `ai.ask` 中的 `isInRoster`）。
+**位置**：`pages/login/`、`pages/register/`、`cloudfunctions/api/index.js`（`login` / `register` / 会话与学习记录 / `ai.ask` 中的名册准入）。
 
 **为什么冻结**：涉及真实学生身份与 AI 提问准入，逻辑错误会直接影响可用性与数据正确性。
 
@@ -84,7 +84,7 @@
 
 - 所有学生都要微信登录 + 自己填写学校/姓名/学号；**未在名单中的同学仍可正常使用互动工具**，只是不能使用 AI 提问。
 - 学号唯一，防止冒用。
-- 名单（`roster`）与教师端的班级档案（`students`）**相互独立**，不强制同步。
+- 旧 `roster` 集合已废弃；AI 放行由 `students` 名册与 `classes` 状态实时判定。
 
 **修改后必须验证**：新用户登录→注册→进首页；老用户跳过登录；学号重复被拦截；名单内可用 AI、名单外被拒绝但工具可用。
 
@@ -114,11 +114,35 @@
 
 ## F8. 已通过真机验证的核心交互
 
-**范围**：圆球/圆环拖动跟随性、截平面拖动实时性、拖点时页面滚动锁定等。**不含尺规作图**——`pages/ruler/` 属探索模块，见下节。
+**范围**：圆球/圆环拖动跟随性、截平面拖动实时性、拖点时页面滚动锁定等。尺规作图模块已移除，不属于当前范围。
 
 **为什么冻结**：这些是反复调优"性能与手感的平衡"后的结果（用户曾明确表示"现在的平衡可以接受"）。
 
 **规则**：不得以"优化"为名改动这些交互的时序/节流策略，除非用户明确提出性能问题并接受重新调优的代价。
+
+## 知识点页附加冻结：直角三角形法
+
+**范围**：`pages/triangle-method/` 全部源码、页面配置与 `scripts/triangle-method-check.cjs`。
+
+**基线**：2026-11-01 工作区文件 SHA-256 快照，记录见 `docs/freeze-triangle-method-2026-11-01.md`。当前未执行 Git commit 或创建 tag。
+
+**规则**：后续知识点优先新增独立页面，不在该页继续扩展；只有用户明确要求或存在可复现真实缺陷时才允许修改。修改后必须重跑专项检查、全量本地检查和真机回归。
+
+## 学生端紧凑画布 UI 附加冻结
+
+**范围**：首页五种空间对象模式、投影体系页、直角三角形法页和直角投影定理页的紧凑画布布局，以及对应布局守护脚本。
+
+**基线**：2026-11-02 工作区文件 SHA-256 快照，记录见 `docs/freeze-ui-compact-2026-11-02.md`。该冻结不是 Git commit 或 tag。
+
+**规则**：后续修改须由用户明确要求并说明具体问题；修改后必须重跑专项检查、`node scripts/layout-check.cjs` 和 `node scripts/run-all.js`，并更新冻结哈希。
+
+## v1.4.1 直角投影交互补丁冻结
+
+**范围**：`pages/right-angle-projection/` 中 C/D 投影拖动圈尺寸、定理 I/II 的交叉直线表述，对应专项检查、需求规格、测试用例和版本记录。
+
+**基线**：以 Git tag `v1.4.0 = fc108fa` 为上游，2026-11-03 工作区补丁冻结为 `v1.4.1`；完整文件哈希见 `docs/freeze-v1.4.1-2026-11-03.md`。
+
+**规则**：不得在未记录原因的情况下改动 C/D 拖动圈、灰色反例与空间高亮语义，或删除“交叉”适用情形；后续修改须重跑直角投影专项、布局检查和全量本地检查，并更新冻结记录。
 
 ---
 
@@ -126,8 +150,7 @@
 
 以下模块处于探索阶段，不在 v0.6.2 的版本记录中，**不属于冻结范围**，也不作为版本基线的一部分：
 
-- 教师端：`pages/teacher/`、`teacher-web/`、`cloudfunctions/teacher/`，以及设计稿 `docs/teacher-admin-arch-analysis.md`、`docs/teacher-admin-db-design.md`。
-- 尺规作图：`pages/ruler/`、`web/ruler.html`。
+- 教师端：`teacher-web/`、`cloudfunctions/teacher/`，以及设计稿 `docs/teacher-admin-arch-analysis.md`、`docs/teacher-admin-db-design.md`。
 
 规则：可以改动，但不得顺带改动冻结模块；改动前先说明范围，改后做基本自测。
 

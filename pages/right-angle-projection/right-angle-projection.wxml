@@ -59,11 +59,11 @@
       <text class="theorem-title">直角投影定理</text>
       <text class="theorem-text">
         <text class="theorem-label">定理 I：</text>
-          垂直相交的两直线，其中有一条直线平行于一投影面时，则两直线在该投影面的投影仍反映直角。
+          垂直相交或交叉的两直线，其中有一条直线平行于一投影面时，则两直线在该投影面的投影仍反映直角。
       </text>
       <text class="theorem-text">
         <text class="theorem-label">定理 II（逆）：</text>
-          相交两直线在同一投影面的投影成直角，且有一条直线平行于该投影面，则空间两直线的夹角必是直角。
+          相交或交叉两直线在同一投影面的投影成直角，且有一条直线平行于该投影面，则空间两直线的夹角必是直角。
       </text>
     </view>
   </scroll-view>

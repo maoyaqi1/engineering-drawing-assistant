@@ -3,8 +3,8 @@
 > 适用范围：本文件所在目录及其全部子目录。
 > 文件结构：**第一部分「多 Agent 协作章程」（C1–C12）** 是所有 Agent 的最高级协作规则；**第二部分「开发章程」（§1–§64）** 是技术实现规则。执行优先级与冲突处理见 §C1。
 > 文档状态：第二部分写于源码落盘之前，尚未随实现同步更新；凡与现有代码或 `README.md` 冲突之处，以现有实现为准，并按 §C1 / §2 先报告冲突、再动手。
-> 目标版本：Version 1.0 architecture baseline，兼容项目规格中描述的 Version 4.3 与 Version 5 能力。
-> 事实核对日期：2026-09-11（工作区基准提交 `ddca4f8`）。
+> 目标版本：当前工作区冻结 `v1.4.1`（上一 Git tag 为 `v1.4.0`）。
+> 事实核对日期：2026-11-03（基准提交 `fc108fa` + `v1.4.1` 补丁工作区）。
 
 
 ---
@@ -41,11 +41,13 @@
 
 文档与代码不一致时，以**代码事实**为准，不得为迎合文档去重构代码。
 
-已知文档滞后点（2026-09-11 核对，尚未修订，不得据此推断实现）：
+当前事实（2026-11-03 更新）：
 
-1. 小程序端 `pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除，`pages/ruler/`、`web/ruler.html` 已随 `879183f`（v1.0.0 功能范围收敛）移除；`app.json` 现注册 **8 个页面**（`login`/`register`/`index`/`projection`/`survey`/`ai`/`video`/`terms`，其中 `projection` 为 v1.2.0 新增）——本行已于 2026-10-08 按代码事实更新；章程 §5、`README.md` 的“名单管理页”表述、Skill 的 `references/architecture.md` 与 `references/frozen-modules.md` 相关条目均已过期。
-2. `utils/` 实际只有 `api.js` 与 `geo.js`，不存在 `teacher-api.js`。
-3. 章程 §3 / §5 / §7 / §25 / §28 中与 Three.js、`js/*.js`、DOM、BufferGeometry 相关的表述是历史设想，当前实现为 Canvas 2D。
+1. `app.json` 注册 **9 个页面**：`login`、`register`、`index`、`projection`、`survey`、`ai`、`terms`、`triangle-method`、`right-angle-projection`。`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 均已删除；`pages/video/` 源码保留但未注册、不进入小程序包，也不得提供播放入口。
+2. `utils/` 当前只有 `api.js`；`utils/geo.js` 已随尺规作图模块移除，不存在 `teacher-api.js`。
+3. 当前实现为 Canvas 2D；专题规则中保留的 Three.js/WebGL 条目是历史或前瞻规则，不得据此引入依赖。
+4. `pages/index/index.js` 已拆分为页面 data/生命周期装配，当前约 104 行；几何、交互、绘制与截交实现位于 `pages/index/` 的其他模块。代码仍通过 Page `this` 组合，属于待优化依赖问题，而不是单文件行数问题。
+5. 仓库已有可自动执行的本地检查和离线行为测试（入口 `node scripts/run-all.js`），但**没有 CI**；真实云环境、浏览器和真机验收必须单独完成。
 
 
 ## 来源：AGENTS.md C2
@@ -54,7 +56,7 @@
 
 本项目是面向大学「画法几何与工程制图」课程的互动教学平台，由三条并行的交付线组成：
 
-1. **微信小程序（学生端，主体）**：点/线/面互动、基本立体、平面切割立体、尺规作图练习、AI 教师答疑。
+1. **微信小程序（学生端，主体）**：点/线/面互动、基本立体、平面切割立体、投影体系、AI 教师答疑。
 2. **微信云开发后端**：`api` 云函数（学生端）与 `teacher` 云函数（教师端），彼此独立。
 3. **网页教师后台**：`teacher-web/` 静态页面，经 CloudBase HTTP 网关调用 `teacher` 云函数。
 
@@ -97,25 +99,28 @@
 
 | 路径 | 职责 | 状态 |
 | --- | --- | --- |
-| `app.js` / `app.json` / `app.wxss` | 云开发初始化、隐私授权、页面注册（8 页） | 稳定 |
+| `app.js` / `app.json` / `app.wxss` | 云开发初始化、隐私授权、页面注册（9 页） | 稳定 |
 | `pages/index/` | 核心教学画布：点/线/面、基本立体、平面切割立体 | 冻结（F1–F4） |
 | `pages/projection/` | 投影体系：三投影面体系（八分角/第一分角）、投影面展开、空间旋转观察 | 稳定（v1.2.0 新增，只读复用 `pages/index/` 的布局与绘图模块） |
-| `pages/video/` | 课程讲解播放页（AI 教师"建议观看"卡片进入） | 稳定（v1.1.0 新增） |
+| `pages/triangle-method/` | 直角三角形法求实长与倾角关键知识点互动页 | 纳入 `v1.4.0`，首页“直线”模式入口 |
+| `pages/right-angle-projection/` | 直角投影定理关键知识点互动页 | `v1.4.0` 引入，`v1.4.1` 交互细化 |
+| `pages/video/` | 课程讲解播放页源码 | 未注册、不入包；当前不得提供播放入口 |
 | `pages/login/`、`pages/register/` | 微信登录、实名注册 | 冻结（F5） |
 | `pages/ai/` | AI 教师对话界面 | 稳定 |
 | `pages/survey/`、`pages/terms/` | 学习效果问卷、用户协议与隐私政策 | 稳定 |
 | ~~`pages/ruler/`、`web/ruler.html`~~ | 尺规作图：**已随 `879183f`（v1.0.0）移除**，暂不恢复 | 已移除 |
 | `utils/api.js` | 学生端调用云函数 `api` 的封装 | 稳定 |
-| `utils/geo.js` | 尺规作图纯几何工具（不碰 DOM） | 冻结 |
-| `cloudfunctions/api/` | 学生端云函数；含 `ai/`、`knowledge/*.md`（16 篇）、`prompts/*.md`（2 篇） | 冻结（F6/F7） |
-| `cloudfunctions/teacher/` | 教师端云函数：登录鉴权、名册、统计、备注、学习记录 | 探索 |
+| `cloudfunctions/api/` | 学生端云函数；含 `ai/`（含拍照配额领域模块）、`knowledge/*.md`（16 篇）、`prompts/*.md`（2 篇） | 冻结（F6/F7） |
+| `cloudfunctions/teacher/` | 教师端云函数：入口路由、runtime、身份与班级领域模块 | 探索 |
 | `teacher-web/` | 网页教师后台 | 探索 |
 | `web/` | 浏览器版几何演示 | 探索 |
 | `web-release/` | 网页版发布快照（含重复文件，见 Skill `architecture.md` §6） | 只读快照，默认不纳入 Git |
-| `docs/` | 设计文档、`交接说明.md`、教学资料 | 可改 |
+| `docs/` | 设计文档、`交接说明.md`、统一需求、测试、教学资料 | 可改 |
+| `scripts/` | 开发者本地只读检查与离线行为测试；不进入运行时 | 工具 |
 | `images/`、`screen/` | 素材与本地截图 | `screen/` 已被忽略 |
-| `geogebra-offline/` | 本机 GeoGebra 离线部署（约 147MB 第三方资源） | 已被忽略，非本项目代码 |
 | `.agents/skills/engineering-drawing-assistant/` | 项目专属 Skill 与参考文档 | 可改，改前说明 |
+
+> 第三方工具归档（2026-10-31）：原 `geogebra-offline/` 未被业务代码引用，且 GeoGebra 官方许可仅覆盖非商业用途；该目录已移至仓库外 `G:\HFJH_资料文档\第三方工具\GeoGebra-5-非商业许可\`，不得重新复制进项目或发布包。
 
 
 ## 来源：AGENTS.md C5
@@ -187,10 +192,10 @@
 
 | 级别 | 范围 | 规则 |
 | --- | --- | --- |
-| **A 可直接修改** | `teacher-web/`、`cloudfunctions/teacher/`、`pages/ruler/`、`web/ruler.html`、`docs/`、`images/`、新增文件与新增目录 | 说明范围后可改；改完必须自测 |
-| **B 需先说明** | `pages/ai/`、`pages/survey/`、`pages/terms/`、`utils/api.js`、`app.js` / `app.json` / `app.wxss`、`web/`（除 `ruler.html`）、`README.md`、Skill 文档 | 改前说明原因、影响面与回归方式 |
-| **C 冻结：需用户明确授权** | `pages/index/index.js`、`index.wxml`、`index.wxss`、`pages/index/section-geometry.js`、`pages/index/basic-solid.js`、`pages/login/`、`pages/register/`、`utils/geo.js`、`cloudfunctions/api/` 全部（含 `ai/`、`knowledge/`、`prompts/`）、已通过真机验证的核心交互 | 只有两种情形可改，见下方 |
-| **D 禁止改动 / 禁止提交** | `geogebra-offline/`、`screen/`、`node_modules/`、`.env` / `.env.*`、`project.private.config.json`、`web-release/`、任何真实密钥值 | 不得修改、不得提交；确需变动先问用户 |
+| **A 可直接修改** | `teacher-web/`、`cloudfunctions/teacher/`、`docs/`、`images/`、`scripts/`、新增文件与新增目录 | 说明范围后可改；改完必须自测 |
+| **B 需先说明** | `pages/ai/`、`pages/survey/`、`pages/terms/`、`utils/api.js`、`app.js` / `app.json` / `app.wxss`、`web/`、`README.md`、Skill 文档 | 改前说明原因、影响面与回归方式 |
+| **C 冻结：需用户明确授权** | `pages/index/index.js`、`index.wxml`、`index.wxss`、`pages/index/section-geometry.js`、`pages/index/basic-solid.js`、`pages/login/`、`pages/register/`、`cloudfunctions/api/` 全部（含 `ai/`、`knowledge/`、`prompts/`）、已通过真机验证的核心交互 | 只有两种情形可改，见下方 |
+| **D 禁止改动 / 禁止提交** | `screen/`、`node_modules/`、`.env` / `.env.*`、`project.private.config.json`、`web-release/`、任何真实密钥值 | 不得修改、不得提交；确需变动先问用户 |
 
 > 版本冻结注记（2026-09-14）：`teacher-web/` 自 **`teacher-web-v1.0.0` 起冻结**——虽仍列在 A 级，实际改动需"用户明确要求 + 可复现的真实缺陷"，并重新发布预览仓、更新 `?v=` 版本号。冻结基线、哈希、权限语义与回滚方式见 `docs/freeze-teacher-web-2026-09-14.md`。其余 A 级范围（`cloudfunctions/teacher/`、`docs/` 等）不受此注记影响。
 
@@ -250,7 +255,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 - 浮点比较不得使用严格相等，容差来自共享数值策略。
 - 数值有限性必须在写入几何状态前校验，避免 NaN 传播。
 - 与相邻文件风格保持一致；不做与本任务无关的格式化、重命名或重排。
-- `pages/index/index.js`（约 1900 行）属**已知架构债务**，不得以“更整洁”为由顺手拆分。
+- `pages/index/` 已按职责拆分，但模块仍通过 Page `this` 隐式协作；该依赖问题不得以“更整洁”为由顺手重构。
 
 
 ## 来源：AGENTS.md C10
@@ -265,14 +270,14 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 | 远程 | `origin` → `https://github.com/maoyaqi1/engineering-drawing-assistant.git`（私有） |
 | 冻结基线 | `aaf75d0`（v0.6.2） |
 | 教师网页发布仓库 | `maoyaqi1/hfjh-teacher-preview`，分支 `main`（不是 `master`），GitHub Pages |
-| 自动化测试 / CI | **无** |
+| 本地自动检查 / CI | 有 `node scripts/run-all.js` 与离线行为测试；**无 CI** |
 
 规则：
 
 - Agent **不得自行 `commit` 或 `push`**，除非用户在该次任务中明确要求。
 - 不得 `rebase` / `reset --hard` / `--amend` / 改写历史；不得修改 remote 配置。
 - 不得用 `git checkout -- <file>`、`git reset` 等方式丢弃工作区改动。
-- 下列文件按项目约定**保持未跟踪**，视为用户资产，不得擅自纳入或删除：`docs/ai_teacher_reflections.txt`、`docs/qrcode.png`、`docs/产品海报.html`、`images/ai-avatar.png`、`web-release/`。
+- 下列文件按项目约定视为用户资产，不得擅自纳入或删除：`docs/ai_teacher_reflections.txt`、`web-release/`。产品宣传资料已归档到仓库外 `G:\HFJH_资料文档\产品宣传材料\`，不得擅自写回仓库或删除。`images/ai-avatar.png` 已于 2026-10-31 替换为项目原创几何头像，是应当纳入项目版本管理的运行素材；含疑似第三方标识的原图仅保存在 `G:\HFJH_资料文档\待确认素材\`。
 - 开始前执行 `git status` 与 `git log -1 --oneline`；结束后用 `git diff` / `git status` 逐项核对改动范围。
 - 提交前必须做敏感信息检查：明文口令、`sk-` 前缀、API Key / Secret / Token 字面量；确认 `TEACHER_PASSWORD`、`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY` 等只以 `process.env.XXX` 形式出现；确认 `.env` 未入库。
 - 提交信息沿用现有风格：`feat(scope): …`、`fix(scope): …`、`docs: …`。
@@ -284,9 +289,9 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 
 ## C11. 测试要求
 
-本项目**没有自动化测试、没有测试框架、没有 CI**。
+本项目已有可自动执行的本地只读检查和离线行为测试，但**没有 CI、没有测试框架托管执行**。
 
-因此不得用“测试已通过”指代不存在的自动化测试；只能说明在微信开发者工具、真机或云开发控制台实际验证了哪些场景。
+因此可以说明某项本地检查或离线断言通过，但不得把 `run-all.js` 通过写成 CI 通过或线上验收通过；真实云环境、浏览器和真机验收必须单独完成。
 
 最低要求：
 
@@ -296,6 +301,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 4. 触及数据库的改动，先确认集合存在与字段结构，再验证读写。
 5. 改完 JavaScript 至少做语法自检：`node --check <file>`。
 6. 审查 Agent 必须独立复现，不沿用开发 Agent 的结论。
+7. 本地自动检查入口为 `node scripts/run-all.js`；故障注入、并发或事务语义不足的桩必须在报告中明确，不得用宽松桩制造“通过”。
 
 回归底线，任何改动后至少确认：
 
@@ -304,7 +310,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 3. 基本立体与平面切割立体仍能正常显示。
 4. 学生登录 / 注册流程未被破坏。
 
-模块级回归清单见 `.agents/skills/engineering-drawing-assistant/references/testing.md`（注意该文件对 `pages/roster/`、`pages/teacher/` 的描述已过期）。
+模块级回归清单见 `.agents/skills/engineering-drawing-assistant/references/testing.md`。
 
 验证层次见第二部分 §49–§54。
 
@@ -512,7 +518,7 @@ docs/rules/
 | 开工前 10 项确认门禁（先读代码、确认分级、范围、验收与回归、工作区状态等） | C8 |
 | 不引入构建链/框架/转译语法；几何真值独立于渲染；`pages/index/index.js` 架构债不得顺手拆分 | C9 |
 | 禁止自行 `commit`/`push`；禁止 `rebase`/`reset --hard`/`--amend`；禁止丢弃工作区改动；敏感信息检查 | C10 |
-| 本项目没有自动化测试/框架/CI；任何改动后的四条回归底线 | C11 |
+| 有本地自动检查与离线行为测试但无 CI；任何改动后的四条回归底线 | C11 |
 | 交付与汇报必须包含的内容；不得只报“已完成”；不得把未验证写成已验证 | C12（模板见 §62） |
 
 ## 加载协议（必须遵守）
@@ -557,7 +563,7 @@ docs/rules/
 
 | 命中条件（路径、关键词或动作） | 必须加载 |
 | --- | --- |
-| 改动 `pages/index/`、`utils/geo.js`、`pages/index/basic-solid.js`、`pages/index/section-geometry.js`，或任务出现投影、坐标、三视图、点线面、立体、截交、相贯、拾取、拖动 | `docs/rules/geometry.md` |
+| 改动 `pages/index/`、`pages/index/basic-solid.js`、`pages/index/section-geometry.js`，或任务出现投影、坐标、三视图、点线面、立体、截交、相贯、拾取、拖动 | `docs/rules/geometry.md` |
 | 改动 `pages/ai/`、`pages/survey/`、`pages/terms/`、`pages/login/`、`pages/register/`，或涉及教学交互、教学呈现、可访问性、响应式布局 | `docs/rules/teaching-app.md` |
 | AI 教师问答、知识库 `knowledge/*.md`、Prompt `prompts/*.md` | `docs/rules/teaching-app.md` + `docs/rules/cloud-database.md` |
 | 改动 `teacher-web/`、`cloudfunctions/teacher/`，或涉及名册、班级、统计、备注、学习记录、教师权限 | `docs/rules/teacher-backend.md` + `docs/rules/cloud-database.md` |

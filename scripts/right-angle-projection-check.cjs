@@ -58,10 +58,11 @@ function makePageInstance(definition) {
   });
 }
 
-function makeCanvasContext(drawnText, dashPatterns) {
+function makeCanvasContext(drawnText, dashPatterns, arcCalls) {
   const noop = () => {};
   return {
     lineDash: [],
+    lineWidth: 1,
     save: noop,
     restore: noop,
     clearRect: noop,
@@ -74,7 +75,17 @@ function makeCanvasContext(drawnText, dashPatterns) {
     closePath: noop,
     fill: noop,
     stroke: noop,
-    arc: noop,
+    arc(x, y, radius) {
+      if (arcCalls) {
+        arcCalls.push({
+          x,
+          y,
+          radius,
+          lineWidth: this.lineWidth,
+          strokeStyle: this.strokeStyle
+        });
+      }
+    },
     arcTo: noop,
     fillText(text) {
       if (drawnText) drawnText.push(String(text));
@@ -256,8 +267,8 @@ function main() {
     .forEach((removedControl) => {
       check(!wxml.includes(removedControl), `已移除显示控制 ${removedControl}`);
     });
-  ['定理 I', '定理 II（逆）', '垂直相交的两直线',
-    '相交两直线在同一投影面的投影成直角'].forEach((theoremText) => {
+  ['定理 I', '定理 II（逆）', '垂直相交或交叉的两直线',
+    '相交或交叉两直线在同一投影面的投影成直角'].forEach((theoremText) => {
     check(wxml.includes(theoremText), `页面包含定理内容：${theoremText}`);
   });
   check(!wxml.includes('formula-chip'), '定理卡不再混入互动操作标签');
@@ -409,7 +420,8 @@ function main() {
 
   const drawnText = [];
   const dashPatterns = [];
-  page.context = makeCanvasContext(drawnText, dashPatterns);
+  const arcCalls = [];
+  page.context = makeCanvasContext(drawnText, dashPatterns, arcCalls);
   const projectedPlanes = new Set();
   const drawProjectionOnPlane = page.drawProjectionOnPlane;
   page.drawProjectionOnPlane = function (context, viewDefinition, points, active) {
@@ -439,8 +451,10 @@ function main() {
   let invalidHasRightAngle = null;
   let invalidUsesMutedLine = false;
   let invalidHasPointLabel = null;
+  let defaultArcCalls = [];
   try {
     page.drawScene();
+    defaultArcCalls = arcCalls.slice();
     defaultHasPointLabel = drawnText.includes('a′');
     defaultHasRightAngle = drawnText.includes('90°');
     check(correspondenceCalls >= 5, '默认绘制 A/B/C/D/P 五点三视图对应线');
@@ -487,6 +501,14 @@ function main() {
     `竖屏与宽屏 Canvas 绘制路径不抛错${renderError ? `: ${renderError.stack || renderError}` : ''}`);
   check(defaultHasPointLabel, '默认显示三视图端点标注');
   check(defaultHasRightAngle, '默认显示当前投影面的直角高亮');
+  const activeEndpointRings = defaultArcCalls.filter((arcCall) => (
+    arcCall.lineWidth <= 1.2 && arcCall.radius === 6
+  ));
+  const inactiveEndpointRings = defaultArcCalls.filter((arcCall) => (
+    arcCall.lineWidth <= 1.2 && arcCall.radius === 5
+  ));
+  check(activeEndpointRings.length === 2 && inactiveEndpointRings.length === 4,
+    `C/D 拖动圈使用缩小后的 6px/5px 半径，并与其他点标记保持协调：active=${activeEndpointRings.length}, inactive=${inactiveEndpointRings.length}`);
   check(invalidHasRightAngle === false, 'm 不垂直 l 时不显示直角');
   check(invalidHasPointLabel, 'm 不垂直 l 时仍保留端点标注');
   check(invalidUsesMutedLine, 'm 不垂直 l 时直线与投影使用灰色');

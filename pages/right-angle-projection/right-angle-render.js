@@ -462,7 +462,7 @@ module.exports = {
         context.setLineDash([]);
         context.beginPath();
         context.arc(views[endpointKey].x, views[endpointKey].y,
-          active ? 10 : 8, 0, Math.PI * 2);
+          active ? 6 : 5, 0, Math.PI * 2);
         context.stroke();
       });
 

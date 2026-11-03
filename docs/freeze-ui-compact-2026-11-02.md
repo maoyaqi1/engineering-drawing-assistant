@@ -60,11 +60,11 @@
 | 文件 | SHA-256 |
 | --- | --- |
 | `pages/right-angle-projection/right-angle-projection.js` | `4E5D77F48E9C750912EEE4DCC5BD535359EFDB4B5CC530BEEDCF8C0E953C2DD1` |
-| `pages/right-angle-projection/right-angle-projection.wxml` | `98C4DB20589E70659C79F708BD5A8C477038B29C8601E80CA129A5AB55F98B23` |
+| `pages/right-angle-projection/right-angle-projection.wxml` | `C3133A45F249434BF1B575775D38771D8AF3FE543F974EA9B8B86E590F953A41` |
 | `pages/right-angle-projection/right-angle-projection.wxss` | `981E66DA7DEDDFF0CA6E6FB98D6B9E972092D1E0B737D3D99BC7DE65618D0241` |
 | `pages/right-angle-projection/right-angle-projection.json` | `0FF84E1F4D722D1550DE5E64B04BA94190C128E2C8A06FCEEB2C2612A6C94812` |
 | `pages/right-angle-projection/right-angle-model.js` | `024A04FF3D901E7826F70AEDA167DC0649B01D62AB9FDFDB306456A3A7B5F690` |
-| `pages/right-angle-projection/right-angle-render.js` | `B67DDA356700A78D385260EBDB7A8A3D2D3333827353734EC629FFAD2A2CD908` |
+| `pages/right-angle-projection/right-angle-render.js` | `447BD7764A0DFBCFF5E2373D03E2E4A0E5AC919D10263E72DD7DA7EE8AB1C1F0` |
 
 ### 3.4 守护脚本与设计记录
 
@@ -72,9 +72,9 @@
 | --- | --- |
 | `scripts/layout-check.cjs` | `868D0317C9489835B482FBF37B091213C4FF62059C0B85399E126806F08C9F38` |
 | `scripts/triangle-method-check.cjs` | `7688219A584959F3EDEA334E0DF05CC55B421A789FDDE64D6056E27DE9C308AB` |
-| `scripts/right-angle-projection-check.cjs` | `DC0567C13680E280C42473B9B9DBA4CF25C8A08470F35A0283286CBB1026F2B4` |
+| `scripts/right-angle-projection-check.cjs` | `B8F8E1450A176A059975158DEA66668AD0C2939199B4FEED23B75CA17F033D55` |
 | `docs/design/triangle-method-stage1.md` | `3C332EACF3EB0304D059A09AE958BE85A4E44EF207A054804723C8632BF348AC` |
-| `docs/design/right-angle-projection-stage1.md` | `B556378EC7B05E3BEA9CDAB94710D3F2CBAEBAEFFB67C93FBED6A3F2F61DCAE3` |
+| `docs/design/right-angle-projection-stage1.md` | `A74922335100277D0780B2CDC1FA3615988BAE5A10B0A7A2E14812BEF08DD899` |
 | `docs/freeze-triangle-method-2026-11-01.md` | `8F0D506C4FE251E88E193F80341107F0DB45B5B8E46CAA38E9A17075BD4F2BBF` |
 
 ## 4. 验证证据
@@ -112,3 +112,21 @@ Get-FileHash app.json,pages/index/index.js,pages/index/render-scene.js,pages/ind
 node scripts/layout-check.cjs
 node scripts/run-all.js
 ```
+
+## 7. 2026-11-03 v1.4.1 冻结后修订
+
+根据用户明确要求，在 `v1.4.0` 冻结后仅修订直角投影定理页：
+
+- C/D 投影拖动圈由 10/8px 缩小为 6/5px，与其他点标记尺寸协调；拖动命中半径、几何真值和投影公式不变；
+- 定理 I 的“垂直相交”改为“垂直相交或交叉”，定理 II 的“相交两直线”改为“相交或交叉两直线”；
+- 专项检查新增 C/D 拖动圈尺寸断言，防止视觉尺寸回退。
+
+本轮实际验证：
+
+| 检查 | 结果 |
+| --- | --- |
+| `node scripts/right-angle-projection-check.cjs` | 744/744 通过 |
+| `node scripts/run-all.js` | 38/38 项通过 |
+| 微信开发者工具模拟器（375px 手机竖屏） | C/D 圆圈、拖动单端固定、灰显/高亮、90° 标记、两条定理文案均正常 |
+
+本轮已纳入 `v1.4.1` 工作区冻结，详见 `docs/freeze-v1.4.1-2026-11-03.md`；未产生新的 Git 提交或 tag。

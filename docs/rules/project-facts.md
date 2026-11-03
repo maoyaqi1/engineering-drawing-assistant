@@ -32,7 +32,17 @@
 
 ---
 
-## 现状核对（核对日期 2026-09-11，基准提交 `ddca4f8` + 工作区未提交改动）
+## 现状核对（核对日期 2026-11-03，基准提交 `fc108fa` + `v1.4.1` 补丁工作区）
+
+> **2026-10-28 设计审查修复**：知识点匹配改为“显式关键词优先于纯追问继承”；外部课程检索不再发送历史对话；历史测试账号只由 `teacher` 环境变量 `LEGACY_TEST_ACCOUNT_KEYS` 提供，源码和离线夹具改用合成标识；注册页增加本地登录态守卫。
+
+> **2026-11-01 知识点页更新**：`pages/triangle-method/` 以工作区文件哈希冻结；新增 `pages/right-angle-projection/` 第一阶段原型并从首页“直线”模式关键知识点入口进入。`node scripts/run-all.js` 当前汇总 38 项检查。
+
+> **2026-11-02 紧凑画布 UI 冻结**：首页五模式、投影体系、直角三角形法和直角投影定理页完成用户验收，以工作区文件哈希冻结为 `ui-compact-2026-11-02`；详见 `docs/freeze-ui-compact-2026-11-02.md`。该冻结不是 Git commit/tag。
+
+> **2026-11-03 v1.4.1 工作区冻结**：在 `v1.4.0` 基础上缩小直角投影定理页 C/D 拖动圈，扩展两条定理的交叉直线适用范围，并将直角三角形法、直角投影定理的稳定需求与测试用例同步至统一规格；详见 `docs/freeze-v1.4.1-2026-11-03.md`。该冻结不是 Git commit/tag。
+
+> **2026-10-31 知识产权整改**：课程内容由用户确认全部为个人资料；含疑似第三方标识的 AI 头像原件移至仓库外，项目内替换为原创几何头像；三个云函数固定直接依赖并生成 `npm-shrinkwrap.json`，补齐 `THIRD_PARTY_NOTICES.md`；GeoGebra 离线包移至仓库外。权属、依赖和剩余专利核验边界见 `docs/素材权属与第三方依赖记录.md`。
 
 > **2026-09-14 事实更新（REQ-003 第二阶段，已实施待部署）**：学生端 AI 放行判定源已从 `roster` 白名单改为
 > `students` 名册（按键查询）+ `classes` 状态；`roster` 集合与 `roster.import/list/remove/clear` 已下线（仅保留
@@ -60,11 +70,13 @@
 
 ### 1. 小程序页面清单
 
-`app.json` 的 `pages` 数组当前注册 7 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/ruler/ruler`。`pages/teacher/`、`pages/roster/` 已随 `42195d9` 删除。
+`app.json` 的 `pages` 数组当前注册 9 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`。`pages/triangle-method/` 已以工作区哈希冻结；`pages/right-angle-projection/` 是直角投影定理第一阶段原型，两者都从首页“直线”模式的关键知识点入口进入。`pages/video/` 源码保留但未注册、不进入小程序包；`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 已删除。
 
 ### 2. 目录结构（顶层）
 
-`app.js`、`app.json`、`app.wxss`、`sitemap.json`、`project.config.json`、`AGENTS.md`、`README.md`、`.gitignore`、`.agent/`、`.agents/`、`cloudfunctions/`、`docs/`、`images/`、`pages/`、`screen/`（已忽略）、`teacher-web/`、`utils/`、`web/`、`web-release/`（默认不纳入 Git）、`geogebra-offline/`（已忽略）。
+`app.js`、`app.json`、`app.wxss`、`sitemap.json`、`project.config.json`、`AGENTS.md`、`README.md`、`.gitignore`、`.agent/`、`.agents/`、`cloudfunctions/`、`docs/`、`images/`、`pages/`、`screen/`（已忽略）、`teacher-web/`、`utils/`、`web/`、`web-release/`（默认不纳入 Git）。
+
+原 `geogebra-offline/` 已于 2026-10-31 移至仓库外 `G:\HFJH_资料文档\第三方工具\GeoGebra-5-非商业许可\`；当前项目代码没有引用该目录。
 
 目录职责、稳定/冻结/探索状态以 `AGENTS.md` C4 为权威。
 
@@ -77,16 +89,16 @@
 | 数据库 | 微信云数据库（集合清单见 `docs/rules/cloud-database.md`） |
 | 教师网页 | `teacher-web/` 原生 HTML / CSS / JS，经 CloudBase HTTP 网关调用 `teacher` 云函数 |
 | 网页版几何演示 | `web/index.html` 可直接用浏览器打开 |
-| 几何工具 | `utils/api.js`（云函数调用封装）、`utils/geo.js`（尺规作图纯几何工具），不存在 `teacher-api.js` |
+| 共享工具 | `utils/` 当前只有 `api.js`（学生端云函数调用封装）；不存在 `geo.js` 或 `teacher-api.js` |
 
 ### 4. 自动化测试与 CI
 
-仓库**没有**自动化测试、测试框架与 CI 配置：无根 `package.json`，无测试目录约定，无 `.github/`；仅云函数目录各有 `package.json`（部署依赖）。`node --check <file>` 属于开发者本地静态自检，不是项目自动化测试。
+仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 38 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
 
 ### 5. 云函数结构
 
-`cloudfunctions/api/`：`index.js`、`package.json`、`ai/`、`knowledge/`（15 个 `.md`）、`prompts/`（2 个 `.md`）。
-`cloudfunctions/teacher/`：`index.js`、`package.json`。
+`cloudfunctions/api/`：`index.js`、`package.json`、`ai/`、`knowledge/`（16 个 `.md`）、`prompts/`（2 个 `.md`）。
+`cloudfunctions/teacher/`：`index.js`、`package.json`、`lib/runtime.js`、`lib/identity.js`、`lib/class-model.js`。
 
 ### 6. Web 后台结构
 
@@ -104,16 +116,16 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 
 | 编号 | 滞后内容 | 证据 |
 | --- | --- | --- |
-| L1 | `AGENTS.md` C1 已声明三条滞后点（页面清单、`utils/` 内容、WebGL 时代表述） | `AGENTS.md` C1；`app.json`；`utils/` 目录 |
-| L2 | §5 与 Skill 文档仍列 `pages/roster/`、`pages/teacher/` 与 `js/*.js` | §5 原文（现位于 `docs/rules/coding.md`）；`.agents/skills/engineering-drawing-assistant/references/architecture.md` |
-| L3 | `cloudfunctions/api/knowledge/` 实测 15 篇，C4 与 F6 记作 16 篇 | 目录列举 2026-09-11 |
+| L1 | 已关闭：`AGENTS.md` 页面清单、`utils/` 内容、当前渲染与本地检查事实已按 2026-10-24 代码更新 | `AGENTS.md` C1/C4/C11；`app.json`；`utils/` |
+| L2 | §5 的原文仍保留源码落盘前的历史目录设想；事实注记已声明以 C4 和 `app.json` 为准 | `docs/rules/coding.md` §5；`AGENTS.md` C4 |
+| L3 | 已关闭：`cloudfunctions/api/knowledge/` 当前 16 篇 | 目录列举 2026-10-24 |
 | L4 | §16 实体清单列六类实体，未列圆环 `torus`；§53 曲面测试亦无圆环 | §16/§53 原文；`pages/index/basic-solid.js` 的 `buildTorus` |
 | L5 | §21/§23 要求“解析或半解析优先、不得只依赖渲染网格”，现实现为独立参数网格 + 三角形—平面求交（设计差异，未判违规） | `pages/index/section-geometry.js` |
 | L6 | §7、§17、§25、§48 含 Three.js/WebGL 时代表述（场景分组、材质模板、polygon offset、BufferGeometry、InstancedMesh、`renderer.info`） | 各节原文；当前渲染层为 Canvas 2D |
 | L7 | §34、§36、§43 描述的状态机、动画系统、事件总线在当前 `pages/index/index.js` 未发现实现 | 关键词检索 2026-09-11 |
-| L8 | `README.md` 仍含“名单管理”等过期表述；Skill `SKILL.md` 与部分 references 仍列已删除页面 | `README.md`；`.agents/skills/engineering-drawing-assistant/SKILL.md` |
-| L9 | `AGENTS.md` C10 的未跟踪用户资产清单未覆盖 `.agent/`、`docs/requirements/`、`docs/test/`、`docs/rules/` | `git status` 2026-09-11 |
-| L10 | 三种“基线”含义不同：冻结基线 `aaf75d0`、交接文档基准 `40c6055`、事实核对基准 `ddca4f8` + 工作区改动 | C7、C10、`docs/交接说明.md`、C1 |
+| L8 | 已关闭：README、Skill、architecture 与 frozen-modules 已移除当前功能中的已删除页面和尺规模块表述 | `README.md`；项目 Skill |
+| L9 | 已关闭：`.agent/`、`docs/requirements/`、`docs/test/`、`docs/rules/` 已纳入版本控制；未跟踪资产只保留 C10 明确列出的用户文件 | `git ls-files` |
+| L10 | 三种“基线”含义不同：冻结基线 `aaf75d0`、上一发布 tag `v1.4.0 = fc108fa`、当前工作区冻结 `v1.4.1` | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.4.1-2026-11-03.md`、C1 |
 | L11 | C1 与 §2 的指令优先级次序冲突已关闭：2026-09-11 用户裁决采用 C1 的六级次序，§2 已按其重写；§2 原文（“用户 > 更深目录 AGENTS.md > 本文件 > README 与项目规格 > 注释”）仅存于快照第 294–307 行 | `AGENTS.md` C1/§2；`docs/rules/AGENTS-pre-layering.snapshot.md` |
 
 以上均为事实登记，**未对规则文字做任何修改**；是否修订由用户裁决。
@@ -134,4 +146,5 @@ git -C G:\HFJH status --short
 git -C G:\HFJH log -1 --oneline
 Get-Content -Raw -LiteralPath 'G:\HFJH\app.json'
 Get-ChildItem -LiteralPath 'G:\HFJH\cloudfunctions\api\knowledge' -File
+node scripts/run-all.js
 ```
