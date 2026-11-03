@@ -40,7 +40,7 @@
 
 > **2026-11-02 紧凑画布 UI 冻结**：首页五模式、投影体系、直角三角形法和直角投影定理页完成用户验收，以工作区文件哈希冻结为 `ui-compact-2026-11-02`；详见 `docs/freeze-ui-compact-2026-11-02.md`。该冻结不是 Git commit/tag。
 
-> **2026-11-03 v1.4.1 工作区冻结**：在 `v1.4.0` 基础上缩小直角投影定理页 C/D 拖动圈，扩展两条定理的交叉直线适用范围，并将直角三角形法、直角投影定理的稳定需求与测试用例同步至统一规格；详见 `docs/freeze-v1.4.1-2026-11-03.md`。该冻结不是 Git commit/tag。
+> **2026-11-03 v1.4.1 发布**：在 `v1.4.0` 基础上缩小直角投影定理页 C/D 拖动圈，扩展两条定理的交叉直线适用范围，并将直角三角形法、直角投影定理的稳定需求与测试用例同步至统一规格；Git 发布提交为 `8bca382`，tag `v1.4.1` 已推送。详见 `docs/freeze-v1.4.1-2026-11-03.md`。
 
 > **2026-10-31 知识产权整改**：课程内容由用户确认全部为个人资料；含疑似第三方标识的 AI 头像原件移至仓库外，项目内替换为原创几何头像；三个云函数固定直接依赖并生成 `npm-shrinkwrap.json`，补齐 `THIRD_PARTY_NOTICES.md`；GeoGebra 离线包移至仓库外。权属、依赖和剩余专利核验边界见 `docs/素材权属与第三方依赖记录.md`。
 
@@ -125,7 +125,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 | L7 | §34、§36、§43 描述的状态机、动画系统、事件总线在当前 `pages/index/index.js` 未发现实现 | 关键词检索 2026-09-11 |
 | L8 | 已关闭：README、Skill、architecture 与 frozen-modules 已移除当前功能中的已删除页面和尺规模块表述 | `README.md`；项目 Skill |
 | L9 | 已关闭：`.agent/`、`docs/requirements/`、`docs/test/`、`docs/rules/` 已纳入版本控制；未跟踪资产只保留 C10 明确列出的用户文件 | `git ls-files` |
-| L10 | 三种“基线”含义不同：冻结基线 `aaf75d0`、上一发布 tag `v1.4.0 = fc108fa`、当前工作区冻结 `v1.4.1` | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.4.1-2026-11-03.md`、C1 |
+| L10 | 三种“基线”含义不同：冻结基线 `aaf75d0`、上一发布 tag `v1.4.0 = fc108fa`、当前源码基线 `v1.4.1 = 8bca382` | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.4.1-2026-11-03.md`、C1 |
 | L11 | C1 与 §2 的指令优先级次序冲突已关闭：2026-09-11 用户裁决采用 C1 的六级次序，§2 已按其重写；§2 原文（“用户 > 更深目录 AGENTS.md > 本文件 > README 与项目规格 > 注释”）仅存于快照第 294–307 行 | `AGENTS.md` C1/§2；`docs/rules/AGENTS-pre-layering.snapshot.md` |
 
 以上均为事实登记，**未对规则文字做任何修改**；是否修订由用户裁决。

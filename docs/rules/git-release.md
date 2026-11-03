@@ -6,7 +6,7 @@
 > 全局优先：`AGENTS.md` C10（Git 使用规范）保留在全局层，其中的禁止自行 `commit`/`push`、禁止 `rebase`/`reset --hard`/`--amend`、禁止丢弃工作区改动、敏感信息禁令始终优先于本文件。
 > 加载触发：Git、分支、提交、推送、部署、发布、版本与迁移。
 > 交叉引用：仓库事实、冻结基线与未跟踪资产清单见 `AGENTS.md` C7/C10 与 `docs/rules/project-facts.md`；冻结模块 F1–F8 与核查命令见 `.agents/skills/engineering-drawing-assistant/references/frozen-modules.md`；部署链路见 `docs/交接说明.md` 第 5 节；几何数据版本与轴语义不得无声改变同时约束 `docs/rules/geometry.md`。
-> 现状事实（非规则，核对日期 2026-11-03）：主仓库 `G:\HFJH`、分支 `master`、远程 `origin` = `https://github.com/maoyaqi1/engineering-drawing-assistant.git`（私有）；教师网页发布仓库为 `maoyaqi1/hfjh-teacher-preview`、分支 `main`（GitHub Pages）；冻结基线 v0.6.2 = `aaf75d0`，上一发布 tag `v1.4.0 = fc108fa`，当前源码为 `v1.4.1` 工作区冻结（尚未 commit/tag）；仓库有本地自动检查与离线测试但没有 CI；GitHub 传输在本机网络下不稳定。
+> 现状事实（非规则，核对日期 2026-11-03）：主仓库 `G:\HFJH`、分支 `master`、远程 `origin` = `https://github.com/maoyaqi1/engineering-drawing-assistant.git`（私有）；教师网页发布仓库为 `maoyaqi1/hfjh-teacher-preview`、分支 `main`（GitHub Pages）；冻结基线 v0.6.2 = `aaf75d0`，当前源码基线 `v1.4.1 = 8bca382`，tag `v1.4.1` 已推送；仓库有本地自动检查与离线测试但没有 CI；GitHub 传输在本机网络下不稳定。
 > 迁移基线：`docs/rules/AGENTS-pre-layering.snapshot.md`（2026-09-11 快照）。
 
 ## 本文件章节索引
