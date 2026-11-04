@@ -4,7 +4,7 @@
 > 权威性：本文件正文为迁移前 `AGENTS.md` 的**逐字原文**，未改写、未摘要、未弱化；每节前的“来源”行标明原章节号。
 > 单一权威：同一条规则只有一处正文；其他位置只允许指针。
 > 全局优先：`AGENTS.md` 的文件分级、安全门禁、授权与提交禁止条款始终优先于本文件。
-> 加载触发：学生端页面（`pages/index/`、`pages/ai/`、`pages/survey/`、`pages/terms/`、`pages/login/`、`pages/register/`）、教学交互与呈现、AI 教师界面、可访问性、响应式布局。
+> 加载触发：学生端页面（`pages/index/`、`pages/projection/`、`pages/triangle-method/`、`pages/right-angle-projection/`、`pages/maximum-slope-line/`、`pages/line-plane-relation/`、`pages/ai/`、`pages/survey/`、`pages/terms/`、`pages/login/`、`pages/register/`）、教学交互与呈现、AI 教师界面、可访问性、响应式布局。
 > 交叉引用：产品目标与技术栈边界见 `AGENTS.md` C2/C3 与 §1/§3；点/线/面与立体、截交的真值规则见 `docs/rules/geometry.md`；知识库与 Prompt 的部署、环境变量与数据结构见 `docs/rules/cloud-database.md`；四条回归底线见 `AGENTS.md` C11。
 > 事实与状态注记（非规则，不改写原文）：§34（UI 状态机）、§36（动画系统）、§43（事件与数据流，位于 `docs/rules/coding.md`）在 2026-09-11 的 `pages/index/index.js` 检索中未发现对应实现，属前瞻规则；§35（状态栏）提到“相机状态”，当前实现不含自由旋转相机；§38/§39 含网页端适用部分。事实见 `docs/rules/project-facts.md`。
 > 迁移基线：`docs/rules/AGENTS-pre-layering.snapshot.md`（2026-09-11 快照）。

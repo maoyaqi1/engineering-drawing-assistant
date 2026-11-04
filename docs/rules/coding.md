@@ -61,7 +61,7 @@
 
 以下 `js/*.js` 清单是本章程写于源码落盘前的网页版设想，**当前仓库中并不存在**。实际布局如下：
 
-- `pages/`：当前注册 `index/` 主画布、`projection/` 投影体系、`triangle-method/`、`right-angle-projection/`、`maximum-slope-line/` 三个知识点页、`ai/` AI 教师、`login/`、`register/`、`survey/`、`terms/`；`video/` 源码保留但未注册。
+- `pages/`：当前注册 `index/` 主画布、`projection/` 投影体系、`triangle-method/`、`right-angle-projection/`、`maximum-slope-line/`、`line-plane-relation/` 四个知识点页、`ai/` AI 教师、`login/`、`register/`、`survey/`、`terms/`；`video/` 源码保留但未注册。
 - `utils/`：当前只有 `api.js` 云函数调用封装。
 - `cloudfunctions/api`、`cloudfunctions/teacher`：学生端、教师端云函数，彼此独立。
 - `web/`、`web-release/`：网页版；`teacher-web/`：教师网页控制台。

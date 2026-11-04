@@ -23,6 +23,7 @@ const STEPS = [
   { name: '直角三角形法检查', script: 'scripts/triangle-method-check.cjs' },
   { name: '直角投影定理检查', script: 'scripts/right-angle-projection-check.cjs' },
   { name: '最大斜度线检查', script: 'scripts/maximum-slope-line-check.cjs' },
+  { name: '直线与平面求交点检查', script: 'scripts/line-plane-relation-check.cjs' },
   { name: '截交三视图等价性守护', script: 'scripts/section-projection-check.cjs' },
   { name: '静态接线检查', script: 'scripts/integrity-check.js' },
   { name: '整体静态检查', script: 'scripts/full-check.cjs' },

@@ -9,7 +9,8 @@
     "pages/terms/terms",
     "pages/triangle-method/triangle-method",
     "pages/right-angle-projection/right-angle-projection",
-    "pages/maximum-slope-line/maximum-slope-line"
+    "pages/maximum-slope-line/maximum-slope-line",
+    "pages/line-plane-relation/line-plane-relation"
   ],
   "lazyCodeLoading": "requiredComponents",
   "resizable": true,

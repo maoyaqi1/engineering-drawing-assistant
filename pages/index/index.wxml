@@ -88,6 +88,15 @@
         <text class="knowledge-entry-title">最大斜度线</text>
         <text class="knowledge-entry-subtitle">求平面倾角</text>
       </navigator>
+      <navigator
+        class="knowledge-entry-card active"
+        url="/pages/line-plane-relation/line-plane-relation"
+        hover-class="knowledge-entry-hover"
+        aria-label="进入直线与平面相交求交点"
+      >
+        <text class="knowledge-entry-title">直线与平面</text>
+        <text class="knowledge-entry-subtitle">相交求交点</text>
+      </navigator>
     </view>
   </view>
 

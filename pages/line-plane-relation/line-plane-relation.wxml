@@ -1,0 +1,107 @@
+<view class="lesson-shell">
+  <scroll-view class="lesson-scroll" scroll-y>
+    <view class="selector-card">
+      <view class="selector-group">
+        <text class="selector-label">直线</text>
+        <picker
+          class="selector-picker"
+          mode="selector"
+          range="{{lineOptions}}"
+          value="{{lineIndex}}"
+          bindchange="handleLinePicker"
+        >
+          <view class="selector-control">
+            <text>{{lineOptions[lineIndex]}}</text>
+            <text class="selector-arrow">⌄</text>
+          </view>
+        </picker>
+      </view>
+      <view class="selector-divider"></view>
+      <view class="selector-group">
+        <text class="selector-label">平面</text>
+        <picker
+          class="selector-picker"
+          mode="selector"
+          range="{{planeOptions}}"
+          value="{{planeIndex}}"
+          bindchange="handlePlanePicker"
+        >
+          <view class="selector-control">
+            <text>{{planeOptions[planeIndex]}}</text>
+            <text class="selector-arrow">⌄</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="canvas-card">
+      <view class="card-heading">
+        <view>
+          <text class="card-title">线面相交求交点</text>
+        </view>
+        <button class="reset-button" bindtap="handleReset">重置</button>
+      </view>
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="geometry-canvas"
+        aria-label="直线与平面的空间关系和三面投影作图"
+      ></canvas>
+    </view>
+
+    <view class="guide-card {{isComplete ? 'complete' : ''}}">
+      <view class="guide-heading">
+        <view>
+          <text class="guide-kicker">引导作图</text>
+          <text class="guide-title">第 {{currentStep}} 步 · {{currentStepTitle}}</text>
+        </view>
+        <text class="guide-progress">{{currentStep}} / {{steps.length}}</text>
+      </view>
+
+      <view class="progress-dots">
+        <view
+          wx:for="{{steps}}"
+          wx:key="index"
+          class="progress-dot {{appliedStep >= index + 1 ? 'done' : ''}} {{currentStep === index + 1 ? 'current' : ''}}"
+        ></view>
+      </view>
+
+      <text class="guide-description">{{currentStepDescription}}</text>
+
+      <view
+        class="auxiliary-choice"
+        wx:if="{{methodKind === 'auxiliary' && currentStep === 1 && appliedStep === 0}}"
+      >
+        <text class="auxiliary-choice-label">选择辅助平面的垂直方向</text>
+        <view class="auxiliary-choice-row">
+          <button
+            wx:for="{{auxiliaryOptions}}"
+            wx:key="key"
+            class="auxiliary-choice-chip {{auxiliaryProjectionPlane === item.key ? 'active' : ''}} {{recommendedAuxiliaryProjectionPlane === item.key ? 'recommended' : ''}}"
+            data-plane="{{item.key}}"
+            bindtap="selectAuxiliaryPlane"
+          >
+            <text>{{item.label}}</text>
+            <text
+              class="recommend-tag"
+              wx:if="{{recommendedAuxiliaryProjectionPlane === item.key}}"
+            >推荐</text>
+          </button>
+        </view>
+      </view>
+
+      <button
+        class="guide-action"
+        bindtap="handleStepTap"
+        disabled="{{isComplete}}"
+      >
+        {{isComplete ? '作图完成' : guideActionText}}
+      </button>
+
+      <view class="result-banner {{isComplete ? 'visible' : ''}}">
+        <text class="result-label">作图结果</text>
+        <text class="result-value">{{isComplete ? resultPointText : '完成最后一步后高亮显示'}}</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>
