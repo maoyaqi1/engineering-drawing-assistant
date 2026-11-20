@@ -55,11 +55,6 @@ function getPlane(planeKind) {
   );
 }
 
-function formatPoint(point) {
-  if (!point) return '无唯一交点';
-  return `K(${point.x.toFixed(2)}, ${point.y.toFixed(2)}, ${point.z.toFixed(2)})`;
-}
-
 function buildSteps(geometry) {
   if (!geometry.relation.intersection) {
     if (geometry.relation.kind === 'inPlane') {
@@ -218,8 +213,6 @@ function createMethodPatch(geometry, lineKind, planeKind) {
     currentStepTitle: steps[0].title,
     currentStepDescription: steps[0].description,
     guideActionText: '显示本步作图',
-    resultPointText: intersection ? '按步骤完成作图' : '无唯一交点',
-    resultProjectionText: intersection ? '完成后显示 k、k′、k″' : '不存在 K',
     lineAccumulationText: lineAccumulationPlane
       ? `EF 在 ${lineAccumulationPlane} 面积聚为点`
       : 'EF 无积聚性',
@@ -260,8 +253,6 @@ const pageDefinition = Object.assign({
     currentStepTitle: '作 Q，并求平面内交线 12',
     currentStepDescription: '选择辅助平面的垂直方向，并求 Q 与平面 ABC 的交线 12。',
     guideActionText: '显示本步作图',
-    resultPointText: '按步骤完成作图',
-    resultProjectionText: '完成后显示 k、k′、k″',
     lineAccumulationText: 'EF 无积聚性',
     planeAccumulationText: 'ABC 无积聚性',
     selectionText: '一般位置直线 × 一般位置平面',
@@ -386,8 +377,6 @@ const pageDefinition = Object.assign({
   handleStepTap(event) {
     if (this.data.isComplete) return;
     this.recordInteraction();
-    const geometry = this._geometry;
-    const intersection = geometry && geometry.relation.intersection;
     const currentStep = this.data.currentStep;
     const hasDrawnCurrent = this.data.appliedStep >= currentStep;
     if (!hasDrawnCurrent) {
@@ -395,10 +384,7 @@ const pageDefinition = Object.assign({
       this.setData({
         appliedStep: currentStep,
         isComplete: complete,
-        guideActionText: complete ? '作图完成' : '进入下一步',
-        resultPointText: intersection && complete
-          ? formatPoint(intersection.point)
-          : (intersection ? '作图进行中' : '无唯一交点')
+        guideActionText: complete ? '作图完成' : '进入下一步'
       }, () => this.scheduleCanvasDraw());
       return;
     }
@@ -413,8 +399,6 @@ const pageDefinition = Object.assign({
 
   handleReset() {
     this.recordInteraction();
-    const intersection = this._geometry
-      && this._geometry.relation.intersection;
     const firstStep = this.data.steps && this.data.steps[0];
     this.setData({
       currentStep: 1,
@@ -422,8 +406,7 @@ const pageDefinition = Object.assign({
       isComplete: false,
       currentStepTitle: firstStep ? firstStep.title : '',
       currentStepDescription: firstStep ? firstStep.description : '',
-      guideActionText: '显示本步作图',
-      resultPointText: intersection ? '按步骤完成作图' : '无唯一交点'
+      guideActionText: '显示本步作图'
     }, () => this.scheduleCanvasDraw());
   },
 
@@ -435,9 +418,28 @@ const pageDefinition = Object.assign({
     if (this._sessionRunning || !getApp().globalData.user) return;
     this._sessionEnded = false;
     this._sessionRunning = true;
+    this._pageVisible = true;
+    this._sessionStartPending = true;
+    this._sessionCycle = (this._sessionCycle || 0) + 1;
     this._sessionStart = Date.now();
+    const sessionCycle = this._sessionCycle;
     api.startSession('line-plane-relation').then((res) => {
-      if (res && res.ok) this._sessionId = res.session_id;
+      const sessionId = res && res.ok ? res.session_id : '';
+      if (sessionCycle !== this._sessionCycle) {
+        if (sessionId) api.endSession(sessionId, 0, 0);
+        return;
+      }
+      this._sessionStartPending = false;
+      if (!sessionId) {
+        this._sessionRunning = false;
+        return;
+      }
+      if (!this._pageVisible || this._sessionEnded) {
+        api.endSession(sessionId, 0, 0);
+        this._sessionRunning = false;
+        return;
+      }
+      this._sessionId = sessionId;
       api.recordEvent('chapter_enter', {
         session_id: this._sessionId || '',
         chapter_id: 'line-plane-relation',
@@ -449,13 +451,21 @@ const pageDefinition = Object.assign({
           plane_type: this.data.planeKind
         }
       });
-    }).catch(() => {});
+    }).catch(() => {
+      if (sessionCycle === this._sessionCycle) {
+        this._sessionStartPending = false;
+        this._sessionRunning = false;
+      }
+    });
   },
 
   endLearningSession() {
-    if (!this._sessionRunning || this._sessionEnded) return;
+    this._pageVisible = false;
+    if (this._sessionEnded) return;
+    if (!this._sessionRunning) return;
     this._sessionEnded = true;
     this._sessionRunning = false;
+    if (!this._sessionId) return;
     const duration = Math.max(
       0,
       Math.floor((Date.now() - (this._sessionStart || Date.now())) / 1000)
@@ -475,10 +485,8 @@ const pageDefinition = Object.assign({
         interaction_count: this._interactionCount || 0
       }
     });
-    if (this._sessionId) {
-      api.endSession(this._sessionId, duration, this._interactionCount || 0);
-      this._sessionId = null;
-    }
+    api.endSession(this._sessionId, duration, this._interactionCount || 0);
+    this._sessionId = null;
   }
 }, projection, drawHelpers, renderScene, renderMethods);
 

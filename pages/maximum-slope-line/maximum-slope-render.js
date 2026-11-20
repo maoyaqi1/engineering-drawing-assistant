@@ -73,7 +73,7 @@ const SPATIAL_H_BOTTOM_DEPTH_UNITS = 2 * SPATIAL_PLANE_SPAN
 const SPATIAL_VERTICAL_SPAN_UNITS = SPATIAL_Z_AXIS_UNITS
   + SPATIAL_H_BOTTOM_DEPTH_UNITS;
 const SCREEN_EPSILON = 1e-6;
-const PROJECTION_LINE_WIDTH = 3;
+const PROJECTION_LINE_WIDTH = 2.2;
 
 function normalizeScreenAngle(angle) {
   let wrapped = angle;
@@ -265,14 +265,14 @@ module.exports = {
 
     // 深色空间区用白色衬底保证黑色实线可见；真正表达的线仍为黑色。
     context.strokeStyle = 'rgba(255, 255, 255, 0.72)';
-    context.lineWidth = geometry.isMaximum ? 6.5 : 5.5;
+    context.lineWidth = geometry.isMaximum ? 4.2 : 3.8;
     this.drawLine(
       context,
       this.projectIsometric(geometry.helper.start),
       this.projectIsometric(geometry.helper.end)
     );
     context.strokeStyle = COLORS.helper;
-    context.lineWidth = geometry.isMaximum ? 2.8 : 2.2;
+    context.lineWidth = geometry.isMaximum ? 2 : 1.8;
     context.setLineDash([]);
     this.drawLine(
       context,
@@ -292,7 +292,7 @@ module.exports = {
     context.strokeStyle = geometry.isMaximum
       ? COLORS.maximum
       : COLORS.candidate;
-    context.lineWidth = 1.5;
+    context.lineWidth = 1.4;
     context.setLineDash([]);
     this.drawLine(
       context,
@@ -456,7 +456,7 @@ module.exports = {
 
       if (active && geometry.isMaximum) {
         context.strokeStyle = COLORS.maximumGlow;
-        context.lineWidth = 8;
+        context.lineWidth = 4.5;
         this.drawLine(context, candidateStart, candidateEnd);
       }
       context.strokeStyle = geometry.isMaximum

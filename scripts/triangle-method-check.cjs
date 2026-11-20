@@ -199,6 +199,15 @@ function main() {
     '新页面已注册到 app.json');
   check(!appJson.pages.some((page) => page === 'pages/index/triangle-method'),
     '未改变首页既有路由');
+  const catalog = require('../config/course-catalog.js');
+  const catalogPoint = catalog.chapters
+    .flatMap((chapter) => chapter.points)
+    .find((point) => point.id === 'triangle-method');
+  check(catalogPoint
+    && catalogPoint.availability === 'available'
+    && catalogPoint.route
+    && catalogPoint.route.path === '/pages/triangle-method/triangle-method',
+  '课程首页第二章直接映射到直角三角形法页面');
 
   const pageDir = path.join(ROOT, 'pages', 'triangle-method');
   const wxml = fs.readFileSync(path.join(pageDir, 'triangle-method.wxml'), 'utf8');

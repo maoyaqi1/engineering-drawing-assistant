@@ -33,11 +33,13 @@
     <view class="canvas-card">
       <view class="card-heading">
         <text class="card-title">平面最大斜度线</text>
-        <button
-          class="reset-button"
-          bindtap="handleReset"
-          aria-label="恢复默认平面与候选线"
-        >重置</button>
+        <view class="card-actions">
+          <button
+            class="reset-button"
+            bindtap="handleReset"
+            aria-label="恢复默认平面与候选线"
+          >重置</button>
+        </view>
       </view>
       <canvas
         id="geometryCanvas"

@@ -32,7 +32,9 @@
 
 ---
 
-## 现状核对（核对日期 2026-11-04，上一冻结版本 `v1.5.1` + `v1.6.0` 工作区）
+## 现状核对（核对日期 2026-11-20，当前冻结版本 `v1.7.0`）
+
+> **2026-11-20 v1.7.0 冻结**：课程首页升级为七章知识点导航并新增课程搜索；新增投影法基础、正投影、两直线位置关系、平面的表示方法、线面/面面平行、相交概览和面面相交求交线页面；线面相交与面面相交完成 H/V/W 辅助面、投影联系、三步作图和重置状态收口；面面相交支持 16 种组合，并统一三类投影面垂直面与一般面的正反方案。线面/面面相交页删除底部数值结果横幅。全量本地检查由 40 项增至 53 项。冻结记录见 `docs/freeze-v1.7.0-2026-11-20.md`。
 
 > **2026-10-28 设计审查修复**：知识点匹配改为“显式关键词优先于纯追问继承”；外部课程检索不再发送历史对话；历史测试账号只由 `teacher` 环境变量 `LEGACY_TEST_ACCOUNT_KEYS` 提供，源码和离线夹具改用合成标识；注册页增加本地登录态守卫。
 
@@ -41,6 +43,36 @@
 > **2026-11-03 v1.5.0 冻结**：新增 `pages/maximum-slope-line/` 独立互动页并从首页“平面”模式进入；首页点、直线、平面删除“类型”标题，基本立体删除“尺寸”“姿态”行首标签并将尺寸控件改为弹性单行；AI 教师改为仅在基本立体模式且服务端准入通过后显示的隐藏入口。`node scripts/run-all.js` 当前汇总 39 项检查。
 
 > **2026-11-04 v1.6.0 冻结**：新增 `pages/line-plane-relation/` 线面相交求交点独立互动页并从首页“平面”模式进入；支持四种直线与四种平面组合、H/V/W 辅助垂直面、积聚性求交和三步引导作图；新增专项检查接入后，`node scripts/run-all.js` 当前汇总 40 项检查。
+
+> **2026-11-07 投影法基础页面（工作区，未提交）**：新增 `pages/projection-method/`，只提供中心/平行投影方法演示与不变性、积聚性、从属性、等比性四项性质互动演示；首页第一章原“投影的基本概念”更名为“投影法基础”，保留知识点 ID `projection-basic` 并改指向新页面。该页已以 2026-11-07 工作区哈希冻结，记录见 `docs/freeze-projection-method-2026-11-07.md`；该轮新增专项检查后，`node scripts/run-all.js` 当时汇总 47 项。
+
+> **2026-11-07 正投影页面（工作区，未提交）**：新增 `pages/orthographic-projection/` 并从首页第一章“投影法基础”之后进入，章节顺序为“投影法基础 → 正投影 → 三面投影体系”。页面标题为“正投影的基本性质”，不设顶部独立定义卡，只用一个 Canvas 统一使用真实性、积聚性、相似性，以细实线投射线演示线段和平面图形在三类位置关系下的投影；真实性对应投影面平行线和投影面平行平面，积聚性对应投影面垂直线和投影面垂直平面，相似性对应一般位置直线和一般位置平面。三种状态共用一个放大并固定尺寸的投影面。页面同时说明其与后续求解的衔接。新增专项检查后，`node scripts/run-all.js` 当前汇总 48 项。
+
+> **2026-11-07 课程目录与线/面模式 UI 冻结（工作区，未提交）**：课程目录、正投影页、点/直线/平面模式导航、投影体系页头及相关检查已冻结为 `course-ui-compact-2026-11-07`，记录见 `docs/freeze-course-ui-2026-11-07.md`。当前冻结不是 Git commit、tag 或部署。
+
+> **2026-11-08 两直线位置关系页（工作区，未提交）**：`pages/two-line-position/` 从首页第二章直接进入。页面第一排为“平行判断 / 相交判断”，第二排为“一般位置直线 / 特殊位置直线”，默认平行判断、一般位置直线；不提供端点拖动、旋转、重置、交叉选项或“为什么”。一般位置案例三面投影符合平行或相交规律；特殊位置平行反例使用两条方向不同的侧平线，正面、水平投影看似平行但侧面投影不平行；特殊位置相交反例使用水平线和正平线，正面、水平视交点不满足长对正，侧面视交点也不能对应同一空间点。底部按当前判断类型显示准则正文及一般/特殊位置高亮要点。专项检查更新后，`node scripts/run-all.js` 当前汇总 49 项。
+
+> **2026-11-19 线面、面面平行页（工作区，未提交）**：新增 `pages/parallel-relations/` 静态图文页，课程首页第四章“线面、面面平行”改为直接映射。页面用两幅静态 Canvas 表达线面、面面平行条件，提供两个 `wx.openChannelsActivity` 视频号入口；视频身份与 feedId 集中配置，未配置时不伪造播放。
+
+> **2026-11-19 线面、面面相交概览页（工作区，未提交）**：新增 `pages/intersection-relations/`，课程首页第四相交知识点先进入概念概览页；“线面相交”进入既有求交点页，“面面相交”保留入口并提示互动页暂未开放。
+
+> **2026-11-19 面面相交求交线页（工作区，未提交）**：新增 `pages/plane-plane-relation/`，沿用线面求交点页格式，两个平面选择器均提供四类平面；13 种组合生成交线，3 种同向特殊平面识别为平行；所有组合均使用三角形 ABC、EFG 表示两块平面，且每个三角形边至少具有两个非零坐标分量，不平行于 X/Y/Z 任一轴；ABC 整体向原点适度内移，AB 与 EF 不重合，空间及三视图中的顶点均与另一平面边线保持可见间距；特殊位置 ABC 的 B、C 点位于较高 Z 范围且 B 点 Z 明显大于 C 点；两次线面求交分别显示辅助投影面垂直面、积聚迹线及 K/E 的投影联系，再连接成交线；第一次求 K 的构造系统使用紫色，第二次求 E 使用蓝色，各构造交线端点投影到三视图并绘制同色联系线；特殊位置交点与交线端点使用同一几何数据，P/Q 与积聚标签在几何和交点之后进行碰撞避让。概览页“面面相交”已接入本页。
+
+> **2026-11-19 面面相交 EG/EF 与 H 面标签补充（工作区，未提交）**：P 有积聚性而 Q 为一般位置平面时，交点 1 精确取 `EG ∩ P`，交点 2 精确取 `EF ∩ P`；H 面 P 标签左移、a 标签上移，P/Q 与积聚标签在几何和交点之后绘制并避让。
+
+> **2026-11-19 面面相交投影错开补充（工作区，未提交）**：全部 16 种组合在 V/H/W 三视图中检查跨平面的近于平行边对及点与点、点与边净距；相交与平行分支均重新选择三角形显示范围，使边对垂直净距不小于 `0.35`，点相关净距不小于 `0.15` 个模型单位。
+
+> **2026-11-19 面面相交交线长度补充（工作区，未提交）**：特殊位置可见交线长度约束为不小于 `1.5` 个模型单位，避免为了避让投影而把 1、2 两点压缩到近似重合。
+
+> **2026-11-19 面面相交命名补充（工作区，未提交）**：学生界面统一使用平面 ABC、EFG，不再显示 P/Q 名称；内部 `planeP`、`planeQ` 仅作为代码变量。
+
+> **2026-11-20 面面相交垂直面统一方案（工作区，未提交）**：“铅垂面、正垂面或侧垂面 ABC × 一般面 EFG”分别作为对应组合的唯一基准；切换成“一般面 ABC × 铅垂面、正垂面或侧垂面 EFG”时直接复用对应基准三角形和交线，仅交换 ABC、EFG 角色及积聚性，不重新选择等价方案。
+
+> **2026-11-20 相交页结果横幅移除（工作区，未提交）**：线面相交页和面面相交页移除底部单独的“作图结果/交线结果”数值横幅，同时删除不再使用的结果状态字段与样式；作图结果继续由画布、步骤说明和三面投影表达。
+
+> **2026-11-20 学生端产品基线冻结（工作区，未提交）**：当前学生端根入口、19 个已注册页面、课程配置、客户端工具、检查脚本、需求测试文档和项目事实冻结为 `student-product-2026-11-20`；完整文件哈希见 `docs/freeze-student-product-2026-11-20.sha256`，行为契约与验证见 `docs/freeze-student-product-2026-11-20.md`。该冻结不是 Git commit、tag、部署或线上发布。
+
+> **2026-11-08 直线章节冻结（工作区，未提交）**：第二章“直线的投影”四个知识点冻结为 `line-chapter-2026-11-08`，记录见 `docs/freeze-line-chapter-2026-11-08.md`。三个独立知识点页及专项检查按整文件冻结；共享的 `pages/index/`、课程目录和 `app.json` 仍允许平面章节开发修改，但必须保持第二章顺序、路由、七种直线类型、投影拖动和三个知识点的既有行为，并重新通过直线章节回归。
 
 > **2026-11-02 紧凑画布 UI 冻结**：首页五模式、投影体系、直角三角形法和直角投影定理页完成用户验收，以工作区文件哈希冻结为 `ui-compact-2026-11-02`；详见 `docs/freeze-ui-compact-2026-11-02.md`。该冻结不是 Git commit/tag。
 
@@ -74,7 +106,7 @@
 
 ### 1. 小程序页面清单
 
-`app.json` 的 `pages` 数组当前注册 11 个页面：`pages/login/login`、`pages/register/register`、`pages/index/index`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`、`pages/maximum-slope-line/maximum-slope-line`、`pages/line-plane-relation/line-plane-relation`。`pages/triangle-method/` 已以工作区哈希冻结；`pages/right-angle-projection/` 是直角投影定理第一阶段原型；`pages/maximum-slope-line/` 和 `pages/line-plane-relation/` 从首页“平面”模式进入。`pages/video/` 源码保留但未注册、不进入小程序包；`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 已删除。
+`app.json` 的 `pages` 数组当前注册 19 个页面：`pages/login/login`、`pages/register/register`、`pages/home/home`、`pages/index/index`、`pages/projection-method/projection-method`、`pages/orthographic-projection/orthographic-projection`、`pages/two-line-position/two-line-position`、`pages/plane-representation/plane-representation`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`、`pages/maximum-slope-line/maximum-slope-line`、`pages/parallel-relations/parallel-relations`、`pages/intersection-relations/intersection-relations`、`pages/plane-plane-relation/plane-plane-relation`、`pages/line-plane-relation/line-plane-relation`。`pages/parallel-relations/` 提供平行条件静态图文；`pages/intersection-relations/` 先提供相交概念概览，再分别进入线面求交点页和面面求交线页。
 
 ### 2. 目录结构（顶层）
 
@@ -97,7 +129,7 @@
 
 ### 4. 自动化测试与 CI
 
-仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 40 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
+仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 53 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
 
 ### 5. 云函数结构
 
@@ -129,7 +161,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 | L7 | §34、§36、§43 描述的状态机、动画系统、事件总线在当前 `pages/index/index.js` 未发现实现 | 关键词检索 2026-09-11 |
 | L8 | 已关闭：README、Skill、architecture 与 frozen-modules 已移除当前功能中的已删除页面和尺规模块表述 | `README.md`；项目 Skill |
 | L9 | 已关闭：`.agent/`、`docs/requirements/`、`docs/test/`、`docs/rules/` 已纳入版本控制；未跟踪资产只保留 C10 明确列出的用户文件 | `git ls-files` |
-| L10 | 各基线含义不同：冻结基线 `aaf75d0`、上一冻结版本 `v1.5.1`（用户确认，当前本地无同名 tag）、当前源码冻结 `v1.6.0`（tag 指向本冻结提交） | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.6.0-2026-11-04.md`、C1 |
+| L10 | 各基线含义不同：冻结基线 `aaf75d0`、历史版本 `v1.5.1`、上一版本 `v1.6.0`、当前源码冻结 `v1.7.0`（tag 指向本冻结提交） | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.6.0-2026-11-04.md`、`docs/freeze-v1.7.0-2026-11-20.md`、C1 |
 | L11 | C1 与 §2 的指令优先级次序冲突已关闭：2026-09-11 用户裁决采用 C1 的六级次序，§2 已按其重写；§2 原文（“用户 > 更深目录 AGENTS.md > 本文件 > README 与项目规格 > 注释”）仅存于快照第 294–307 行 | `AGENTS.md` C1/§2；`docs/rules/AGENTS-pre-layering.snapshot.md` |
 
 以上均为事实登记，**未对规则文字做任何修改**；是否修订由用户裁决。

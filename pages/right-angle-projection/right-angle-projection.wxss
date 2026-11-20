@@ -52,18 +52,21 @@
 .plane-symbol { font-size: 16px; font-weight: 800; }
 
 .reset-button {
-  height: 30px;
+  height: 26px;
   margin: 0;
-  padding: 0 11px;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  padding: 0;
   border: 1px solid #cad8e7;
   border-radius: 8px;
   background: #edf4f8;
   color: #245a75;
-  font-size: 12px;
-  line-height: 28px;
+  font-size: 11px;
+  line-height: 24px;
 }
 
-.reset-button { flex: none; }
+.reset-button { flex: none; text-align: center; }
 
 .canvas-card {
   margin-top: 8px;
@@ -80,7 +83,25 @@
   gap: 10px;
 }
 
-.card-title { color: #26384d; font-size: 15px; font-weight: 700; }
+.card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.card-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #26384d;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .geometry-canvas {
   display: block;
@@ -177,5 +198,6 @@
     margin-left: 20px;
   }
 
+  .card-actions { gap: 4px; }
   .geometry-canvas { height: 420px; }
 }

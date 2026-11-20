@@ -1,0 +1,83 @@
+<view class="lesson-shell">
+  <scroll-view class="lesson-scroll" scroll-y>
+    <view class="selector-card">
+      <view class="selector-group">
+        <text class="selector-label">平面 ABC</text>
+        <picker
+          class="selector-picker"
+          mode="selector"
+          range="{{planePOptions}}"
+          value="{{planePIndex}}"
+          bindchange="handlePlanePPicker"
+        >
+          <view class="selector-control">
+            <text class="selector-value">{{planePOptions[planePIndex]}}</text>
+            <text class="selector-arrow">⌄</text>
+          </view>
+        </picker>
+      </view>
+      <view class="selector-divider"></view>
+      <view class="selector-group">
+        <text class="selector-label">平面 EFG</text>
+        <picker
+          class="selector-picker"
+          mode="selector"
+          range="{{planeQOptions}}"
+          value="{{planeQIndex}}"
+          bindchange="handlePlaneQPicker"
+        >
+          <view class="selector-control">
+            <text class="selector-value">{{planeQOptions[planeQIndex]}}</text>
+            <text class="selector-arrow">⌄</text>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="canvas-card">
+      <view class="card-heading">
+        <text class="card-title">面面相交求交线</text>
+        <button class="reset-button" bindtap="handleReset">重置</button>
+      </view>
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="geometry-canvas"
+        aria-label="两个平面的空间关系、交线和三面投影作图"
+      ></canvas>
+    </view>
+
+    <view class="guide-card {{isComplete ? 'complete' : ''}}">
+      <view class="guide-heading">
+        <view class="guide-heading-main">
+          <text class="guide-kicker">引导作图 · {{methodLabel}}</text>
+          <text class="guide-title">第 {{currentStep}} 步 · {{currentStepTitle}}</text>
+        </view>
+        <text class="guide-progress">{{currentStep}} / {{steps.length}}</text>
+      </view>
+
+      <view class="method-status">
+        <text class="method-chip">{{methodBadge}}</text>
+        <text class="method-status-text">{{accumulationPText}} · {{accumulationQText}}</text>
+      </view>
+
+      <view class="progress-dots">
+        <view
+          wx:for="{{steps}}"
+          wx:key="index"
+          class="progress-dot {{appliedStep >= index + 1 ? 'done' : ''}} {{currentStep === index + 1 ? 'current' : ''}}"
+        ></view>
+      </view>
+
+      <text class="guide-description">{{currentStepDescription}}</text>
+
+      <button
+        class="guide-action {{isComplete ? 'disabled' : ''}}"
+        bindtap="handleStepTap"
+        disabled="{{isComplete}}"
+      >
+        {{isComplete ? '作图完成' : guideActionText}}
+      </button>
+    </view>
+  </scroll-view>
+</view>

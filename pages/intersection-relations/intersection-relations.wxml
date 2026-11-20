@@ -1,0 +1,94 @@
+<view class="intersection-page">
+  <scroll-view class="page-scroll" scroll-y="{{true}}">
+    <view class="page-content">
+      <view class="page-intro">
+        <text class="eyebrow">第四章 · 位置关系</text>
+        <text class="page-title">线面、面面相交</text>
+        <text class="page-lead">先判断位置，再选择积聚性投影或辅助平面法。</text>
+      </view>
+
+      <view class="entry-grid">
+        <button
+          class="entry-button line-entry"
+          bindtap="openLinePlane"
+          aria-label="进入线面相交求交点互动页"
+        >
+          <view class="entry-icon line-icon" aria-hidden="true">
+            <view class="line-icon-plane"></view>
+            <view class="line-icon-line"></view>
+          </view>
+          <view class="entry-copy">
+            <text class="entry-title">线面相交</text>
+            <text class="entry-note">进入求交点互动作图</text>
+          </view>
+          <text class="entry-arrow">›</text>
+        </button>
+
+        <button
+          class="entry-button plane-entry"
+          bindtap="openPlanePlane"
+          aria-label="查看两平面相交概念"
+        >
+          <view class="entry-icon plane-icon" aria-hidden="true">
+            <view class="plane-sheet plane-sheet-a"></view>
+            <view class="plane-sheet plane-sheet-b"></view>
+          </view>
+          <view class="entry-copy">
+            <text class="entry-title">面面相交</text>
+            <text class="entry-note">进入求交线互动作图</text>
+          </view>
+          <text class="entry-arrow">›</text>
+        </button>
+      </view>
+
+      <view class="overview-card">
+        <text class="overview-title">相交关系总述</text>
+        <text class="overview-text">
+          直线与平面、平面与平面不平行则必相交。直线与平面相交有交点，交点既在直线上又在平面上，因而交点是直线与平面<text class="highlight">共有</text>的点。两平面的交线是直线，它是两个平面的<text class="highlight">共有</text>线。求线面交点、面面交线的实质是求<text class="highlight">共有</text>点、<text class="highlight">共有</text>线的投影。
+        </text>
+      </view>
+
+      <view class="concept-card line-concept">
+        <view class="concept-heading">
+          <text class="concept-index">1</text>
+          <text class="concept-title">直线与平面相交</text>
+        </view>
+        <text class="concept-paragraph">
+          <text class="highlight">特殊位置线面相交</text>，其交点的投影可
+          <text class="highlight">利用直线或平面的积聚性投影直接求出</text>。
+        </text>
+        <view class="method-row">
+          <text class="method-tag">积聚性</text>
+          <text class="method-text">先得到一个交点的投影，再补齐其余投影。</text>
+        </view>
+        <text class="concept-paragraph general-method">
+          采用<text class="highlight">辅助平面法</text>求一般位置线面的交点。
+        </text>
+      </view>
+
+      <view class="concept-card plane-concept">
+        <view class="concept-heading">
+          <text class="concept-index second-index">2</text>
+          <text class="concept-title">两平面相交</text>
+        </view>
+        <text class="concept-paragraph">
+          一般位置平面与特殊位置平面求两平面交线的问题可以看作是求两个共有点的问题。由于
+          <text class="highlight">特殊位置平面的某个投影有积聚性，交线可直接求出</text>。
+        </text>
+        <view class="method-row second-method">
+          <text class="method-tag">积聚性</text>
+          <text class="method-text">共有点落在积聚投影上，交线投影可直接确定。</text>
+        </view>
+        <text class="concept-paragraph general-method">
+          求两平面交线的问题可以看作是求两个共有点的问题，因而
+          <text class="highlight">可利用求一般位置线面交点的方法找出交线上的两个点</text>，将其连线即为两平面的交线。
+        </text>
+      </view>
+
+      <view class="summary-card">
+        <text class="summary-title">求交思路</text>
+        <text class="summary-text">能直接利用积聚性时，先取已知投影；不能直接求时，把“面面交线”转化为“求两个线面共有点”。</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -1,0 +1,269 @@
+.lesson-shell {
+  --lesson-navy: #0b417a;
+  --lesson-blue: #126fd3;
+  --lesson-sky: #44a4ed;
+  --lesson-line: rgba(103, 169, 228, 0.38);
+  --lesson-muted: #617f9b;
+  min-height: 100vh;
+  background:
+    radial-gradient(84% 46% at 104% 0%, rgba(96, 181, 255, 0.28), rgba(96, 181, 255, 0) 66%),
+    linear-gradient(180deg, #e8f5ff 0%, #f8fcff 42%, #edf8ff 100%);
+  color: var(--lesson-navy);
+}
+
+.lesson-scroll {
+  height: 100vh;
+}
+
+.content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 8rpx 16rpx calc(22rpx + env(safe-area-inset-bottom));
+}
+
+.lesson-card {
+  border: 1rpx solid var(--lesson-line);
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 7rpx 20rpx rgba(36, 105, 170, 0.08);
+}
+
+.lesson-card {
+  margin-top: 0;
+  padding: 14rpx;
+}
+
+.lesson-card + .lesson-card {
+  margin-top: 10rpx;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.section-heading > view:first-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.section-title {
+  color: #0c467f;
+  font-size: 30rpx;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.section-lead {
+  display: block;
+  margin-top: 5rpx;
+  color: var(--lesson-muted);
+  font-size: 21rpx;
+  line-height: 1.55;
+}
+
+.demo-canvas {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 8rpx;
+  border: 1rpx solid rgba(91, 153, 208, 0.3);
+  border-radius: 18rpx;
+  background: #f7fbff;
+}
+
+.methods-canvas {
+  height: 360rpx;
+}
+
+.property-canvas {
+  height: 640rpx;
+}
+
+.segment-button,
+.property-tab {
+  box-sizing: border-box;
+  margin: 0;
+  border: 1rpx solid #c8dded;
+  background: #f2f8fd;
+  color: #285a82;
+  font-size: 21rpx;
+  font-weight: 650;
+}
+
+.replay-button {
+  flex: none;
+  height: 48rpx;
+  margin: 0;
+  padding: 0 14rpx;
+  border: 1rpx solid #75b6e9;
+  border-radius: 999rpx;
+  background: #e7f5ff;
+  color: #1265b0;
+  font-size: 19rpx;
+  font-weight: 700;
+  line-height: 46rpx;
+}
+
+.segmented-control {
+  display: flex;
+  gap: 8rpx;
+  margin-top: 9rpx;
+  padding: 5rpx;
+  border-radius: 13rpx;
+  background: #ecf5fc;
+}
+
+.segment-button {
+  flex: 1;
+  height: 46rpx;
+  padding: 0 5rpx;
+  border: 0;
+  border-radius: 10rpx;
+  background: transparent;
+  font-size: 20rpx;
+  line-height: 46rpx;
+}
+
+.segment-button.active {
+  background: #ffffff;
+  color: #0b66bb;
+  box-shadow: 0 4rpx 11rpx rgba(29, 93, 151, 0.12);
+}
+
+.parallel-projection-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 5rpx;
+  margin-top: 7rpx;
+  padding: 7rpx 10rpx;
+  border: 1rpx solid #dceaf5;
+  border-radius: 12rpx;
+  background: #f8fcff;
+}
+
+.parallel-projection-bar slider {
+  width: 100%;
+  margin: 0;
+}
+
+.ray-angle {
+  color: #54748e;
+  font-size: 18rpx;
+  text-align: right;
+}
+
+.ray-angle.orthographic {
+  color: #d44b57;
+  font-weight: 750;
+}
+
+.property-tabs {
+  display: flex;
+  gap: 7rpx;
+  margin-top: 9rpx;
+  min-width: 0;
+}
+
+.property-tab {
+  flex: 1;
+  min-width: 0;
+  height: 48rpx;
+  padding: 0 4rpx;
+  border-radius: 10rpx;
+  background: #f7fbff;
+  font-size: 19rpx;
+  line-height: 46rpx;
+}
+
+.property-tab.active {
+  border-color: #4a9ce0;
+  background: #e7f5ff;
+  color: #0d63b7;
+  box-shadow: inset 0 0 0 1rpx rgba(25, 125, 212, 0.08);
+}
+
+.property-explanation {
+  display: block;
+  margin-top: 7rpx;
+  padding: 8rpx 11rpx;
+  border-radius: 11rpx;
+  background: #f0f8ff;
+  color: #526f88;
+  font-size: 19rpx;
+  line-height: 1.45;
+}
+
+.property-result {
+  display: block;
+  margin-top: 4rpx;
+  color: #0e65ad;
+  font-size: 19rpx;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+@media (min-width: 700px) {
+  .content {
+    padding: 7px 20px 18px;
+  }
+
+  .lesson-card {
+    margin-top: 0;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .lesson-card + .lesson-card {
+    margin-top: 6px;
+  }
+
+  .section-title {
+    font-size: 19px;
+  }
+
+  .section-lead {
+    font-size: 13px;
+  }
+
+  .methods-canvas {
+    height: 320px;
+  }
+
+  .property-canvas {
+    height: 460px;
+  }
+
+  .replay-button {
+    height: 30px;
+    padding: 0 9px;
+    font-size: 12px;
+    line-height: 28px;
+  }
+
+  .property-explanation {
+    margin-top: 5px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .content {
+    padding-right: 14rpx;
+    padding-left: 14rpx;
+  }
+
+  .lesson-card {
+    padding: 11rpx;
+  }
+
+  .property-tabs {
+    width: 100%;
+  }
+}

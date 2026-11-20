@@ -300,13 +300,15 @@ function main() {
   check(appJson.pages.includes(
     'pages/maximum-slope-line/maximum-slope-line'
   ), '最大斜度线页面已注册到 app.json');
-  const homeWxml = fs.readFileSync(
-    path.join(ROOT, 'pages/index/index.wxml'),
-    'utf8'
-  );
-  check(homeWxml.includes(
-    'url="/pages/maximum-slope-line/maximum-slope-line"'
-  ), '首页平面模式入口已连接最大斜度线页面');
+  const catalog = require('../config/course-catalog.js');
+  const catalogPoint = catalog.chapters
+    .flatMap((chapter) => chapter.points)
+    .find((point) => point.id === 'maximum-slope-line');
+  check(catalogPoint
+    && catalogPoint.availability === 'available'
+    && catalogPoint.route
+    && catalogPoint.route.path === '/pages/maximum-slope-line/maximum-slope-line',
+  '课程首页第三章已直接映射最大斜度线页面');
 
   const pageDir = path.join(ROOT, 'pages/maximum-slope-line');
   const wxml = fs.readFileSync(
@@ -346,12 +348,20 @@ function main() {
     && wxml.includes('{{planeAngleText}}')
     && wxml.includes('{{lineAngleText}}'),
   '页面包含平面夹角、当前直线夹角和最大值状态数据栏');
+  check(!wxml.includes('/pages/home/home')
+    && !wxml.includes('返回课程首页')
+    && wxss.includes('white-space: nowrap;')
+    && wxss.includes('flex: 0 0 48px;')
+    && wxss.includes('width: 48px;')
+    && wxss.includes('height: 26px;')
+    && wxss.includes('margin-left: auto;'),
+  '页面删除首页入口，标题单行且重置按钮紧凑靠右');
   check(wxss.includes('height: 460px;')
     && wxss.includes('height: 420px;'),
   '页面沿用两个知识点页的 460/420 画布高度');
-  check(renderSource.includes('const PROJECTION_LINE_WIDTH = 3;')
+  check(renderSource.includes('const PROJECTION_LINE_WIDTH = 2.2;')
     && (renderSource.match(/lineWidth = PROJECTION_LINE_WIDTH/g) || []).length >= 3,
-  '三个投影视图中的迹线、平行线和最大斜度线统一使用相同粗实线');
+  '三个投影视图中的迹线、平行线和最大斜度线统一使用适中细实线');
   check(renderSource.includes("'V', left + 17, top + 52")
     && renderSource.includes("'W', left + width - 17, top + 52")
     && renderSource.includes("'H', left + 17, top + height - 25"),
@@ -363,7 +373,6 @@ function main() {
   check(renderSource.includes('layout.leftWidth - 12')
     && renderSource.includes("'#ffffff'")
     && renderSource.includes("geometry.isMaximum ? COLORS.maximum : '#202124'")
-    && renderSource.includes('lineWidth = 1.5')
     && renderSource.includes('lineWidth = 1.4')
     && renderSource.includes('left + width - 16')
     && renderSource.includes('top + height - 36'),

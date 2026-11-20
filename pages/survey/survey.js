@@ -1,4 +1,5 @@
 const api = require('../../utils/api.js');
+const surveyInvite = require('../../utils/survey-invite.js');
 
 // 学习效果问卷的前端页面。
 //
@@ -44,7 +45,17 @@ Page({
     submitted: false
   },
 
-  onLoad() {
+  onLoad(options) {
+    const rawInviteKey = options && options.invite_key;
+    if (rawInviteKey) {
+      try {
+        this._expectedInviteKey = decodeURIComponent(String(rawInviteKey));
+      } catch (error) {
+        this._expectedInviteKey = String(rawInviteKey);
+      }
+    } else {
+      this._expectedInviteKey = '';
+    }
     // R32/D17：问卷页必须先登录（未登录跳登录页）；是否可提交由服务端按名册判定（D15）
     const app = getApp();
     if (!app.globalData.user) {
@@ -104,6 +115,7 @@ Page({
     api.submitSurvey(answers).then((res) => {
       this.setData({ submitting: false });
       if (res && res.ok) {
+        surveyInvite.clearAfterSubmit(this._expectedInviteKey);
         this.setData({ submitted: true });
         wx.showToast({ title: '已提交，感谢反馈', icon: 'success' });
       } else {
@@ -123,6 +135,6 @@ Page({
 
   // 问卷入口是独立页面，完成后返回首页而不是回退到可能已经失效的页面栈。
   backHome() {
-    wx.redirectTo({ url: '/pages/index/index' });
+    wx.reLaunch({ url: '/pages/home/home' });
   }
 });

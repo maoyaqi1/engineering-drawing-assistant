@@ -118,7 +118,8 @@ const lessonCard = () => {
   return pad + index + title + body + formula;
 };
 const intro = () => padV('.mobile-intro') + Math.max(textH('.intro-title', 13), textH('.status-pill', 10) + padV('.status-pill'));
-const toolbar = boxHeight('.app-toolbar', 34) + get('.app-toolbar', 'border-bottom-width', 2);
+// 导航迁移后学习页使用微信原生标题栏，不再有页面内常驻工具栏。
+const toolbar = 0;
 const shellBottom = 12 + 20; // calc(12px + env(safe-area-inset-bottom))，PAD 横屏按 20 计
 
 const margins = marginV('.canvas-card') + marginV('.lesson-card');

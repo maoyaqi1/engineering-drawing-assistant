@@ -23,27 +23,6 @@
   box-shadow: 0 8rpx 24rpx rgba(36, 55, 82, 0.07);
 }
 
-.app-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  height: 84rpx;
-  padding: 0 12rpx;
-  overflow: hidden;
-  border-bottom: 4rpx solid #1684ff;
-  background: #202124;
-  color: #ffffff;
-}
-
-.profile-entry { flex: none; display: flex; align-items: center; gap: 8rpx; margin-right: 10rpx; padding: 8rpx 6rpx; }
-.profile-avatar { flex: none; width: 42rpx; height: 42rpx; line-height: 42rpx; border-radius: 50%; background: #2f3d54; color: #ffffff; font-size: 26rpx; text-align: center; }
-.profile-link { color: #ffffff; font-size: 22rpx; white-space: nowrap; }
-.module-picker { flex: 1; min-width: 0; }
-.module-selector { display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%; height: 56rpx; padding: 0 18rpx; border: 1rpx solid #5a5c61; border-radius: 10rpx; background: #087df0; color: #fff; font-size: 24rpx; font-weight: 650; }
-.selector-arrow { margin-left: 16rpx; color: rgba(255,255,255,.8); font-size: 26rpx; }
-
 .type-panel { display: flex; flex-direction: column; width: 100%; padding: 6rpx 12rpx 8rpx; border-bottom: 1rpx solid #e3e8ef; background: #ffffff; box-shadow: 0 2rpx 10rpx rgba(20,40,80,.04); box-sizing: border-box; }
 .type-panel-compact { padding-top: 2rpx; padding-bottom: 4rpx; }
 .type-panel-compact .type-toolbar { gap: 6rpx; }
@@ -74,10 +53,39 @@
 .lesson-card { padding: 22rpx; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
 .card-heading > view:first-child { display: flex; flex-direction: column; }
+.card-actions { display: flex; flex: none; align-items: center; gap: 8rpx; margin-left: 12rpx; }
 .card-heading.compact { margin-bottom: 8rpx; }
 .card-title { font-size: 30rpx; font-weight: 650; }
 .card-caption { margin-top: 5rpx; font-size: 22rpx; color: #778397; }
 .ghost-button { margin: 0; padding: 0 20rpx; height: 54rpx; line-height: 54rpx; border-radius: 14rpx; background: #edf4f8; color: #245a75; font-size: 22rpx; }
+.home-entry { box-sizing: border-box; text-align: center; }
+.home-entry-hover { background: #dfeeff; }
+
+.mode-line .card-heading,
+.mode-plane .card-heading { gap: 8rpx; margin-bottom: 4rpx; }
+.mode-line .card-title,
+.mode-plane .card-title {
+  overflow: hidden;
+  font-size: 28rpx;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mode-line .card-caption,
+.mode-plane .card-caption { display: none; }
+.mode-line .card-actions,
+.mode-plane .card-actions { margin-left: auto; }
+.mode-line .card-actions .ghost-button,
+.mode-plane .card-actions .ghost-button {
+  flex: 0 0 92rpx;
+  width: 92rpx;
+  min-width: 92rpx;
+  max-width: 92rpx;
+  height: 46rpx;
+  padding: 0;
+  font-size: 20rpx;
+  line-height: 46rpx;
+}
 
 .geometry-canvas { display: block; width: 100%; flex: 1 1 auto; min-height: 640px; border: 1rpx solid #25272b; border-radius: 12rpx; background: #fff; }
 
@@ -228,17 +236,11 @@
 @media (min-width: 500px) {
   .page-shell { padding: 0 0 calc(12px + env(safe-area-inset-bottom)); }
   .canvas-card, .lesson-card { margin: 0 7px 6px; border: 0.5px solid rgba(109, 130, 156, 0.16); border-radius: 11px; box-shadow: 0 4px 12px rgba(36, 55, 82, 0.07); }
-  .app-toolbar { height: 42px; padding: 0 6px; border-bottom: 2px solid #1684ff; }
-  .profile-entry { gap: 4px; margin-right: 5px; padding: 4px 3px; }
-  .profile-avatar { width: 21px; height: 21px; line-height: 21px; font-size: 13px; }
-  .profile-link { font-size: 11px; }
-  .module-selector { height: 28px; padding: 0 9px; border: 0.5px solid #5a5c61; border-radius: 5px; font-size: 12px; }
   .knowledge-entry-row { gap: 4px; margin-top: 5px; }
   .knowledge-entry-label { width: 47px; font-size: 10px; }
   .knowledge-entry-card { min-height: 34px; padding: 3px 6px; border-width: 0.5px; border-radius: 5px; }
   .knowledge-entry-title { font-size: 11px; }
   .knowledge-entry-subtitle { font-size: 9px; }
-  .selector-arrow { margin-left: 8px; font-size: 13px; }
   .type-panel { padding: 3px 6px 4px; border-bottom: 0.5px solid #e3e8ef; box-shadow: 0 1px 5px rgba(20,40,80,.04); }
   .type-panel-compact { padding-top: 1px; padding-bottom: 2px; }
   .type-panel-compact .knowledge-entry-row { margin-top: 3px; }
@@ -264,9 +266,25 @@
   .lesson-card { padding: 11px; }
   .card-heading { margin-bottom: 4px; }
   .card-heading.compact { margin-bottom: 4px; }
+  .card-actions { gap: 4px; margin-left: 6px; }
   .card-title { font-size: 15px; }
   .card-caption { margin-top: 2.5px; font-size: 11px; }
   .ghost-button { padding: 0 10px; height: 27px; line-height: 27px; border-radius: 7px; font-size: 11px; }
+  .mode-line .card-heading,
+  .mode-plane .card-heading { gap: 6px; margin-bottom: 2px; }
+  .mode-line .card-title,
+  .mode-plane .card-title { font-size: 15px; }
+  .mode-line .card-actions .ghost-button,
+  .mode-plane .card-actions .ghost-button {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    height: 26px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 26px;
+  }
   .geometry-canvas { border: 0.5px solid #25272b; border-radius: 6px; }
   .legend-row { gap: 10px; margin-top: 7px; font-size: 10.5px; }
   .legend-dot { width: 6.5px; height: 6.5px; margin-right: 4.5px; }
@@ -348,11 +366,6 @@
   .section-control + .section-control { margin-top: 0; }
 
   /* 宽屏专属：最大限度压缩上下留白，把高度让给画布 */
-  .app-toolbar { height: 34px; }
-  .module-selector { height: 24px; font-size: 11px; padding: 0 8px; }
-  .profile-entry { padding: 2px 3px; margin-right: 4px; }
-  .profile-avatar { width: 18px; height: 18px; line-height: 18px; font-size: 11px; }
-  .profile-link { font-size: 11px; }
   .type-panel { padding: 2px 6px 3px; }
   .type-panel-compact { padding-top: 0; padding-bottom: 1px; }
   .type-panel-compact .knowledge-entry-row { margin-top: 2px; }

@@ -61,7 +61,17 @@
 }
 
 .card-heading > view:first-child { display: flex; flex-direction: column; min-width: 0; }
-.card-title { color: #26384d; font-size: 14px; font-weight: 700; }
+.card-actions { display: flex; flex: none; align-items: center; gap: 5px; margin-left: auto; }
+.card-title {
+  display: block;
+  overflow: hidden;
+  color: #26384d;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .card-caption { margin-top: 4px; color: #718196; font-size: 11px; line-height: 1.4; }
 .ghost-button {
   flex: none;
@@ -75,6 +85,16 @@
   color: #245a75;
   font-size: 12px;
   line-height: 30px;
+}
+.card-actions .ghost-button {
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  height: 26px;
+  padding: 0;
+  font-size: 11px;
+  line-height: 26px;
+  text-align: center;
 }
 
 .triangle-canvas {
@@ -168,6 +188,16 @@
   .card-title { font-size: 14px; }
   .card-caption { margin-top: 2px; font-size: 11px; }
   .ghost-button { width: 78px; min-width: 78px; height: 27px; padding: 0 8px; border-radius: 7px; font-size: 11px; line-height: 27px; }
+  .card-actions { gap: 4px; margin-left: 5px; }
+  .card-actions .ghost-button {
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    height: 26px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 26px;
+  }
 }
 
 /* 手机窄屏隐藏说明文案，保留标题和重置操作的可达性。 */

@@ -101,3 +101,23 @@ node scripts/run-all.js
 ```
 
 当前冻结时专项检查为 `104/104` 通过，全量本地检查为 `36/36` 通过。该结果不代表 CI、模拟器或真机验收通过。
+
+## 2026-11-05 导航职责迁移修订
+
+- 触发：用户明确要求学习页只保留原生标题栏和返回行为，并在画布卡片标题区提供独立“首页”入口。
+- 范围：只修改 `triangle-method.wxml` 的卡片标题操作区和 `triangle-method.wxss` 的按钮排列；不修改 α/β/γ 控件、A/B 几何、Canvas 尺寸、触摸处理或学习逻辑。
+- 结果：首页入口使用 `reLaunch('/pages/home/home')`；原生返回仍由微信标题栏提供；α/β/γ、拖动、重置和摘要卡全部保留。
+- 验证：`triangle-method-check` 155/155、导航迁移检查 100/100、全量本地检查 43/43。微信开发者工具与真机状态未在自动检查中替代。
+
+导航迁移后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `pages/triangle-method/triangle-method.wxml` | `D47238DE547B1E929EFEF2B009C7F49AA08123F4815915B8520F3C1ED63755BA` |
+| `pages/triangle-method/triangle-method.wxss` | `78E5BA388C33E3AC43D3049FFA44388C299A2C656A51D54B95298ECE3B76394A` |
+
+## 2026-11-07 直线章节紧凑头部修订
+
+- 触发：用户明确要求删除首页入口、缩小重置按钮并靠右、标题单行显示，以节约高度。
+- 范围：只修改卡片标题操作区和对应样式；不修改 α/β/γ、A/B 几何、Canvas、触摸、重置行为或会话逻辑。
+- 更新后哈希：`triangle-method.wxml = 6746A4285EECDFFD2CE1C6D35F392B14E8858167168F9182E9959425B64C3B4B`；`triangle-method.wxss = 5CD4F958E54CFE9229EAEE0ACEB3622D576D18CCFFB11A9CB211588673FD71B5`。

@@ -11,7 +11,7 @@
           bindchange="handleLinePicker"
         >
           <view class="selector-control">
-            <text>{{lineOptions[lineIndex]}}</text>
+            <text class="selector-value">{{lineOptions[lineIndex]}}</text>
             <text class="selector-arrow">⌄</text>
           </view>
         </picker>
@@ -27,7 +27,7 @@
           bindchange="handlePlanePicker"
         >
           <view class="selector-control">
-            <text>{{planeOptions[planeIndex]}}</text>
+            <text class="selector-value">{{planeOptions[planeIndex]}}</text>
             <text class="selector-arrow">⌄</text>
           </view>
         </picker>
@@ -36,9 +36,7 @@
 
     <view class="canvas-card">
       <view class="card-heading">
-        <view>
-          <text class="card-title">线面相交求交点</text>
-        </view>
+        <text class="card-title">线面相交求交点</text>
         <button class="reset-button" bindtap="handleReset">重置</button>
       </view>
       <canvas
@@ -51,7 +49,7 @@
 
     <view class="guide-card {{isComplete ? 'complete' : ''}}">
       <view class="guide-heading">
-        <view>
+        <view class="guide-heading-main">
           <text class="guide-kicker">引导作图</text>
           <text class="guide-title">第 {{currentStep}} 步 · {{currentStepTitle}}</text>
         </view>
@@ -91,17 +89,12 @@
       </view>
 
       <button
-        class="guide-action"
+        class="guide-action {{isComplete ? 'disabled' : ''}}"
         bindtap="handleStepTap"
         disabled="{{isComplete}}"
       >
         {{isComplete ? '作图完成' : guideActionText}}
       </button>
-
-      <view class="result-banner {{isComplete ? 'visible' : ''}}">
-        <text class="result-label">作图结果</text>
-        <text class="result-value">{{isComplete ? resultPointText : '完成最后一步后高亮显示'}}</text>
-      </view>
     </view>
   </scroll-view>
 </view>

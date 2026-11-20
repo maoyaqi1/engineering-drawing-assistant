@@ -60,28 +60,43 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 5px;
+  gap: 8px;
+  margin-bottom: 4px;
   padding: 4px 6px 0;
 }
 
+.card-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: auto;
+}
+
 .card-title {
+  min-width: 0;
+  overflow: hidden;
   color: #26384d;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reset-button {
-  flex: none;
-  height: 30px;
+  flex: 0 0 48px;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  height: 26px;
   margin: 0;
-  padding: 0 11px;
+  padding: 0;
   border: 1px solid #cad8e7;
   border-radius: 8px;
   background: #edf4f8;
   color: #245a75;
-  font-size: 12px;
-  line-height: 28px;
+  font-size: 11px;
+  line-height: 24px;
 }
 
 .geometry-canvas {

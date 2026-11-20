@@ -1,0 +1,272 @@
+.plane-page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  height: 100vh;
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  background:
+    radial-gradient(120% 55% at 100% 0%, rgba(80, 167, 238, 0.18), rgba(80, 167, 238, 0) 65%),
+    #eaf2fa;
+  color: #17344f;
+}
+
+.page-topbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 30px;
+  padding: 0 2px;
+  text-align: center;
+}
+
+.topbar-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar-title {
+  overflow: hidden;
+  color: #123d65;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-subtitle {
+  margin-top: 2px;
+  color: #68829a;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.mode-grid {
+  display: grid;
+  flex: none;
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  overflow: hidden;
+}
+
+.mode-button {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  padding: 0 2px;
+  overflow: hidden;
+  border: 1px solid #c7d9e8;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #47657d;
+  line-height: 1.1;
+}
+
+.mode-button::after {
+  border: 0;
+}
+
+.mode-button.active {
+  border-color: #2486d6;
+  background: linear-gradient(180deg, #f7fcff, #dcefff);
+  color: #0e63a8;
+  box-shadow: inset 0 0 0 1px rgba(36, 134, 214, 0.25), 0 3px 9px rgba(33, 111, 174, 0.12);
+}
+
+.mode-symbol {
+  display: none;
+  margin-right: 5px;
+  font-family: serif;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.mode-label {
+  overflow: hidden;
+  font-size: 9.5px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px;
+  border: 1px solid rgba(84, 139, 190, 0.28);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 5px 15px rgba(28, 83, 131, 0.1);
+}
+
+.geometry-canvas {
+  display: block;
+  flex: 1 1 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.explain-card {
+  flex: none;
+  padding: 7px 9px;
+  border: 1px solid #d1e1ee;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 3px 11px rgba(35, 90, 133, 0.07);
+}
+
+.explain-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.explain-badge {
+  flex: none;
+  max-width: 96px;
+  overflow: hidden;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #166caf;
+  color: #ffffff;
+  font-family: serif;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explain-title {
+  overflow: hidden;
+  color: #173f62;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explain-rule {
+  display: block;
+  margin-top: 4px;
+  color: #315876;
+  font-size: 10.5px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.explain-note {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #72869a;
+  font-size: 9.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (min-height: 760px) {
+  .plane-page {
+    gap: 8px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .page-topbar {
+    min-height: 32px;
+  }
+
+  .topbar-title {
+    font-size: 15px;
+  }
+
+  .mode-button {
+    height: 34px;
+  }
+
+  .mode-label {
+    font-size: 11px;
+  }
+
+  .explain-card {
+    padding: 9px 10px;
+  }
+
+  .explain-rule {
+    font-size: 11.5px;
+  }
+
+  .explain-note {
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 700px) {
+  .plane-page {
+    gap: 8px;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .mode-button {
+    height: 34px;
+  }
+
+  .mode-symbol {
+    display: inline;
+  }
+
+  .mode-label {
+    font-size: 11px;
+  }
+}
+
+@media (max-height: 650px) {
+  .plane-page {
+    gap: 4px;
+    padding-top: 4px;
+  }
+
+  .page-topbar {
+    min-height: 29px;
+  }
+
+  .topbar-subtitle {
+    display: none;
+  }
+
+  .mode-button {
+    height: 29px;
+  }
+
+  .explain-card {
+    padding: 5px 8px;
+  }
+
+  .explain-note {
+    font-size: 9px;
+  }
+}

@@ -235,22 +235,16 @@ function main() {
   check(appJson.pages.includes(
     'pages/line-plane-relation/line-plane-relation'
   ), '页面已注册到 app.json');
-  const homeWxml = fs.readFileSync(
-    path.join(ROOT, 'pages/index/index.wxml'),
-    'utf8'
-  );
-  const linePanel = homeWxml.slice(
-    homeWxml.indexOf("mode === 'line'"),
-    homeWxml.indexOf("mode === 'plane'")
-  );
-  const planePanel = homeWxml.slice(
-    homeWxml.indexOf("mode === 'plane'"),
-    homeWxml.indexOf("mode === 'solid'")
-  );
-  check(!linePanel.includes('/pages/line-plane-relation/line-plane-relation'),
-    '首页直线模式不显示该入口');
-  check(planePanel.includes('/pages/line-plane-relation/line-plane-relation'),
-    '首页平面模式显示该入口');
+  const catalog = require('../config/course-catalog.js');
+  const catalogPoint = catalog.chapters
+    .flatMap((chapter) => chapter.points)
+    .find((point) => point.id === 'line-plane-relation');
+  check(catalogPoint
+    && catalogPoint.title === '线面、面面相交'
+    && catalogPoint.availability === 'available'
+    && catalogPoint.route
+    && catalogPoint.route.path === '/pages/intersection-relations/intersection-relations',
+  '课程首页第四章先进入线面、面面相交概念页');
 
   const pageDir = path.join(ROOT, 'pages/line-plane-relation');
   const wxml = fs.readFileSync(
@@ -276,6 +270,10 @@ function main() {
   check(!wxml.includes('当前求交方法')
     && !wxml.includes('选择规律'),
   '已删除当前求交方法与选择规律卡片');
+  check(!wxml.includes('result-banner')
+    && !wxml.includes('作图结果')
+    && !wxml.includes('resultPointText'),
+  '底部已删除冗余作图结果栏');
   check(wxml.includes('引导作图')
     && wxml.includes('第 {{currentStep}} 步')
     && wxml.includes('bindtap="handleStepTap"')
@@ -360,8 +358,6 @@ function main() {
   page.selectAuxiliaryPlane({
     currentTarget: { dataset: { plane: 'H' } }
   });
-  check(page.data.resultPointText === '按步骤完成作图',
-    '完成步骤前不提前显示交点坐标');
   const lineViews = page.getProjectionScreenPoints(page._geometry.line.e);
   const projectionMetrics = page.getProjectionMetrics();
   close(lineViews.front.x,
@@ -494,8 +490,8 @@ function main() {
       '三维图不重复绘制点 1、2 的投影接线');
     page.handleStepTap({});
     page.handleStepTap({});
-    check(page.data.isComplete && page.data.resultPointText.startsWith('K('),
-      '最后一步完成并显示交点坐标');
+    check(page.data.isComplete,
+      '最后一步完成交点作图');
     drawnText.length = 0;
     strokeCalls.length = 0;
     page.drawScene();

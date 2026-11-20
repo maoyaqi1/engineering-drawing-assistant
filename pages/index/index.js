@@ -25,6 +25,20 @@
   const COMPACT_SPATIAL_UNIT_DIVISOR = 29.3;
   const COMPACT_PROJECTION_TOP_PADDING = 26;
   const COMPACT_PROJECTION_BOTTOM_PADDING = 8;
+  const INDEX_MODES = Object.freeze([
+    { key: 'point', title: '点的三面投影' },
+    { key: 'line', title: '直线的三面投影' },
+    { key: 'plane', title: '平面的三面投影' },
+    { key: 'solid', title: '基本立体' },
+    { key: 'section', title: '平面切割立体' }
+  ]);
+
+  // 深链参数只接受完整、区分大小写的白名单值。无参数、空参数和非法参数
+  // 都保持旧入口行为，进入点模式。
+  function resolveEntryMode(options) {
+    const requestedMode = options && options.mode;
+    return INDEX_MODES.some((item) => item.key === requestedMode) ? requestedMode : 'point';
+  }
 
   function getCompactProjectionMetrics(layout) {
     const unit = Math.min(
@@ -90,6 +104,15 @@
         translationAxisIndex: 0,
         rotationValue: 0,
         translationValue: 4
+      },
+
+      onLoad(options) {
+        const mode = resolveEntryMode(options);
+        const moduleIndex = INDEX_MODES.findIndex((item) => item.key === mode);
+        this.setData({ mode, moduleIndex });
+        if (typeof wx !== 'undefined' && wx.setNavigationBarTitle) {
+          wx.setNavigationBarTitle({ title: INDEX_MODES[moduleIndex].title });
+        }
       },
 
       onReady() {

@@ -1,17 +1,11 @@
 <view class="page-shell">
-  <view class="app-toolbar">
-    <view class="back-entry" bindtap="goBack">
-      <text class="back-arrow">‹</text>
-      <text class="back-label">返回</text>
-    </view>
-    <text class="toolbar-title">投影体系</text>
-    <text class="toolbar-pill">{{scope === 'first' ? '第一分角' : '八个分角'}}</text>
-  </view>
-
   <scroll-view class="page-scroll" scroll-y="{{!canvasDragging}}">
     <view class="type-panel">
-      <text class="type-label section-label">投影面范围</text>
-      <view class="type-toolbar">
+      <view class="scope-heading">
+        <text class="type-label section-label">投影面范围</text>
+        <text class="scope-pill">{{scope === 'first' ? '第一分角' : '八个分角'}}</text>
+      </view>
+      <view class="type-toolbar scope-toolbar">
         <button class="type-chip {{scope === 'octants' ? 'active' : ''}}" data-scope="octants" bindtap="handleScope">八分角</button>
         <button class="type-chip {{scope === 'first' ? 'active' : ''}}" data-scope="first" bindtap="handleScope">第一分角</button>
       </view>
@@ -37,9 +31,11 @@
       <view class="card-heading">
         <view>
           <text class="card-title">三投影面体系与投影面展开</text>
-          <text class="card-caption">空间视图左右拖动＝绕 OZ 轴旋转观察；按「投影展开／投影折叠」把 H 面绕 OX、W 面绕 OZ 各转 90°；「第一分角」范围下坐标轴只保留第一分角内的长度</text>
+          <text class="card-caption">拖动画布旋转观察；展开角控制 H/W 面折叠</text>
         </view>
-        <button class="ghost-button" bindtap="handleUnfoldReset">重置</button>
+        <view class="card-actions">
+          <button class="ghost-button" bindtap="handleUnfoldReset">重置</button>
+        </view>
       </view>
       <canvas
         id="geometryCanvas"

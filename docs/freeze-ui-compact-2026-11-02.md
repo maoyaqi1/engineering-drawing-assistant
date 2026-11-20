@@ -130,3 +130,117 @@ node scripts/run-all.js
 | 微信开发者工具模拟器（375px 手机竖屏） | C/D 圆圈、拖动单端固定、灰显/高亮、90° 标记、两条定理文案均正常 |
 
 本轮已纳入 `v1.4.1` 发布（提交 `8bca382`，tag `v1.4.1`），详见 `docs/freeze-v1.4.1-2026-11-03.md`。
+
+## 8. 2026-11-05 导航职责迁移修订
+
+用户明确要求将课程导航从学习页迁回课程首页，并保留原生标题栏、原生返回以及全部教学控件。本轮只修改以下页面导航结构和样式：
+
+- 移除 `pages/index/index.wxml` 顶部的个人信息、投影体系和模块选择器常驻工具条；
+- 保留 `handleModulePicker`、`moduleOptions`、`moduleIndex` 等 Web 兼容接口；
+- 移除 `pages/projection/projection.wxml` 的深色常驻工具栏，将投影范围和展开状态放回内容区；
+- 在首页画布卡片及投影体系、直角三角形法、直角投影定理页增加紧凑的“首页”入口；
+- 不修改 Canvas 绘制、几何算法、投影公式、触摸处理、学习会话或教学参数逻辑。
+
+本轮修改后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `app.json` | `83D4FFABA7F74A57C774AD826CB3A7623CE92B334136851DE4C65437CCDCDBE4` |
+| `pages/index/index.js` | `9EABB1ABB26CBB890E115F1BC53C464169506AAF63066FEA55176ACC75448A02` |
+| `pages/index/index.wxml` | `696E7F309964FAB71F3C6BA3F59DDF19E9D22E649F7D47E914411474D84770E6` |
+| `pages/index/index.wxss` | `3C5E543445F264DA298B0994CE5514722644D0C38C9654F5C4F8AB9306642B82` |
+| `pages/projection/projection.wxml` | `C29B13DC992A097B75AC802E61C55AF41C10790448A37CA7A9AD9552DE15D01B` |
+| `pages/projection/projection.wxss` | `6BC34C6208C43AF8E16AE3EE76F88E67A9F27DE7B6542C08637DE8850CDB1709` |
+| `pages/triangle-method/triangle-method.wxml` | `D47238DE547B1E929EFEF2B009C7F49AA08123F4815915B8520F3C1ED63755BA` |
+| `pages/triangle-method/triangle-method.wxss` | `78E5BA388C33E3AC43D3049FFA44388C299A2C656A51D54B95298ECE3B76394A` |
+| `pages/right-angle-projection/right-angle-projection.wxml` | `700C216D2BF2F58A163C19B1B7709775E22EF6615723172B8F7B75B77544A67F` |
+| `pages/right-angle-projection/right-angle-projection.wxss` | `E831E110F3A7CAE65E0FFA263E5E8D40DDCB104B4D53D0A12D310675BED30FEB` |
+
+本轮验证：`node scripts/navigation-migration-check.cjs` 100/100、`node scripts/layout-check.cjs`、`node scripts/pad-fit-check.cjs` 和 `node scripts/run-all.js` 43/43 均通过。微信开发者工具和真机验收状态以当轮交付报告为准，不得用本地检查替代。
+
+## 9. 2026-11-07 投影法基础入口登记
+
+用户明确要求将课程目录中的“投影的基本概念”更名为“投影法基础”，并跳转新增的 `pages/projection-method/projection-method`。本轮只更新 `app.json` 的页面注册和课程目录路由，不修改本记录中的页面导航结构、Canvas 尺寸或教学触摸逻辑。
+
+更新后的 `app.json` SHA-256：
+
+`83D4FFABA7F74A57C774AD826CB3A7623CE92B334136851DE4C65437CCDCDBE4`
+
+## 10. 2026-11-07 正投影入口登记
+
+用户明确要求在“投影法基础”之后新增“正投影”知识点。本轮注册独立页面 `pages/orthographic-projection/orthographic-projection`，并在课程目录中形成“投影法基础 → 正投影 → 三面投影体系”的顺序。
+
+本轮只更新 `app.json` 的页面注册和课程目录路由，不修改本记录中的页面导航结构、Canvas 尺寸或教学触摸逻辑。更新后的 `app.json` SHA-256：
+
+`873FBAA440DCAC7D5D17A35F05D48E8C6CE44EDED427F1FBA83A73B2AC94C996`
+
+## 11. 2026-11-07 投影体系与点投影首页入口删减
+
+用户明确要求删除投影体系页以及点的投影页面中的“首页”入口。本轮删除 `pages/projection/projection.wxml` 的首页导航及对应私有样式；`pages/index/index.wxml` 由五种模式共用，因此只在 `mode === 'point'` 时隐藏首页入口，直线、平面、基本立体和平面切割立体模式保持原导航。
+
+本轮不修改 Canvas 尺寸、几何算法、投影公式、触摸处理或学习会话。更新后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `pages/index/index.wxml` | `040B27B7EDA7FBFA09EDB7E4F9484A166C6E2E4BC8CCCA1DEB4F52272140CD71` |
+| `pages/projection/projection.wxml` | `59E8523A42ABA046D69B81C47F190EB233E676B0E694D7F84226E5B2C73DF800` |
+| `pages/projection/projection.wxss` | `A6E4A77C3027E87D525F5E80D0F055A783EE3FDDFEB4ECA463C06E2740AB36BA` |
+
+## 12. 2026-11-07 投影体系卡片头压缩
+
+用户明确要求把“三投影面体系与投影面展开”标题尽量保持在一排，缩小重置按钮并放到最右侧，同时节约纵向空间。本轮只压缩卡片头和副说明，不修改 Canvas 尺寸、投影算法、展开逻辑或触摸交互。
+
+更新后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `pages/projection/projection.wxml` | `BCF0147B705B971A9B21448C912EC9CFDC5A47F85CD6CCBE50F7090496267499` |
+| `pages/projection/projection.wxss` | `EAEFF5D7D696F0C0BC80E347256F54A1CE04EBAED6FFF838D3525B3F6AF99214` |
+
+## 13. 2026-11-07 直线模式关键知识点入口删减
+
+用户明确要求删除直线投影页面中的“关键知识点”入口区。直角三角形法与直角投影定理继续通过课程首页第二章知识点直接映射到对应独立页面；平面模式的“最大斜度线”和“直线与平面”入口保持不变。
+
+本轮不修改直线几何、拖动、三视图或页面会话逻辑。更新后的 `pages/index/index.wxml` SHA-256：
+
+`34D7DED986BE7CCC2FB042A2E51E688F531D0816FEAC1E5718AB4F1D0FDF3D93`
+
+## 14. 2026-11-07 直线章节页面紧凑头部修订
+
+用户明确要求检查直线章节所有页面，删除首页入口、缩小重置按钮并靠右、左侧标题单行显示，以节约高度空间。本轮涉及直线投影模式、直角三角形法和直角投影定理三个实际页面；“两直线位置关系”没有独立页面，不涉及布局。
+
+本轮不修改几何真值、投影公式、Canvas 尺寸、拖动或学习会话。更新后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `pages/index/index.wxml` | `51673D4AE9E5DC38696FE1C842F1A7C888C433AD976951A3AAA534803DBAEA35` |
+| `pages/index/index.wxss` | `DA0C719E55EED4B0F0A437946B844D625448DFF29E21EFB14BC62EACA23E0F42` |
+| `pages/triangle-method/triangle-method.wxml` | `6746A4285EECDFFD2CE1C6D35F392B14E8858167168F9182E9959425B64C3B4B` |
+| `pages/triangle-method/triangle-method.wxss` | `5CD4F958E54CFE9229EAEE0ACEB3622D576D18CCFFB11A9CB211588673FD71B5` |
+| `pages/right-angle-projection/right-angle-projection.wxml` | `7111B55C1108956861E334B80269D9C5E2F2B21555AC3BA6951BA67E2FD1419C` |
+| `pages/right-angle-projection/right-angle-projection.wxss` | `E1258428B2CA89C8054A7DDB1487197903BA1FF8E97C1FBE286B93BD887D52E3` |
+
+## 15. 2026-11-07 平面模式关键知识点与紧凑头部修订
+
+用户明确要求删除“平面的投影规律”页面中的关键知识点入口，并按直线章节规格优化首页、重置按钮、单行标题和纵向空间。本轮删除最大斜度线与线面关系重复入口；两项继续由课程首页第三、四章直接映射。平面模式隐藏首页入口，标题保持单行，重置按钮使用紧凑尺寸并靠右。
+
+本轮不修改平面顶点、三视图、拖动或会话逻辑。更新后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `pages/index/index.wxml` | `6C7C556AC4DDF0DFB3FE892F33D0287C62CFBEA8119F996F1F529EAAAC27C90B` |
+| `pages/index/index.wxss` | `B5BDC92A474315A35C7E3EDF6D1C2952B3603446EB9FC32FEB7C16D1B537015B` |
+
+## 16. 2026-11-07 两直线位置关系页注册
+
+用户明确要求在第二章新增并开放“两直线位置关系”单页探索版本。本轮只更新 `app.json` 页面注册和课程目录路由；新页面自身待视觉确认，尚未纳入本记录的文件冻结表。
+
+更新后的 `app.json` SHA-256：
+
+`5ED6501E1177BEB00D1F7E26B24E69335728CC479CF382A58850E80C764AA8AA`
+
+### 2026-11-08 平面的表示方法页接入
+
+新增 `pages/plane-representation/plane-representation` 并注册到 `app.json`，课程目录的“平面的表示方法”改为该独立页面。“平面的投影规律”仍使用原平面模式。更新后的 `app.json` SHA-256：
+
+`62CBA1ECB3C3D66837B4FCCA262DD6FA6126862132A758101FD8C5A93263926D`

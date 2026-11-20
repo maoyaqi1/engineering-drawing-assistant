@@ -32,7 +32,7 @@ Page({
   },
 
   // 客户端非空校验只用于快速反馈；服务端 register action 会再次规范化和校验身份。
-  // 成功后将服务端返回的用户快照写回 app.globalData，随后再进入互动首页。
+    // 成功后将服务端返回的用户快照写回 app.globalData，随后进入课程首页。
   submit() {
     if (this.data.submitting) return;
     const school = (this.data.school || '').trim();
@@ -46,7 +46,7 @@ Page({
     api.register({ school, name, studentId }).then((res) => {
       if (res && res.ok && res.user) {
         app.setUser(res.user);
-        wx.redirectTo({ url: '/pages/index/index' });
+        wx.reLaunch({ url: '/pages/home/home' });
         return;
       }
       this.setData({ submitting: false, error: (res && res.msg) || '提交失败，请重试' });

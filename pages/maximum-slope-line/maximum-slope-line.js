@@ -193,9 +193,28 @@ const pageDefinition = Object.assign({
     if (this._sessionRunning || !getApp().globalData.user) return;
     this._sessionEnded = false;
     this._sessionRunning = true;
+    this._pageVisible = true;
+    this._sessionStartPending = true;
+    this._sessionCycle = (this._sessionCycle || 0) + 1;
     this._sessionStart = Date.now();
+    const sessionCycle = this._sessionCycle;
     api.startSession('maximum-slope-line').then((res) => {
-      if (res && res.ok) this._sessionId = res.session_id;
+      const sessionId = res && res.ok ? res.session_id : '';
+      if (sessionCycle !== this._sessionCycle) {
+        if (sessionId) api.endSession(sessionId, 0, 0);
+        return;
+      }
+      this._sessionStartPending = false;
+      if (!sessionId) {
+        this._sessionRunning = false;
+        return;
+      }
+      if (!this._pageVisible || this._sessionEnded) {
+        api.endSession(sessionId, 0, 0);
+        this._sessionRunning = false;
+        return;
+      }
+      this._sessionId = sessionId;
       api.recordEvent('chapter_enter', {
         session_id: this._sessionId || '',
         chapter_id: 'maximum-slope-line',
@@ -206,13 +225,21 @@ const pageDefinition = Object.assign({
           projection_plane: this.data.selectedPlane
         }
       });
-    }).catch(() => {});
+    }).catch(() => {
+      if (sessionCycle === this._sessionCycle) {
+        this._sessionStartPending = false;
+        this._sessionRunning = false;
+      }
+    });
   },
 
   endLearningSession() {
-    if (!this._sessionRunning || this._sessionEnded) return;
+    this._pageVisible = false;
+    if (this._sessionEnded) return;
+    if (!this._sessionRunning) return;
     this._sessionEnded = true;
     this._sessionRunning = false;
+    if (!this._sessionId) return;
     const duration = Math.max(
       0,
       Math.floor((Date.now() - (this._sessionStart || Date.now())) / 1000)
@@ -229,10 +256,8 @@ const pageDefinition = Object.assign({
         interaction_count: this._interactionCount || 0
       }
     });
-    if (this._sessionId) {
-      api.endSession(this._sessionId, duration, this._interactionCount || 0);
-      this._sessionId = null;
-    }
+    api.endSession(this._sessionId, duration, this._interactionCount || 0);
+    this._sessionId = null;
   }
 }, projection, drawHelpers, renderScene, renderMethods);
 

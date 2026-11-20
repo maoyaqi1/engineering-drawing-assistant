@@ -1,4 +1,4 @@
-/* 投影体系页面样式：沿用首页的视觉语言（深色工具条 + 白卡片 + 画布卡），
+/* 投影体系页面样式：沿用首页的视觉语言（原生标题栏 + 白卡片 + 画布卡），
    只保留本页用到的规则；页面样式是页面私有的，不复用 index.wxss。 */
 
 .page-shell {
@@ -16,33 +16,16 @@
   box-sizing: border-box;
 }
 
-.app-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  height: 84rpx;
-  padding: 0 12rpx;
-  overflow: hidden;
-  border-bottom: 4rpx solid #1684ff;
-  background: #202124;
-  color: #ffffff;
-}
-
-.back-entry { flex: none; display: flex; align-items: center; padding: 8rpx 10rpx 8rpx 4rpx; }
-.back-arrow { margin-right: 4rpx; font-size: 34rpx; line-height: 1; }
-.back-label { color: #ffffff; font-size: 22rpx; white-space: nowrap; }
-.toolbar-title { flex: 1; min-width: 0; padding-left: 8rpx; color: #ffffff; font-size: 26rpx; font-weight: 650; }
-.toolbar-pill { flex: none; padding: 6rpx 14rpx; border-radius: 999rpx; background: #e7f2ff; color: #116fc8; font-size: 20rpx; }
-
 .type-panel { display: flex; flex-direction: column; width: 100%; padding: 6rpx 12rpx 8rpx; border-bottom: 1rpx solid #e3e8ef; background: #ffffff; box-shadow: 0 2rpx 10rpx rgba(20,40,80,.04); box-sizing: border-box; }
+.scope-heading { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
 .type-label { margin: 0 0 6rpx; color: #e04444; font-size: 23rpx; font-weight: 700; }
 .section-label { margin-top: 10rpx; }
+.scope-pill { margin-top: 4rpx; padding: 5rpx 12rpx; border-radius: 999rpx; background: #e7f2ff; color: #116fc8; font-size: 19rpx; }
 .type-toolbar { display: flex; flex-wrap: wrap; gap: 8rpx; width: 100%; min-width: 0; }
 .type-chip { display: flex; flex: 0 0 calc((100% - 24rpx) / 4); align-items: center; justify-content: center; box-sizing: border-box; min-width: 0; max-width: calc((100% - 24rpx) / 4); height: 52rpx; margin: 0; padding: 0 2rpx; border: 1rpx solid #aeb3ba; border-radius: 8rpx; background: #fff; color: #252b34; font-size: 22rpx; line-height: 1; text-align: center; white-space: nowrap; overflow: hidden; }
 .type-chip.active { border-color: #1684ff; color: #0877dd; background: #f2f8ff; box-shadow: inset 0 0 0 1rpx rgba(22,132,255,.12); }
 .unfold-toggle { border-color: #1684ff; background: #1684ff; color: #ffffff; font-weight: 650; }
+.scope-toolbar .type-chip { flex: 1; max-width: none; }
 
 .slider-row { display: flex; align-items: center; gap: 8rpx; min-height: 48rpx; margin-top: 6rpx; }
 .param-name { flex: none; width: 108rpx; color: #3b4654; font-size: 23rpx; }
@@ -64,12 +47,24 @@
   box-shadow: 0 8rpx 24rpx rgba(36, 55, 82, 0.07);
 }
 
-.canvas-card { padding: 16rpx; display: flex; flex-direction: column; }
-.card-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
-.card-heading > view:first-child { display: flex; flex-direction: column; }
-.card-title { font-size: 30rpx; font-weight: 650; }
+.canvas-card { padding: 12rpx 16rpx; display: flex; flex-direction: column; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10rpx; margin-bottom: 6rpx; }
+.card-heading > view:first-child { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.card-actions { display: flex; flex: none; align-items: center; gap: 8rpx; margin-left: auto; }
+.card-title { overflow: hidden; font-size: 28rpx; font-weight: 650; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
 .card-caption { margin-top: 5rpx; font-size: 22rpx; color: #778397; }
 .ghost-button { margin: 0; padding: 0 20rpx; height: 54rpx; line-height: 54rpx; border-radius: 14rpx; background: #edf4f8; color: #245a75; font-size: 22rpx; }
+.card-actions .ghost-button {
+  flex: 0 0 92rpx;
+  width: 92rpx;
+  min-width: 92rpx;
+  max-width: 92rpx;
+  height: 46rpx;
+  padding: 0;
+  font-size: 20rpx;
+  line-height: 46rpx;
+  text-align: center;
+}
 
 .geometry-canvas { display: block; width: 100%; height: calc(100vw * 1.4); min-height: 500px; max-height: 580px; border: 1rpx solid #25272b; border-radius: 12rpx; background: #fff; }
 
@@ -102,15 +97,11 @@
    画布内部由 projection.js 的 getLayout() 自动切成左右两栏（左空间视图 / 右展开投影图）。 */
 @media (min-width: 500px) {
   .page-shell { padding: 0 0 calc(12px + env(safe-area-inset-bottom)); }
-  .app-toolbar { height: 42px; padding: 0 6px; border-bottom: 2px solid #1684ff; }
-  .back-entry { padding: 4px 5px 4px 2px; }
-  .back-arrow { margin-right: 2px; font-size: 17px; }
-  .back-label { font-size: 11px; }
-  .toolbar-title { padding-left: 4px; font-size: 13px; }
-  .toolbar-pill { padding: 3px 7px; font-size: 10px; }
   .type-panel { padding: 3px 6px 4px; border-bottom: 0.5px solid #e3e8ef; }
   .type-label { margin: 0 0 3px; font-size: 11.5px; }
   .section-label { margin-top: 5px; }
+  .scope-heading { gap: 8px; }
+  .scope-pill { margin-top: 2px; padding: 3px 7px; font-size: 10px; }
   .type-toolbar { gap: 4px; }
   .type-chip { flex: 0 0 calc((100% - 12px) / 4); max-width: calc((100% - 12px) / 4); height: 26px; padding: 0 1px; border: 0.5px solid #aeb3ba; border-radius: 4px; font-size: 11px; }
   .slider-row { min-height: 24px; margin-top: 3px; }
@@ -121,9 +112,20 @@
   .unfold-row .unfold-angle-name { width: auto; margin-right: 1px; }
   .canvas-card, .lesson-card { margin: 0 7px 6px; border: 0.5px solid rgba(109,130,156,.16); border-radius: 11px; box-shadow: 0 4px 12px rgba(36,55,82,.07); }
   .canvas-card { padding: 8px; }
+  .card-actions { gap: 4px; margin-left: 6px; }
   .card-title { font-size: 15px; }
   .card-caption { margin-top: 2.5px; font-size: 11px; }
   .ghost-button { padding: 0 10px; height: 27px; line-height: 27px; border-radius: 7px; font-size: 11px; }
+  .card-actions .ghost-button {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    height: 26px;
+    padding: 0;
+    font-size: 11px;
+    line-height: 26px;
+  }
   .geometry-canvas { height: calc(100vh - 210px); min-height: 420px; border: 0.5px solid #25272b; border-radius: 6px; }
   .legend-row { gap: 10px; margin-top: 7px; font-size: 10.5px; }
   .legend-dot { width: 6.5px; height: 6.5px; margin-right: 4.5px; }

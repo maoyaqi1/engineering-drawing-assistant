@@ -240,9 +240,15 @@ function main() {
   const appJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'app.json'), 'utf8'));
   check(appJson.pages.includes('pages/right-angle-projection/right-angle-projection'),
     '新页面已注册到 app.json');
-  const homeWxml = fs.readFileSync(path.join(ROOT, 'pages/index/index.wxml'), 'utf8');
-  check(homeWxml.includes('url="/pages/right-angle-projection/right-angle-projection"'),
-    '首页关键知识点入口已连接到新页面');
+  const catalog = require('../config/course-catalog.js');
+  const catalogPoint = catalog.chapters
+    .flatMap((chapter) => chapter.points)
+    .find((point) => point.id === 'right-angle-projection');
+  check(catalogPoint
+    && catalogPoint.availability === 'available'
+    && catalogPoint.route
+    && catalogPoint.route.path === '/pages/right-angle-projection/right-angle-projection',
+  '课程首页第二章直接映射到直角投影定理页面');
 
   const pageDir = path.join(ROOT, 'pages/right-angle-projection');
   const wxml = fs.readFileSync(path.join(pageDir, 'right-angle-projection.wxml'), 'utf8');

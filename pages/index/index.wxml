@@ -1,23 +1,4 @@
 <view class="page-shell mode-{{mode}}">
-  <view class="app-toolbar">
-    <view class="profile-entry" bindtap="goProfile">
-      <text class="profile-avatar">👤</text>
-      <text class="profile-link">个人信息</text>
-    </view>
-    <!-- 投影体系入口（独立新增页面 pages/projection）：复用工具条既有样式类，不新增样式；
-         位置固定在「个人信息」右侧、模块选择器左侧（2026-10-08 用户要求） -->
-    <navigator class="profile-entry" url="/pages/projection/projection" hover-class="none">
-      <text class="profile-avatar">📐</text>
-      <text class="profile-link">投影体系</text>
-    </navigator>
-    <picker class="module-picker" mode="selector" range="{{moduleOptions}}" value="{{moduleIndex}}" bindchange="handleModulePicker">
-      <view class="module-selector">
-        <text>{{moduleOptions[moduleIndex]}}</text>
-        <text class="selector-arrow">⌄</text>
-      </view>
-    </picker>
-  </view>
-
   <scroll-view class="page-scroll" scroll-y="{{!canvasDragging}}" scroll-top="0">
   <view class="type-panel type-panel-compact" wx:if="{{mode === 'point'}}">
     <view class="type-toolbar">
@@ -42,28 +23,6 @@
       <button class="type-chip {{lineType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleLineType">正垂线</button>
       <button class="type-chip {{lineType === 'profileProjecting' ? 'active' : ''}}" data-type="profileProjecting" bindtap="handleLineType">侧垂线</button>
     </view>
-    <!-- 直线模式下的两个关键知识点入口；页面各自维护几何，不扩大首页交互职责。 -->
-    <view class="knowledge-entry-row" aria-label="直线关键知识点">
-      <text class="knowledge-entry-label">关键知识点</text>
-      <navigator
-        class="knowledge-entry-card active"
-        url="/pages/triangle-method/triangle-method"
-        hover-class="knowledge-entry-hover"
-        aria-label="进入直角三角形法求实长与倾角"
-      >
-        <text class="knowledge-entry-title">直角三角形法</text>
-        <text class="knowledge-entry-subtitle">求实长与倾角</text>
-      </navigator>
-      <navigator
-        class="knowledge-entry-card active"
-        url="/pages/right-angle-projection/right-angle-projection"
-        hover-class="knowledge-entry-hover"
-        aria-label="进入直角投影定理"
-      >
-        <text class="knowledge-entry-title">直角投影定理</text>
-        <text class="knowledge-entry-subtitle">垂直与投影</text>
-      </navigator>
-    </view>
   </view>
 
   <view class="type-panel type-panel-compact" wx:elif="{{mode === 'plane'}}">
@@ -75,28 +34,6 @@
       <button class="type-chip {{planeType === 'vertical' ? 'active' : ''}}" data-type="vertical" bindtap="handlePlaneType">铅垂面</button>
       <button class="type-chip {{planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handlePlaneType">正垂面</button>
       <button class="type-chip {{planeType === 'profileProjecting' ? 'active' : ''}}" data-type="profileProjecting" bindtap="handlePlaneType">侧垂面</button>
-    </view>
-    <!-- 平面模式知识点入口：只增加导航，不改变平面顶点、拖动与三视图逻辑。 -->
-    <view class="knowledge-entry-row" aria-label="平面关键知识点">
-      <text class="knowledge-entry-label">关键知识点</text>
-      <navigator
-        class="knowledge-entry-card active"
-        url="/pages/maximum-slope-line/maximum-slope-line"
-        hover-class="knowledge-entry-hover"
-        aria-label="进入最大斜度线互动"
-      >
-        <text class="knowledge-entry-title">最大斜度线</text>
-        <text class="knowledge-entry-subtitle">求平面倾角</text>
-      </navigator>
-      <navigator
-        class="knowledge-entry-card active"
-        url="/pages/line-plane-relation/line-plane-relation"
-        hover-class="knowledge-entry-hover"
-        aria-label="进入直线与平面相交求交点"
-      >
-        <text class="knowledge-entry-title">直线与平面</text>
-        <text class="knowledge-entry-subtitle">相交求交点</text>
-      </navigator>
     </view>
   </view>
 
@@ -204,7 +141,17 @@
         <text class="card-title">{{mode === 'point' ? '空间与展开投影' : (mode === 'line' ? '空间直线与三面投影' : (mode === 'plane' ? '空间平面与三面投影' : (mode === 'section' ? '截平面切割与截交线' : '立体与三面投影')))}}</text>
         <text class="card-caption">{{mode === 'point' ? '下方三个投影点均可拖动' : (mode === 'line' ? '下方六个端点投影均可拖动' : (mode === 'plane' ? '下方九个端点投影均可拖动' : (mode === 'section' ? '红色轮廓为实时截交线' : '调整参数，观察 3D 与三视图联动')))}}</text>
       </view>
-      <button class="ghost-button" bindtap="resetPoint">重置</button>
+      <view class="card-actions">
+        <navigator
+          wx:if="{{mode !== 'point' && mode !== 'line' && mode !== 'plane'}}"
+          class="ghost-button home-entry"
+          url="/pages/home/home"
+          open-type="reLaunch"
+          hover-class="home-entry-hover"
+          aria-label="返回课程首页"
+        >首页</navigator>
+        <button class="ghost-button" bindtap="resetPoint">重置</button>
+      </view>
     </view>
     <canvas
       id="geometryCanvas"

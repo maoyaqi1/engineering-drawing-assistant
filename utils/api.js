@@ -1,5 +1,6 @@
 const SURVEY_ID = 'geometry_learning_2026';
 const SURVEY_VERSION = 'v1';
+const sessionEndTracker = require('./session-end-tracker.js');
 
 // 学生端云函数调用边界。
 //
@@ -56,6 +57,10 @@ function endSession(sessionId, duration, interactionCount) {
     session_id: sessionId,
     duration,
     interaction_count: interactionCount
+  }).then((result) => {
+    // 只有服务端确认结束且判定有效的新会话才进入问卷邀请检查。
+    sessionEndTracker.recordSessionEnd(sessionId, result);
+    return result;
   });
 }
 

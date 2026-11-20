@@ -1,0 +1,84 @@
+<view class="lesson-shell">
+  <view class="page-topbar">
+    <navigator
+      class="home-entry"
+      url="/pages/home/home"
+      open-type="reLaunch"
+      aria-label="返回课程首页"
+    >‹ 首页</navigator>
+    <text class="page-topbar-title">第一章 · 正投影</text>
+  </view>
+
+  <scroll-view class="lesson-scroll" scroll-y="{{true}}">
+    <view class="content">
+      <view class="lesson-card relation-card">
+        <view class="section-heading">
+          <view>
+            <text class="section-title">正投影的基本性质</text>
+            <text class="section-lead">投射线互相平行且垂直于 P 面；选择图形与 P 面的位置关系。</text>
+          </view>
+          <button
+            class="replay-button"
+            bindtap="handleReplay"
+            aria-label="重新播放当前正投影过程"
+          >重新播放</button>
+        </view>
+
+        <view class="relation-tabs" role="tablist" aria-label="选择图形与投影面的位置关系">
+          <button
+            wx:for="{{relationOptions}}"
+            wx:key="key"
+            class="relation-tab {{relationKey === item.key ? 'active' : ''}}"
+            data-relation="{{item.key}}"
+            bindtap="selectRelation"
+            aria-selected="{{relationKey === item.key}}"
+          >
+            <text class="relation-symbol">{{item.symbol}}</text>
+            <text class="relation-property">{{item.property}}</text>
+          </button>
+        </view>
+
+        <canvas
+          id="relationCanvas"
+          type="2d"
+          class="demo-canvas relation-canvas"
+          aria-label="正投影中线段与平面图形随位置关系变化的动态演示"
+        ></canvas>
+
+        <view class="result-card" aria-live="polite">
+          <view class="result-heading">
+            <text class="result-property">{{relationProperty}}</text>
+            <text class="result-condition">{{relationCondition}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">{{relationLineType}}</text>
+            <text class="result-text">{{relationLineResult}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">{{relationPlaneType}}</text>
+            <text class="result-text">{{relationPlaneResult}}</text>
+          </view>
+          <view class="measure-row">
+            <text class="measure-chip">{{lineMeasure}}</text>
+            <text class="measure-chip">{{planeMeasure}}</text>
+          </view>
+          <text wx:if="{{relationKey === 'oblique'}}" class="similarity-note">
+            “相似性”强调图形类型和连接关系保持不变，不表示任意倾斜图形都与空间图形严格相似。
+          </text>
+        </view>
+
+        <view class="bridge-card">
+          <text class="bridge-title">{{relationBridgeTitle}}</text>
+          <text class="bridge-copy">{{relationBridge}}</text>
+        </view>
+
+        <view class="level-note">
+          <text class="level-note-mark">层次提示</text>
+          <text class="level-note-copy">
+            “投影法基础”说明平行投影保持哪些关系；本页说明正投影结果与空间形状之间的度量表现。
+          </text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

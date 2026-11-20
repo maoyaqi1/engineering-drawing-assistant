@@ -65,12 +65,12 @@ module.exports = {
   },
 
   // AI 教师属于基本立体模式中的隐藏功能；准入失败时不展示提示，
-  // 直接静默返回首页。服务端仍会在每次请求上执行最终鉴权。
+  // 直接静默返回课程首页。服务端仍会在每次请求上执行最终鉴权。
   leaveHiddenAiPage() {
     if (this._hiddenAiRedirectPending) return;
     this._hiddenAiRedirectPending = true;
     if (typeof wx !== 'undefined' && wx.redirectTo) {
-      wx.redirectTo({ url: '/pages/index/index' });
+      wx.redirectTo({ url: '/pages/home/home' });
     }
   },
 

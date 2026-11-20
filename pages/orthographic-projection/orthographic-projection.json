@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "正投影",
+  "navigationBarBackgroundColor": "#f4f9ff",
+  "navigationBarTextStyle": "black",
+  "backgroundColor": "#eaf6ff",
+  "disableScroll": false,
+  "pageOrientation": "auto"
+}

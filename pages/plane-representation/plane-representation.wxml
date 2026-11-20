@@ -1,0 +1,40 @@
+<view class="plane-page">
+  <view class="page-topbar">
+    <view class="topbar-copy">
+      <text class="topbar-title">同一平面 P · 六种表示</text>
+      <text class="topbar-subtitle">切换元素，观察同一个平面</text>
+    </view>
+  </view>
+
+  <view class="mode-grid" role="tablist" aria-label="选择平面的表示方法">
+    <button
+      wx:for="{{modeOptions}}"
+      wx:key="key"
+      class="mode-button {{selectedMode === item.key ? 'active' : ''}}"
+      data-mode="{{item.key}}"
+      bindtap="selectMode"
+      aria-selected="{{selectedMode === item.key}}"
+    >
+      <text class="mode-symbol">{{item.symbol}}</text>
+      <text class="mode-label">{{item.shortLabel}}</text>
+    </button>
+  </view>
+
+  <view class="canvas-card">
+    <canvas
+      id="geometryCanvas"
+      type="2d"
+      class="geometry-canvas"
+      aria-label="平面的空间关系和第一角三面投影"
+    ></canvas>
+  </view>
+
+  <view class="explain-card" aria-live="polite">
+    <view class="explain-heading">
+      <text class="explain-badge">{{modeSymbol}}</text>
+      <text class="explain-title">{{ruleTitle}}</text>
+    </view>
+    <text class="explain-rule">{{rule}}</text>
+    <text class="explain-note">{{projectionNote}}</text>
+  </view>
+</view>

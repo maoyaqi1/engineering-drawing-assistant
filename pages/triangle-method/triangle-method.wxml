@@ -23,7 +23,9 @@
           <text wx:if="{{selectedPlane === 'H'}}" class="card-caption">H 面直角三角形：B→q 为投影长，q→A 为 Δz，B→A 为实长 L，α 位于 B 点。</text>
           <text wx:else class="card-caption">拖动下方三视图端点；红边为实长 L，金色边为 {{targetView.deltaLabel}}，紫弧标出 {{targetView.angleName}}。</text>
         </view>
-        <button class="ghost-button" bindtap="handleReset" aria-label="恢复默认直线端点">重置</button>
+        <view class="card-actions">
+          <button class="ghost-button" bindtap="handleReset" aria-label="恢复默认直线端点">重置</button>
+        </view>
       </view>
       <!-- 同一 Canvas 依次绘制首页直线场景、本页空间三角形和三视图辅助三角形。 -->
       <canvas

@@ -1,0 +1,80 @@
+<view class="lesson-shell">
+  <scroll-view
+    class="lesson-scroll"
+    scroll-y="{{true}}"
+  >
+    <view class="content">
+      <view id="section-methods" class="lesson-card">
+        <view class="section-heading">
+          <view>
+            <text class="section-title">投影方法</text>
+          </view>
+          <button class="replay-button" bindtap="handleMethodReplay" aria-label="重新播放投影过程">
+            重新播放
+          </button>
+        </view>
+        <view class="segmented-control" role="tablist" aria-label="选择投影方法">
+          <button
+            wx:for="{{methodOptions}}"
+            wx:key="key"
+            class="segment-button {{methodMode === item.key ? 'active' : ''}}"
+            data-mode="{{item.key}}"
+            bindtap="selectMethod"
+            aria-selected="{{methodMode === item.key}}"
+          >{{item.label}}</button>
+        </view>
+        <view wx:if="{{methodMode === 'parallel'}}" class="parallel-projection-bar">
+          <text class="ray-angle {{parallelAngleDeg === 90 ? 'orthographic' : ''}}">
+            投射线与 P 面：{{parallelAngleDeg}}°
+          </text>
+          <slider
+            min="0"
+            max="150"
+            step="1"
+            value="{{parallelSliderValue}}"
+            activeColor="#1684ff"
+            backgroundColor="#d7e9f8"
+            block-size="16"
+            bindchanging="handleParallelAngleChange"
+            bindchange="handleParallelAngleChange"
+            aria-label="调整投射线角度，中央为正投影"
+          />
+        </view>
+        <canvas
+          id="methodsCanvas"
+          type="2d"
+          class="demo-canvas methods-canvas"
+          aria-label="中心投影与平行投影的射线和投影对比"
+        ></canvas>
+      </view>
+
+      <view id="section-property" class="lesson-card">
+        <view class="section-heading">
+          <view>
+            <text class="section-title">平行投影法的性质</text>
+          </view>
+        </view>
+
+        <view class="property-tabs four">
+          <button
+            wx:for="{{propertyOptions}}"
+            wx:key="key"
+            class="property-tab {{propertyKey === item.key ? 'active' : ''}}"
+            data-property="{{item.key}}"
+            bindtap="selectProperty"
+          >{{item.title}}</button>
+        </view>
+
+        <canvas
+          id="propertyCanvas"
+          type="2d"
+          class="demo-canvas property-canvas"
+          aria-label="投影基本性质动态几何演示"
+        ></canvas>
+
+        <text class="property-explanation">{{propertyDefinition}}</text>
+        <text wx:if="{{propertyKey === 'ratio'}}" class="property-result">{{propertySummary}}</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

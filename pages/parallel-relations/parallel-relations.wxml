@@ -1,0 +1,83 @@
+<view class="parallel-page">
+  <view class="page-content">
+      <view class="knowledge-card">
+        <view class="card-heading">
+          <text class="condition-index">1</text>
+          <view class="card-heading-copy">
+            <text class="card-title">线面平行</text>
+          </view>
+        </view>
+
+        <canvas
+          id="linePlaneCanvas"
+          type="2d"
+          class="diagram-canvas"
+          aria-label="平面外直线平行于平面内直线的示意"
+        ></canvas>
+
+        <view class="rule-box">
+          <text class="rule-label">几何条件</text>
+          <text class="rule-text">平面外的一条直线与平面内的一条直线平行，则该直线平行于此平面。</text>
+          <text class="symbol-text">CD ⊂ P，AB ∥ CD，AB ⊄ P ⇒ AB ∥ P</text>
+          <text class="projection-label">有积聚性投影时</text>
+          <text class="projection-note">当平面为投影面的垂直面时，只要平面有积聚性的投影和直线的同面投影平行，或直线也为该投影面的垂线，则直线与平面必定平行。</text>
+        </view>
+
+        <view class="video-row">
+          <button
+            class="video-button"
+            data-video-key="lineThroughPoint"
+            bindtap="handleVideoTap"
+            aria-label="播放视频号：过平面外一点作一直线平行于给定平面"
+          >
+            <text class="video-play">▶</text>
+            <view class="video-copy">
+              <text class="video-title">过平面外一点作一直线平行于给定平面</text>
+              <text class="video-source">视频号讲解</text>
+            </view>
+            <text class="video-arrow">›</text>
+          </button>
+        </view>
+      </view>
+
+      <view class="knowledge-card">
+        <view class="card-heading">
+          <text class="condition-index second-index">2</text>
+          <view class="card-heading-copy">
+            <text class="card-title">面面平行</text>
+          </view>
+        </view>
+
+        <canvas
+          id="planePlaneCanvas"
+          type="2d"
+          class="diagram-canvas"
+          aria-label="两个平面内两组相交直线分别平行的示意"
+        ></canvas>
+
+        <view class="rule-box second-rule">
+          <text class="rule-label">几何条件</text>
+          <text class="rule-text">一个平面内的两条相交直线分别平行于另一个平面，则这两个平面平行。</text>
+          <text class="symbol-text">AB ∥ EF，CD ∥ GH，AB ∩ CD ≠ ∅ ⇒ Q ∥ P</text>
+          <text class="projection-label">有积聚性投影时</text>
+          <text class="projection-note">若两投影面垂直面相互平行，则它们具有积聚性的那组投影必相互平行。</text>
+        </view>
+
+        <view class="video-row">
+          <button
+            class="video-button second-video"
+            data-video-key="planeThroughPoint"
+            bindtap="handleVideoTap"
+            aria-label="播放视频号：过平面外一点作一平面平行于给定平面"
+          >
+            <text class="video-play">▶</text>
+            <view class="video-copy">
+              <text class="video-title">过平面外一点作一平面平行于给定平面</text>
+              <text class="video-source">视频号讲解</text>
+            </view>
+            <text class="video-arrow">›</text>
+          </button>
+        </view>
+      </view>
+  </view>
+</view>

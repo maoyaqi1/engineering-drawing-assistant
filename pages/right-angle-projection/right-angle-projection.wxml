@@ -24,7 +24,9 @@
     <view class="canvas-card">
       <view class="card-heading">
         <text class="card-title">空间直角与三面投影</text>
-        <button class="reset-button" bindtap="handleReset">重置</button>
+        <view class="card-actions">
+          <button class="reset-button" bindtap="handleReset">重置</button>
+        </view>
       </view>
       <canvas
         id="geometryCanvas"

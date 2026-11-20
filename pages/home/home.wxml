@@ -1,0 +1,160 @@
+<view class="home-page">
+  <scroll-view class="home-scroll" scroll-y>
+    <view class="home-content">
+      <view class="home-header">
+        <view class="brand-row">
+          <view class="brand-mark" aria-hidden="true">
+            <text>△</text>
+          </view>
+          <view class="brand-copy">
+            <text class="home-title">工程制图学习助手</text>
+            <text class="home-slogan">理解投影规律 · 探索空间形体 · 培育工程思维</text>
+          </view>
+          <navigator
+            class="profile-entry"
+            url="/pages/register/register"
+            hover-class="profile-entry-hover"
+            aria-label="查看个人信息"
+          >个人信息</navigator>
+        </view>
+      </view>
+
+      <view class="philosophy-band" aria-label="课程学习理念">
+        <view class="philosophy-items">
+          <view class="philosophy-item">
+            <text class="philosophy-mark">思</text>
+            <view>
+              <text class="philosophy-title">动脑思考</text>
+              <text class="philosophy-copy">空间分析与判断</text>
+            </view>
+          </view>
+          <view class="philosophy-divider"></view>
+          <view class="philosophy-item">
+            <text class="philosophy-mark">探</text>
+            <view>
+              <text class="philosophy-title">动手探索</text>
+              <text class="philosophy-copy">观察操作与验证</text>
+            </view>
+          </view>
+          <view class="philosophy-divider"></view>
+          <view class="philosophy-item">
+            <text class="philosophy-mark">器</text>
+            <view>
+              <text class="philosophy-title">善用工具</text>
+              <text class="philosophy-copy">辅助表达与求解</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="search-section">
+        <view class="section-heading">
+          <text class="section-title">知识点搜索</text>
+          <text class="section-caption">跨章节查找课程内容</text>
+        </view>
+        <view class="search-box">
+          <text class="search-icon" aria-hidden="true">⌕</text>
+          <input
+            class="search-input"
+            value="{{query}}"
+            placeholder="搜索知识点，如：直线的实长"
+            confirm-type="search"
+            bindinput="handleSearchInput"
+            aria-label="搜索课程知识点"
+          />
+          <button
+            wx:if="{{query}}"
+            class="search-clear"
+            bindtap="clearSearch"
+            aria-label="清除搜索"
+          >×</button>
+        </view>
+
+        <view wx:if="{{hasQuery}}" class="search-results" aria-live="polite">
+          <view class="result-summary">
+            <text>搜索结果</text>
+            <text>{{searchResults.length}} 项</text>
+          </view>
+          <button
+            wx:for="{{searchResults}}"
+            wx:key="id"
+            class="result-row {{item.isOpen ? 'available' : 'unavailable'}} {{item.isOpen ? '' : 'disabled'}}"
+            data-id="{{item.id}}"
+            bindtap="openKnowledgePoint"
+            hover-class="{{item.isOpen ? 'result-row-hover' : 'none'}}"
+            disabled="{{!item.isOpen}}"
+          >
+            <view class="result-main">
+              <text class="result-title">{{item.title}}</text>
+              <text class="result-chapter">{{item.chapterTitle}}</text>
+            </view>
+            <text wx:if="{{item.isOpen}}" class="result-arrow">›</text>
+            <text wx:else class="status-tag">{{item.statusText}}</text>
+          </button>
+          <view wx:if="{{searchResults.length === 0}}" class="empty-result">
+            暂未找到相关知识点，请尝试其他关键词。
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{!hasQuery}}" class="course-section">
+        <view class="section-heading course-heading">
+          <view class="section-heading-main">
+            <text class="section-title">课程学习</text>
+            <text class="section-caption">按课程章节查找已有互动内容</text>
+          </view>
+          <text class="chapter-total">共 7 章</text>
+        </view>
+
+        <view class="chapter-list">
+          <view
+            wx:for="{{chapters}}"
+            wx:key="id"
+            wx:for-item="chapter"
+            class="chapter-card {{chapter.isExpanded ? 'expanded' : ''}}"
+          >
+            <button
+              class="chapter-header"
+              data-id="{{chapter.id}}"
+              bindtap="toggleChapter"
+              aria-expanded="{{chapter.isExpanded}}"
+            >
+              <view class="chapter-title-wrap">
+                <text class="chapter-index">{{chapter.number}}</text>
+                <text class="chapter-name">{{chapter.name}}</text>
+              </view>
+              <text
+                wx:if="{{chapter.hasMultiplePoints}}"
+                class="chapter-chevron {{chapter.isExpanded ? 'expanded' : ''}}"
+              ></text>
+            </button>
+
+            <view wx:if="{{chapter.isExpanded}}" class="knowledge-grid">
+              <button
+                wx:for="{{chapter.points}}"
+                wx:key="id"
+                wx:for-index="pointIndex"
+                wx:for-item="point"
+                class="knowledge-item {{point.isOpen ? 'available' : 'unavailable'}} {{point.isOpen ? '' : 'disabled'}}"
+                data-id="{{point.id}}"
+                bindtap="openKnowledgePoint"
+                hover-class="{{point.isOpen ? 'knowledge-item-hover' : 'none'}}"
+                disabled="{{!point.isOpen}}"
+              >
+                <text class="knowledge-order">{{pointIndex + 1}}.</text>
+                <text class="knowledge-title">{{point.title}}</text>
+                <text wx:if="{{point.isOpen}}" class="knowledge-arrow">›</text>
+                <text wx:else class="status-tag">{{point.statusText}}</text>
+              </button>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="course-footer">
+        <view class="footer-line"></view>
+        <text>让空间可观察、可操作、可验证。</text>
+      </view>
+    </view>
+  </scroll-view>
+</view>

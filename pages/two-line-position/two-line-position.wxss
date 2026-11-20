@@ -1,0 +1,257 @@
+.lesson-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #eef3f8;
+  color: #203146;
+}
+
+.lesson-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.lesson-card,
+.criteria-card {
+  box-sizing: border-box;
+  margin: 8px 14px 0;
+  border: 1px solid #dce5ef;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(24, 50, 83, 0.07);
+}
+
+.lesson-card {
+  padding: 6px;
+}
+
+.position-tabs,
+.judgement-tabs {
+  display: grid;
+  box-sizing: border-box;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  overflow: hidden;
+}
+
+.judgement-tabs {
+  margin: 1px 3px 0;
+}
+
+.position-tabs {
+  margin: 6px 3px 6px;
+}
+
+.position-tab,
+.judgement-tab {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 31px;
+  margin: 0;
+  padding: 0 5px;
+  overflow: hidden;
+  border: 1px solid #c6d7e7;
+  border-radius: 8px;
+  background: #f7faff;
+  color: #506a81;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 29px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.position-tab.active {
+  border-color: #388bd0;
+  background: #e8f4ff;
+  color: #1268aa;
+  box-shadow: inset 0 0 0 1px rgba(56, 139, 208, 0.14);
+}
+
+.judgement-tab.active {
+  border-color: #5b9d7b;
+  background: #edf8f2;
+  color: #287252;
+  box-shadow: inset 0 0 0 1px rgba(91, 157, 123, 0.14);
+}
+
+.position-tab::after,
+.judgement-tab::after {
+  border: 0;
+}
+
+.geometry-canvas {
+  display: block;
+  width: 100%;
+  height: calc(100vw * 1.15);
+  min-height: 420px;
+  max-height: 500px;
+  border-radius: 11px;
+  background: #ffffff;
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 6px 7px 3px;
+  color: #66748a;
+  font-size: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+}
+
+.legend-line {
+  display: inline-block;
+  width: 17px;
+  margin-right: 5px;
+  border-top: 2px solid;
+}
+
+.line-one {
+  border-color: #ff9d2e;
+}
+
+.line-two {
+  border-color: #4f82e8;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: #48c774;
+}
+
+.legend-ring {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border: 1.5px solid #d18a49;
+  border-radius: 50%;
+}
+
+.criteria-card {
+  margin-bottom: 14px;
+  padding: 12px;
+  border-color: #cfe1ee;
+  background:
+    linear-gradient(145deg, rgba(238, 248, 255, 0.9), rgba(255, 255, 255, 0) 58%),
+    #ffffff;
+}
+
+.criteria-card.judgement-intersect {
+  border-color: #cbdcf0;
+  background:
+    linear-gradient(145deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0) 58%),
+    #ffffff;
+}
+
+.criteria-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.criteria-title {
+  color: #173f72;
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.criteria-scope {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e6f2fa;
+  color: #27678d;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.criteria-base {
+  display: block;
+  color: #314f68;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.criteria-highlight {
+  margin-top: 9px;
+  padding: 9px 10px;
+  border-left: 4px solid #e6a23c;
+  border-radius: 4px 8px 8px 4px;
+  background: #fff5db;
+}
+
+.criteria-highlight-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #9a5c12;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.criteria-highlight-copy {
+  display: block;
+  color: #7e4f15;
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.55;
+}
+
+.criteria-note {
+  display: block;
+  margin-top: 8px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  background: #f1f6f9;
+  color: #587184;
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+
+@media (min-width: 700px) {
+  .lesson-card,
+  .criteria-card {
+    margin-right: 20px;
+    margin-left: 20px;
+  }
+
+  .geometry-canvas {
+    height: 440px;
+    min-height: 0;
+    max-height: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .lesson-card,
+  .criteria-card {
+    margin-right: 10px;
+    margin-left: 10px;
+  }
+
+  .position-tab,
+  .judgement-tab {
+    padding: 0 3px;
+    font-size: 10.5px;
+  }
+
+  .geometry-canvas {
+    height: 410px;
+    min-height: 410px;
+  }
+}

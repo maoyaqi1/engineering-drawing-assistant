@@ -14,7 +14,7 @@ Page({
     // 已登录则跳过登录页：已实名注册直接进首页；登录过但未填学号的去补注册。
     const user = app.globalData.user;
     if (user && user.student_id) {
-      wx.reLaunch({ url: '/pages/index/index' });
+      wx.reLaunch({ url: '/pages/home/home' });
       return;
     }
     if (user) {
@@ -47,8 +47,8 @@ Page({
         app.setUser(res.user);
         // 埋点：登录
         api.recordEvent('login', { page: 'login' });
-        const registered = !!(res.registered && res.user.student_id);
-        wx.redirectTo({ url: registered ? '/pages/index/index' : '/pages/register/register' });
+        const registered = !!res.user.student_id;
+        wx.reLaunch({ url: registered ? '/pages/home/home' : '/pages/register/register' });
         return;
       }
       this.setData({ loading: false, error: (res && res.msg) || '登录失败，请稍后重试' });

@@ -1,0 +1,79 @@
+@import "../line-plane-relation/line-plane-relation.wxss";
+
+.selector-card {
+  margin-top: 5px;
+  padding: 5px 8px;
+  gap: 7px;
+  border-color: #d8e2eb;
+  background: #fbfdff;
+}
+
+.selector-label {
+  font-size: 10px;
+}
+
+.selector-control {
+  height: 30px;
+  padding: 0 7px;
+  border-color: #86b5da;
+  background: #f4f9fd;
+  color: #22608c;
+  font-size: 10.5px;
+}
+
+.selector-arrow {
+  font-size: 12px;
+}
+
+.canvas-card {
+  box-shadow: 0 6px 18px rgba(27, 71, 105, 0.1);
+}
+
+.card-heading .reset-button {
+  flex: 0 0 44px;
+  width: 44px !important;
+  min-width: 44px;
+  max-width: 44px;
+  height: 24px;
+  line-height: 22px;
+}
+
+.guide-action {
+  width: 100% !important;
+}
+
+.method-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 7px;
+  margin-top: 8px;
+}
+
+.method-chip {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid #b8d8f2;
+  border-radius: 999px;
+  background: #edf7ff;
+  color: #176ca8;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.method-status-text {
+  min-width: 0;
+  color: #64768a;
+  font-size: 9.5px;
+  line-height: 1.45;
+}
+
+.guide-action {
+  border-color: #267fba;
+  background: #267fba;
+}
+
+.guide-card.complete {
+  border-color: #f0bbb6;
+}

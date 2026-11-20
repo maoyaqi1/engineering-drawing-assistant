@@ -119,3 +119,23 @@ node scripts/test-case-coverage-check.cjs
 node scripts/run-all.js
 Get-FileHash pages/right-angle-projection/right-angle-render.js -Algorithm SHA256
 ```
+
+## 8. 2026-11-05 导航职责迁移修订
+
+- 触发：用户明确要求学习页导航职责迁移，只保留原生标题栏和原生返回，并在卡片标题区增加首页入口。
+- 范围：仅修改 `right-angle-projection.wxml` 的标题操作区及 `right-angle-projection.wxss` 的按钮排列。
+- 不变项：α/β/γ、C/D 拖动圈、单端拖动、空间与投影直角、灰显/高亮、Canvas 尺寸和触摸处理均未修改。
+- 验证：`right-angle-projection-check` 744/744、导航迁移检查 100/100、布局检查、PAD 估算及全量本地检查 43/43 通过；微信开发者工具和真机验证不由这些本地检查替代。
+
+导航迁移后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `pages/right-angle-projection/right-angle-projection.wxml` | `700C216D2BF2F58A163C19B1B7709775E22EF6615723172B8F7B75B77544A67F` |
+| `pages/right-angle-projection/right-angle-projection.wxss` | `E831E110F3A7CAE65E0FFA263E5E8D40DDCB104B4D53D0A12D310675BED30FEB` |
+
+## 9. 2026-11-07 直线章节紧凑头部修订
+
+- 触发：用户明确要求删除首页入口、缩小重置按钮并靠右、标题单行显示，以节约高度。
+- 范围：只修改卡片标题操作区和对应样式；不修改 α/β/γ、C/D 拖动、空间与投影直角、灰显/高亮、Canvas 或会话逻辑。
+- 更新后哈希：`right-angle-projection.wxml = 7111B55C1108956861E334B80269D9C5E2F2B21555AC3BA6951BA67E2FD1419C`；`right-angle-projection.wxss = E1258428B2CA89C8054A7DDB1487197903BA1FF8E97C1FBE286B93BD887D52E3`。

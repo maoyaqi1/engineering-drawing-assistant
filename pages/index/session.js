@@ -4,6 +4,7 @@
 // 小程序与 Node 走 CommonJS，行为不变。
 (function () {
   const api = (typeof wx !== 'undefined' && wx.cloud) ? require('../../utils/api.js') : null;
+  const surveyInvite = api ? require('../../utils/survey-invite.js') : null;
 
   module.exports = {
     ensureSession() {
@@ -15,19 +16,37 @@
         wx.redirectTo({ url: '/pages/login/login' });
         return;
       }
+      if (this._pageVisible && (this._sessionStartPending || this._sessionId)) return;
       this.refreshAiEntrance();
+      this._pageVisible = true;
+      this._sessionCycle = (this._sessionCycle || 0) + 1;
       this._sessionStart = Date.now();
       this._interactionCount = 0;
       this._sessionEnded = false;
+      this._sessionStartPending = true;
+      this._sessionId = null;
+      this._chapterStart = null;
+      const sessionCycle = this._sessionCycle;
       api.startSession(this.data.mode).then((res) => {
-        if (res && res.ok) this._sessionId = res.session_id;
-        this.trackChapterEnter();
-      });
-      api.statistics(true).then((res) => {
-        if (res && res.ok && !res.survey_completed && res.can_invite && res.valid_session_count >= 5) {
-          this.inviteSurvey();
+        const sessionId = res && res.ok ? res.session_id : '';
+        if (sessionCycle !== this._sessionCycle) {
+          if (sessionId) api.endSession(sessionId, 0, 0);
+          return;
         }
+        this._sessionStartPending = false;
+        if (!sessionId) return;
+        if (!this._pageVisible || this._sessionEnded) {
+          api.endSession(sessionId, 0, 0);
+          return;
+        }
+        this._sessionId = sessionId;
+        this.trackChapterEnter();
+      }).catch(() => {
+        if (sessionCycle === this._sessionCycle) this._sessionStartPending = false;
       });
+      if (surveyInvite && this.route === 'pages/index/index') {
+        surveyInvite.onEligiblePageShown(this);
+      }
     },
 
     // AI 教师是基本立体模式中的隐藏功能：只有服务端确认当前账号
@@ -45,12 +64,19 @@
     },
 
     endSession() {
-      if (!api || !this._sessionId || this._sessionEnded) return;
+      this._pageVisible = false;
+      if (surveyInvite && this.route === 'pages/index/index') {
+        surveyInvite.onEligiblePageHidden(this);
+      }
+      if (!api || this._sessionEnded) return;
+      if (!this._sessionId && !this._sessionStartPending) return;
       this._sessionEnded = true;
-      this.trackChapterExit();
-      const duration = Math.max(0, Math.floor((Date.now() - (this._sessionStart || Date.now())) / 1000));
-      api.endSession(this._sessionId, duration, this._interactionCount || 0);
-      this._sessionId = null;
+      if (this._sessionId) {
+        this.trackChapterExit();
+        const duration = Math.max(0, Math.floor((Date.now() - (this._sessionStart || Date.now())) / 1000));
+        api.endSession(this._sessionId, duration, this._interactionCount || 0);
+        this._sessionId = null;
+      }
     },
 
     trackEvent(eventType, payload) {
@@ -72,6 +98,7 @@
     },
 
     trackChapterEnter() {
+      if (!this._pageVisible || !this._sessionId) return;
       this._chapterStart = Date.now();
       this.trackEvent('chapter_enter');
     },
@@ -89,17 +116,7 @@
     },
 
     inviteSurvey() {
-      if (this._surveyPrompted) return;
-      this._surveyPrompted = true;
-      wx.showModal({
-        title: '使用反馈调查',
-        content: '你已连续使用工程制图学习助手 5 次。我们希望了解这个工具是否真正帮助了你的学习。',
-        confirmText: '开始调查',
-        cancelText: '暂时不做',
-        success: (res) => {
-          if (res.confirm) wx.navigateTo({ url: '/pages/survey/survey' });
-        }
-      });
+      if (surveyInvite) surveyInvite.checkForSurveyInvite();
     }
   };
 })();
