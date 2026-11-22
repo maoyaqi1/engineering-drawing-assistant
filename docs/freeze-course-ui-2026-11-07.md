@@ -23,7 +23,7 @@
 2. 第二章只保留：`直线的投影规律 → 直角三角形法求实长 → 两直线位置关系 → 直角投影定理`。
 3. 第三章：`平面的表示方法 → 平面的投影规律 → 属于平面的点和直线 → 最大斜度线`。
 4. 第四章只保留：`线面、面面平行 → 线面、面面相交 → 线面、面面垂直`。
-5. 第五章：`基本立体的介绍 → 平面立体的投影 → 曲面立体的投影`。
+5. 第五章：`平面立体的投影 → 曲面立体的投影`。
 6. 第六章：`直线与立体相交 → 截交线 → 平面与立体相交`。
 7. 第七章只保留：`相贯线 → 两立体相交`。
 
@@ -40,7 +40,8 @@
 - 线面、面面相交：`/pages/line-plane-relation/line-plane-relation`
 - 线面、面面相交概览：`/pages/intersection-relations/intersection-relations`
 - 面面相交求交线：`/pages/plane-plane-relation/plane-plane-relation`
-- 基本立体的介绍、平面立体的投影、曲面立体的投影：`/pages/index/index?mode=solid`
+- 平面立体的投影：`/pages/plane-solid-projection/plane-solid-projection`
+- 曲面立体的投影：`/pages/curved-solid-projection/curved-solid-projection`
 - 截交线、平面与立体相交：`/pages/index/index?mode=section`
 
 待开放项不得伪造页面映射，包括：属于平面的点和直线、线面/面面垂直、相贯线、两立体相交等。
@@ -213,3 +214,50 @@ git diff --check
 ## 15. 2026-11-19 面面相交求交线页
 
 按用户要求新增 `pages/plane-plane-relation/plane-plane-relation`，沿用线面求交点页的界面与三步引导格式。两个平面选择器均提供四种平面类型；13 种组合生成交线，3 种同向特殊平面识别为平行。相交概览页的“面面相交”按钮已改为进入本页。
+
+## 16. 2026-11-22 线面、面面垂直页接入
+
+按用户要求新增 `pages/perpendicular-relations/perpendicular-relations` 静态图文页，课程首页第四章“线面、面面垂直”由待开放改为可进入。页面最终使用两张用户确认的参考图表达“直线与平面垂直”和“两平面垂直”，并预留“过平面外一点作给定平面的法线”和“过平面外一点作一平面垂直于给定平面”两个视频号入口；不提供几何拖动、参数互动或 Canvas。
+
+本轮仅新增页面、专项检查并更新课程路由与 `app.json` 注册，不修改首页点/线/面、立体、截交、已有知识页或并行关系页。更新后的 `app.json`：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `app.json` | `2FBDAA6C0E23D52CEDEFDF7B0D148845CF2204BC39114D6E6BD1C48279CF5743` |
+
+## 17. 2026-11-22 平面/曲面立体投影拆分
+
+第五章删除“基本立体的介绍”，只保留“平面立体的投影”和“曲面立体的投影”。两页分别承载棱柱/棱锥和圆柱/圆锥/圆球/圆环，共享原 `pages/index` 的立体几何、三视图、尺寸、姿态和重置模块。旧 `pages/index?mode=solid` 保留兼容，但不再展示 AI 教师入口；AI 入口仅在新平面立体投影页按服务端准入显示。
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `app.json` | `9B378833F7E00D972EA3765E0071033754221C02DC82FEE4C0AF6670421D8610` |
+| `pages/index/index.js` | `BB9C4079D382BD829EBA3702A6BAE74CEA3F51F340190E5EEA7B4ADB2E42F8BF` |
+| `pages/index/index.wxml` | `B06DCC68A8E8676424E2A92E3C520E9681F5C14B413E122E36B6C6E2BC4284D5` |
+
+## 18. 2026-11-22 平面与立体相交拆分
+
+第六章删除“截交线”和旧“平面与立体相交”入口；“直线与立体相交”保留待开放。
+新增“平面与平面立体相交”和“平面与曲面立体相交”两个独立页面，分别提供
+棱柱/棱锥（3～8 棱步进）和圆柱/圆锥/圆球/圆环。两页共享
+`pages/index/section-solid-page.js`、`section-solid-view.wxml` 和
+`section-geometry.js` 截交真值，不复制几何算法；旧
+`pages/index?mode=section` 保留历史深链兼容。
+
+本轮验证：几何真值回归 `332/332`、平面与立体相交拆分 `118/118`、
+截交三视图等价性 `21/21`、课程首页 `191/191`、导航迁移
+`191/191`、学习页会话生命周期 `267/267`、全量本地检查 `56/56` 通过。
+微信开发者工具手机/PAD 点按和真机拖动仍需人工验收。
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `app.json` | `11EB6688994D96D3A6F860191440C875FFAE512DFDCF7DA463BFCEAFB019F7CA` |
+| `config/course-catalog.js` | `10BADA7BD795DB7386FCBFFD1062CE45956E05817384D64713127FB78C224AC9` |
+| `pages/index/section-geometry.js` | `9348F8913AD20D5E3B0C885CA05B013A16C62BEC9EC66EC3568E4616A8258A77` |
+| `pages/index/section-render.js` | `1710F39062E837066B6E761503086F3EFED91404B2B18C0ED2E2D8D85F7F1C04` |
+| `pages/index/section-solid-page.js` | `EF220F1BA4055787A2E2402F5EB893C609A287F72C815CAAB8B1C3D6F08C56FB` |
+| `pages/index/section-solid-view.wxml` | `5FACB012E077C0104631C412F2DF2C71259C545C50A53570CB6619EB0EFF69A1` |
+| `pages/index/section-solid-split.wxss` | `48485E99CA10063E54F92016960DFC76E86BA717D15BAD3C28F8AD65A339BA96` |
+| `scripts/geometry-test.js` | `7E57C825B88280095B251C95BB72DC6C540E027FC453FF67841D3A371D9BE442` |
+| `scripts/section-solid-split-check.cjs` | `D8380288B6CD09E90B4536DD7DEF7922FEFFB7578050507E8DC94522F092D209` |
+| `scripts/section-projection-check.cjs` | `C81F28F8792103A8D48640304D06DDF4411390EE4E10C7023A65C0B0A82ACCA6` |

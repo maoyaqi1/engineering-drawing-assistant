@@ -42,6 +42,8 @@
 
 **修改后必须验证**：多种立体（三棱锥/五棱柱/圆柱/圆锥/圆球/圆环）× 多种截平面（水平/正垂/侧平）；截点无重复；曲线闭合无断口；三维截面与三视图来自同一份数据。
 
+**更新（2026-11-22）**：第六章平面立体相交页新增参数化 `prism` / `pyramid`，棱数限定 `3..8`；五棱柱及原截面基准保持不变，缓存键必须包含棱数。修改后须重跑 `geometry-test.js`、`section-solid-split-check.cjs` 与 `section-projection-check.cjs`。
+
 ---
 
 ## F3. 平面切割立体的渲染与交互
@@ -201,6 +203,24 @@
 3. 投影面垂直面 × 一般位置平面继续以 ABC 为投影面垂直面、EFG 为一般面作为基准；反向角色只交换同一几何和交线。
 4. 云函数、教师后台、网页发布快照、数据库和线上环境不属于本次产品界面冻结。
 5. 修改时必须更新需求、测试用例和 SHA-256 清单，并重跑受影响专项、全量检查和微信开发者工具；涉及 Canvas、布局或交互时另行安排真机回归。
+
+---
+
+## 立体投影附加冻结：2026-11-22
+
+**范围**：`pages/plane-solid-projection/`、`pages/curved-solid-projection/`、`pages/index/solid-projection-page.js`、`pages/index/solid-projection-view.wxml`、`pages/index/solid-pose-compact.wxss`，以及行为记录中列出的原立体几何/三视图依赖、课程路由和专项检查。
+
+**基线**：`solid-projection-2026-11-22`，基于 `c7b2737`（`v1.7.0`）之上的未提交工作区；完整哈希见 `docs/freeze-solid-projection-2026-11-22.sha256`，行为契约见 `docs/freeze-solid-projection-2026-11-22.md`。该冻结不是 Git commit、tag、部署或线上发布。
+
+**规则**：默认不得重构、重命名或调整两个立体投影页的类型范围、单行参数布局、旋转/平移行、AI 入口边界和原几何行为。只有用户明确要求调整立体投影，或存在可复现真实缺陷时才允许修改；修改后必须更新哈希并重跑 `solid-projection-split-check.cjs`、会话检查、全量检查和模拟器/真机布局回归。
+
+## 学生端产品整体附加冻结：2026-11-22
+
+**范围**：当前学生端根入口、`pages/` 全部页面、`config/`、`utils/`、`scripts/`、当前需求规格、系统测试用例、交接说明和项目事实。完整文件哈希见 `docs/freeze-student-product-2026-11-22.sha256`，行为契约与验证记录见 `docs/freeze-student-product-2026-11-22.md`。
+
+**基线**：`student-product-2026-11-22`，产品版本 `v1.8.0`，Git 上游 `c7b2737`（`v1.7.0`）。冻结随 `v1.8.0` 提交与 annotated tag 固化；部署或线上发布不在本冻结范围内。
+
+**规则**：默认不得重构、重命名或批量格式化本基线页面、课程路由、几何结果和客户端交互。修改时须更新需求、测试用例和 SHA-256 清单，并重跑全量与受影响专项；涉及 Canvas、布局或交互时另行安排模拟器和真机回归。
 
 ---
 

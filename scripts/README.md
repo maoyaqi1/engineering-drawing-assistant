@@ -14,14 +14,17 @@ node scripts/run-all.js --full   # 打印每一步的完整输出
 也可以单独运行：
 
 ```powershell
-node scripts/geometry-test.js          # 几何真值回归（252 项断言）
+node scripts/geometry-test.js          # 几何真值回归（332 项断言）
 node scripts/geometry-test.js --quiet  # 只打印失败项与备注
 node scripts/triangle-method-check.cjs # 直角三角形法冻结回归
 node scripts/two-line-position-check.cjs # 一般/特殊位置直线的平行、相交判断
 node scripts/right-angle-projection-check.cjs # 直角投影定理数学与接线检查
+node scripts/solid-projection-split-check.cjs # 平面/曲面立体拆分、范围与 AI 入口检查
+node scripts/section-solid-split-check.cjs # 平面与平面/曲面立体相交拆分检查
 node scripts/parallel-relations-check.cjs # 线面、面面平行图文页、静态示意和视频号入口
+node scripts/perpendicular-relations-check.cjs # 线面、面面垂直条件、参考图和视频号入口
 node scripts/plane-representation-check.cjs # 平面五种几何元素表示法、迹线与无滚动布局
-node scripts/section-projection-check.cjs  # 截交三视图可见性等价性守护（17 项）
+node scripts/section-projection-check.cjs  # 截交三视图可见性等价性守护（21 项）
 node scripts/ai-knowledge-routing-check.cjs  # AI 教师知识点路由检查（128 项）
 node scripts/integrity-check.js        # 静态接线检查
 node scripts/full-check.cjs            # 全仓静态检查
@@ -38,7 +41,10 @@ node scripts/offline/run-photo-quota-concurrency.cjs # 拍照配额原子性、�
 | `triangle-method-check.cjs` | 直角三角形法纯数学、拖动、重置、斜二等轴测和 Canvas 标注意图 | 只读 | 是 |
 | `two-line-position-check.cjs` | 一般/特殊位置直线的平行、相交判断，特殊位置平行/相交反例、同面投影关系、页面路由和 Canvas 接线 | 只读 | 是 |
 | `right-angle-projection-check.cjs` | 直角投影定理 H/V/W 定理与反例、页面接线、重置和 Canvas 绘制 | 只读 | 是 |
+| `solid-projection-split-check.cjs` | 平面/曲面立体页面拆分、类型范围、共享几何接线和 AI 入口边界 | 只读 | 是 |
+| `section-solid-split-check.cjs` | 第六章目录、平面/曲面立体相交页、类型范围、共享截交接线和三视图等价性 | 只读 | 是 |
 | `parallel-relations-check.cjs` | 线面、面面平行条件、静态示意图、课程路由、双 Canvas 与视频号按钮接线 | 只读 | 是 |
+| `perpendicular-relations-check.cjs` | 线面、面面垂直条件、两张参考图资产、课程路由与视频号按钮接线 | 只读 | 是 |
 | `plane-representation-check.cjs` | 平面五种几何元素表示法、迹线几何、课程路由、单 Canvas 与无滚动布局 | 只读 | 是 |
 | `section-projection-check.cjs` | 切割模式三视图「可见 / 隐藏棱」分类与改动前基准（blob `4ffcfd8874`）一致，且投影包围盒预筛仍在生效 | 只读 | 是 |
 | `integrity-check.js` | `app.json` ↔ 页面文件、`index.wxml` ↔ 页面方法、客户端 action ↔ 云函数路由、打包忽略列表 | 只读 | 是 |

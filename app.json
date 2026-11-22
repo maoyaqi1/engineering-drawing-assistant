@@ -4,6 +4,10 @@
     "pages/register/register",
     "pages/home/home",
     "pages/index/index",
+    "pages/plane-solid-projection/plane-solid-projection",
+    "pages/curved-solid-projection/curved-solid-projection",
+    "pages/plane-solid-intersection/plane-solid-intersection",
+    "pages/curved-solid-intersection/curved-solid-intersection",
     "pages/projection-method/projection-method",
     "pages/orthographic-projection/orthographic-projection",
     "pages/two-line-position/two-line-position",
@@ -16,6 +20,7 @@
     "pages/right-angle-projection/right-angle-projection",
     "pages/maximum-slope-line/maximum-slope-line",
     "pages/parallel-relations/parallel-relations",
+    "pages/perpendicular-relations/perpendicular-relations",
     "pages/intersection-relations/intersection-relations",
     "pages/plane-plane-relation/plane-plane-relation",
     "pages/line-plane-relation/line-plane-relation"

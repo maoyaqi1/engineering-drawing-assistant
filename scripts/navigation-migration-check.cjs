@@ -111,7 +111,7 @@ suite.check(projectionWxss.includes('.card-actions .ghost-button')
 suite.check(projectionWxml.includes('拖动画布旋转观察；展开角控制 H/W 面折叠'),
   '投影体系卡片副说明已压缩为单行');
 
-suite.section('3. 七个独立知识点页');
+suite.section('3. 独立知识点页');
 [
   {
     path: 'pages/orthographic-projection/orthographic-projection.wxml',
@@ -163,6 +163,16 @@ suite.section('3. 七个独立知识点页');
     label: '线面、面面平行',
     expectHome: false,
     markers: ['id="linePlaneCanvas"', 'id="planePlaneCanvas"', 'bindtap="handleVideoTap"']
+  },
+  {
+    path: 'pages/perpendicular-relations/perpendicular-relations.wxml',
+    label: '线面、面面垂直',
+    expectHome: false,
+    markers: [
+      'src="/images/line-plane-perpendicular-reference.png"',
+      'src="/images/plane-plane-perpendicular-reference.png"',
+      'bindtap="handleVideoTap"'
+    ]
   },
   {
     path: 'pages/intersection-relations/intersection-relations.wxml',
@@ -219,6 +229,29 @@ suite.check(linePlaneWxss.includes('margin-top: 4px')
   && linePlaneWxss.includes('min-height: 22px'),
 '线面相交求交点顶部选择区和标题栏已压缩高度');
 
+suite.section('3.1 第六章平面与立体相交拆分页');
+const sectionSolidView = read('pages/index/section-solid-view.wxml');
+suite.check(!sectionSolidView.includes('url="/pages/home/home"')
+  && !sectionSolidView.includes('class="ai-fab"'),
+'平面与立体相交拆分页不显示首页和 AI 教师入口');
+[
+  'bindtap="handleSectionSolidType"',
+  'bindtap="handleSectionPlaneType"',
+  'bindchange="handleSectionSlider"',
+  'bindtap="resetPoint"'
+].forEach((marker) => {
+  suite.check(sectionSolidView.includes(marker),
+    '平面与立体相交共享视图保留教学绑定：' + marker);
+});
+[
+  'pages/plane-solid-intersection/plane-solid-intersection.wxml',
+  'pages/curved-solid-intersection/curved-solid-intersection.wxml'
+].forEach((relativePath) => {
+  suite.check(read(relativePath).includes(
+    '<include src="../index/section-solid-view.wxml" />'
+  ), relativePath + ' 使用共享平面与立体相交视图');
+});
+
 suite.section('4. Canvas 与触摸区域');
 [
   'pages/index/index.wxml',
@@ -230,19 +263,23 @@ suite.section('4. Canvas 与触摸区域');
   'pages/maximum-slope-line/maximum-slope-line.wxml',
   'pages/line-plane-relation/line-plane-relation.wxml',
   'pages/parallel-relations/parallel-relations.wxml',
-  'pages/plane-plane-relation/plane-plane-relation.wxml'
+  'pages/perpendicular-relations/perpendicular-relations.wxml',
+  'pages/plane-plane-relation/plane-plane-relation.wxml',
+  'pages/index/section-solid-view.wxml'
 ].forEach((relativePath) => {
   const wxml = read(relativePath);
   const expectedCanvasCount = relativePath.indexOf('parallel-relations') >= 0
     ? 2
-    : 1;
+    : (relativePath.indexOf('perpendicular-relations') >= 0 ? 0 : 1);
   suite.equal(count(wxml, /<canvas\b/g), expectedCanvasCount,
     relativePath + ` 保留 ${expectedCanvasCount} 个教学 Canvas`);
   if (relativePath.indexOf('line-plane-relation') >= 0
     || relativePath.indexOf('two-line-position') >= 0
     || relativePath.indexOf('plane-representation') >= 0
     || relativePath.indexOf('parallel-relations') >= 0
+    || relativePath.indexOf('perpendicular-relations') >= 0
     || relativePath.indexOf('plane-plane-relation') >= 0
+    || relativePath.indexOf('section-solid-view') >= 0
     ) {
     suite.check(!/bindtouch(start|move|end)=/g.test(wxml),
       relativePath + ' 使用按钮驱动交互，不新增 Canvas 触摸绑定');
@@ -272,6 +309,7 @@ suite.section('5. 无新增全局导航');
   'pages/maximum-slope-line/maximum-slope-line.wxml',
   'pages/line-plane-relation/line-plane-relation.wxml',
   'pages/parallel-relations/parallel-relations.wxml',
+  'pages/perpendicular-relations/perpendicular-relations.wxml',
   'pages/plane-plane-relation/plane-plane-relation.wxml'
 ].forEach((relativePath) => {
   const wxml = read(relativePath);
@@ -292,9 +330,9 @@ suite.section('6. 冻结边界');
 
 suite.section('7. 冻结哈希记录');
 const frozenHashes = {
-  'app.json': '62CBA1ECB3C3D66837B4FCCA262DD6FA6126862132A758101FD8C5A93263926D',
-  'pages/index/index.js': '9EABB1ABB26CBB890E115F1BC53C464169506AAF63066FEA55176ACC75448A02',
-  'pages/index/index.wxml': '6C7C556AC4DDF0DFB3FE892F33D0287C62CFBEA8119F996F1F529EAAAC27C90B',
+  'app.json': '11EB6688994D96D3A6F860191440C875FFAE512DFDCF7DA463BFCEAFB019F7CA',
+  'pages/index/index.js': 'BB9C4079D382BD829EBA3702A6BAE74CEA3F51F340190E5EEA7B4ADB2E42F8BF',
+  'pages/index/index.wxml': 'B06DCC68A8E8676424E2A92E3C520E9681F5C14B413E122E36B6C6E2BC4284D5',
   'pages/index/index.wxss': 'B5BDC92A474315A35C7E3EDF6D1C2952B3603446EB9FC32FEB7C16D1B537015B',
   'pages/projection/projection.wxml': 'BCF0147B705B971A9B21448C912EC9CFDC5A47F85CD6CCBE50F7090496267499',
   'pages/projection/projection.wxss': 'EAEFF5D7D696F0C0BC80E347256F54A1CE04EBAED6FFF838D3525B3F6AF99214',

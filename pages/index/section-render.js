@@ -12,15 +12,17 @@
     getSectionResult() {
       if (!this.sectionSolidCache) this.sectionSolidCache = {};
       const solidType = this.data.section.solidType;
-      const resultKey = `${solidType}:${this.data.section.angle}:${this.data.section.offset}`;
+      const sides = Math.min(8, Math.max(3, Math.round(Number(this.data.section.sides) || 5)));
+      const solidCacheKey = `${solidType}:${sides}`;
+      const resultKey = `${solidCacheKey}:${this.data.section.angle}:${this.data.section.offset}`;
       if (this.sectionResultCache && this.sectionResultCache.key === resultKey) {
         return this.sectionResultCache.value;
       }
-      if (!this.sectionSolidCache[solidType]) {
-        this.sectionSolidCache[solidType] = SectionGeometry.createSolid(solidType);
-        this.sectionSolidCache[solidType].type = solidType;
+      if (!this.sectionSolidCache[solidCacheKey]) {
+        this.sectionSolidCache[solidCacheKey] = SectionGeometry.createSolid(solidType, { sides });
+        this.sectionSolidCache[solidCacheKey].type = solidType;
       }
-      const solid = this.sectionSolidCache[solidType];
+      const solid = this.sectionSolidCache[solidCacheKey];
       const plane = SectionGeometry.createCuttingPlane(this.data.section.angle, this.data.section.offset);
       const sectionSegments = SectionGeometry.intersectSolid(solid, plane);
       const sideSigns = this.getSectionSideSigns(plane);

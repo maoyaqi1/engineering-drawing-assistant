@@ -1,0 +1,85 @@
+<view class="page-shell mode-section section-solid-page">
+  <scroll-view class="page-scroll" scroll-y="{{!canvasDragging}}" scroll-top="0">
+    <view class="type-panel section-solid-panel">
+      <view class="section-solid-row">
+        <text class="type-label">立体</text>
+        <view class="type-toolbar section-solid-choices section-solid-count-{{sectionSolidTypes.length}}">
+          <button
+            wx:for="{{sectionSolidTypes}}"
+            wx:key="key"
+            class="type-chip {{section.solidType === item.key ? 'active' : ''}}"
+            data-type="{{item.key}}"
+            bindtap="handleSectionSolidType"
+          >{{item.label}}</button>
+        </view>
+        <view wx:if="{{sectionSupportsSides}}" class="section-solid-sides">
+          <text class="param-name">棱数</text>
+          <view class="stepper">
+            <button class="step-btn" data-delta="-1" bindtap="handleSectionSidesStep">−</button>
+            <text class="step-val">{{section.sides}}</text>
+            <button class="step-btn" data-delta="1" bindtap="handleSectionSidesStep">＋</button>
+          </view>
+        </view>
+      </view>
+      <view class="section-plane-row">
+        <text class="type-label section-plane-label">截平面</text>
+        <view class="type-toolbar section-plane-toolbar">
+          <button class="type-chip {{section.planeType === 'horizontal' ? 'active' : ''}}" data-type="horizontal" bindtap="handleSectionPlaneType">水平面</button>
+          <button class="type-chip {{section.planeType === 'frontProjecting' ? 'active' : ''}}" data-type="frontProjecting" bindtap="handleSectionPlaneType">正垂面</button>
+          <button class="type-chip {{section.planeType === 'profile' ? 'active' : ''}}" data-type="profile" bindtap="handleSectionPlaneType">侧平面</button>
+        </view>
+      </view>
+      <view class="section-controls">
+        <view class="section-control">
+          <view class="control-meta"><text>截平面角度</text><text>{{section.angle}}°</text></view>
+          <slider min="0" max="180" step="1" value="{{section.angle}}" data-key="angle" bindchanging="handleSectionLive" bindchange="handleSectionSlider" activeColor="#e04f54" block-size="18" />
+        </view>
+        <view class="section-control">
+          <view class="control-meta"><text>平面位置</text><text>{{section.offset}}</text></view>
+          <slider min="-3" max="3" step="0.1" value="{{section.offset}}" data-key="offset" bindchanging="handleSectionLive" bindchange="handleSectionSlider" activeColor="#1684ff" block-size="18" />
+        </view>
+      </view>
+    </view>
+
+    <view class="mobile-intro">
+      <view>
+        <text class="intro-title">{{pageTitle}}</text>
+        <text class="intro-copy">{{pageInstruction}}</text>
+      </view>
+      <view class="status-pill">第一分角</view>
+    </view>
+
+    <view class="canvas-card">
+      <view class="card-heading">
+        <view>
+          <text class="card-title">截平面切割与截交线</text>
+          <text class="card-caption">红色轮廓为实时截交线</text>
+        </view>
+        <view class="card-actions">
+          <button class="ghost-button" bindtap="resetPoint">重置</button>
+        </view>
+      </view>
+      <canvas
+        id="geometryCanvas"
+        type="2d"
+        class="geometry-canvas"
+        aria-label="{{canvasAriaLabel}}"
+      ></canvas>
+      <view class="legend-row">
+        <view class="legend-item"><text class="legend-solid solid-edge"></text>立体轮廓</view>
+        <view class="legend-item"><text class="legend-plane cut-plane"></text>截平面</view>
+        <view class="legend-item"><text class="legend-solid section-line"></text>截交线</view>
+      </view>
+    </view>
+
+    <view class="lesson-card">
+      <text class="lesson-index">{{lessonIndex}}</text>
+      <text class="lesson-title">{{lessonTitle}}</text>
+      <text class="lesson-body">{{lessonBody}}</text>
+      <view class="formula-row">
+        <view class="formula-chip">红色粗线：截交线</view>
+        <view class="formula-chip">红色细线：截平面积聚投影</view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

@@ -94,13 +94,13 @@ if (pageObj) {
   check('C4 Page data 已无 ruler 相关字段', dataRuler.length === 0, dataRuler.join(', '));
   const prev = Object.keys(pageObj).length;
   check('C5 首页方法数量合理（' + prev + ' 个）', prev > 80);
-  // C6/C7 真实调用跳转方法，确认目标地址正确（尺规入口已移除，AI 入口仍可用）
+  // C6/C7 真实调用跳转方法，确认目标地址正确（尺规入口已移除，AI 入口仅限平面立体页）
   const visited = [];
   global.wx.navigateTo = ({ url }) => { visited.push(url); };
   pageObj.data.mode = 'solid';
   pageObj.data.canUseAi = true;
   pageObj.goToAi();
-  check('C6 基本立体且已准入时“问老师”跳转到 AI 页', visited.includes('/pages/ai/ai'), visited.join(', '));
+  check('C6 首页兼容 solid 模式不再提供 AI 页跳转', visited.length === 0, visited.join(', '));
   visited.length = 0;
   pageObj.data.mode = 'plane';
   pageObj.goToAi();

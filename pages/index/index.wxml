@@ -240,13 +240,4 @@
   </view>
   </scroll-view>
 
-      <view
-        wx:if="{{mode === 'solid' && canUseAi}}"
-        class="ai-fab"
-        bindtap="goToAi"
-        aria-label="AI 教师"
-      >
-    <image class="ai-fab-avatar" src="/images/ai-avatar.png" mode="aspectFill" />
-    <text class="ai-fab-label">问老师</text>
-  </view>
 </view>

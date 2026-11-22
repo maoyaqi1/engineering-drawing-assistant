@@ -1,0 +1,2 @@
+@import "../index/index.wxss";
+@import "../index/solid-pose-compact.wxss";

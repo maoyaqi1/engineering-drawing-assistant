@@ -244,3 +244,28 @@ node scripts/run-all.js
 新增 `pages/plane-representation/plane-representation` 并注册到 `app.json`，课程目录的“平面的表示方法”改为该独立页面。“平面的投影规律”仍使用原平面模式。更新后的 `app.json` SHA-256：
 
 `62CBA1ECB3C3D66837B4FCCA262DD6FA6126862132A758101FD8C5A93263926D`
+
+### 2026-11-22 线面、面面垂直页接入
+
+新增并注册 `pages/perpendicular-relations/perpendicular-relations`，课程首页第四章“线面、面面垂直”改为进入该静态图文页。本次不修改首页紧凑画布、点/线/面拖动、投影体系或既有知识页交互。更新后的 `app.json` SHA-256：
+
+`2FBDAA6C0E23D52CEDEFDF7B0D148845CF2204BC39114D6E6BD1C48279CF5743`
+
+### 2026-11-22 立体投影拆分
+
+新增 `pages/plane-solid-projection/plane-solid-projection` 与 `pages/curved-solid-projection/curved-solid-projection`，复用原首页立体几何、三视图和参数模块。旧 `pages/index` 保留兼容深链，但不再显示 AI 入口。更新后的相关哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `app.json` | `9B378833F7E00D972EA3765E0071033754221C02DC82FEE4C0AF6670421D8610` |
+| `pages/index/index.js` | `BB9C4079D382BD829EBA3702A6BAE74CEA3F51F340190E5EEA7B4ADB2E42F8BF` |
+| `pages/index/index.wxml` | `B06DCC68A8E8676424E2A92E3C520E9681F5C14B413E122E36B6C6E2BC4284D5` |
+
+### 2026-11-22 第六章平面与立体相交拆分
+
+新增 `pages/plane-solid-intersection/plane-solid-intersection` 与
+`pages/curved-solid-intersection/curved-solid-intersection`。两页复用原
+`pages/index` 的截交几何、空间绘制、三视图和截平面控件；旧 section 深链保留兼容。
+更新后的 `app.json` SHA-256：
+
+`11EB6688994D96D3A6F860191440C875FFAE512DFDCF7DA463BFCEAFB019F7CA`

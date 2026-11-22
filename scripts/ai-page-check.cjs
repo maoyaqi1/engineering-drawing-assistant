@@ -71,12 +71,12 @@ if (!page) {
   if (!wxml.startsWith('<view wx:if="{{aiVisible}}"')) {
     failures.push('AI 页面根节点必须由 aiVisible 控制');
   }
-  const homeWxml = fs.readFileSync(
-    path.join(__dirname, '..', 'pages', 'index', 'index.wxml'),
+  const solidViewWxml = fs.readFileSync(
+    path.join(__dirname, '..', 'pages', 'index', 'solid-projection-view.wxml'),
     'utf8'
   );
-  if (!homeWxml.includes("wx:if=\"{{mode === 'solid' && canUseAi}}\"")) {
-    failures.push('首页 AI 入口必须仅在基本立体且准入成功时显示');
+  if (!solidViewWxml.includes("wx:if=\"{{showAi && canUseAi}}\"")) {
+    failures.push('AI 入口必须仅在平面立体投影页且准入成功时显示');
   }
 
   const accessDefinition = require(path.join(aiRoot, 'ai-access.js'));

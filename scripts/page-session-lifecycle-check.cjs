@@ -108,7 +108,7 @@ function countAction(name, eventType) {
     && (!eventType || call.event_type === eventType)).length;
 }
 
-async function runNormalCycle(page, startMethod, moduleName, chapterId) {
+async function runNormalCycle(page, startMethod, moduleName, chapterId, chapterName) {
   calls = [];
   page[startMethod]();
   await waitForStart();
@@ -122,6 +122,10 @@ async function runNormalCycle(page, startMethod, moduleName, chapterId) {
     && call.event_type === 'chapter_enter');
   suite.check(!!enter && enter.chapter_id === chapterId,
     moduleName + ' chapter_enter 章节标识不变');
+  if (chapterName) {
+    suite.equal(enter && enter.chapter_name, chapterName,
+      moduleName + ' chapter_enter 使用当前页面名称');
+  }
 
   page.onHide();
   await flush();
@@ -293,6 +297,12 @@ async function main() {
       chapterId: 'parallel-relations'
     },
     {
+      path: 'pages/perpendicular-relations/perpendicular-relations.js',
+      route: 'pages/perpendicular-relations/perpendicular-relations',
+      moduleName: 'perpendicular-relations',
+      chapterId: 'perpendicular-relations'
+    },
+    {
       path: 'pages/intersection-relations/intersection-relations.js',
       route: 'pages/intersection-relations/intersection-relations',
       moduleName: 'intersection-relations',
@@ -303,14 +313,44 @@ async function main() {
       route: 'pages/plane-plane-relation/plane-plane-relation',
       moduleName: 'plane-plane-relation',
       chapterId: 'plane-plane-relation'
+    },
+    {
+      path: 'pages/plane-solid-projection/plane-solid-projection.js',
+      route: 'pages/plane-solid-projection/plane-solid-projection',
+      moduleName: 'solid',
+      chapterId: 'solid',
+      startMethod: 'ensureSession'
+    },
+    {
+      path: 'pages/curved-solid-projection/curved-solid-projection.js',
+      route: 'pages/curved-solid-projection/curved-solid-projection',
+      moduleName: 'solid',
+      chapterId: 'solid',
+      startMethod: 'ensureSession'
+    },
+    {
+      path: 'pages/plane-solid-intersection/plane-solid-intersection.js',
+      route: 'pages/plane-solid-intersection/plane-solid-intersection',
+      moduleName: 'section',
+      chapterId: 'section',
+      chapterName: '平面与平面立体相交',
+      startMethod: 'ensureSession'
+    },
+    {
+      path: 'pages/curved-solid-intersection/curved-solid-intersection.js',
+      route: 'pages/curved-solid-intersection/curved-solid-intersection',
+      moduleName: 'section',
+      chapterId: 'section',
+      chapterName: '平面与曲面立体相交',
+      startMethod: 'ensureSession'
     }
   ];
 
   for (const item of independentPages) {
     const definition = loadDefinition(item.path);
     const normalPage = createPage(definition, item.route);
-    await runNormalCycle(normalPage, 'startLearningSession',
-      item.moduleName, item.chapterId);
+    await runNormalCycle(normalPage, item.startMethod || 'startLearningSession',
+      item.moduleName, item.chapterId, item.chapterName);
   }
 
   suite.section('4.1 独立知识点页启动失败后可重试');
@@ -338,7 +378,11 @@ async function main() {
   for (const item of independentPages) {
     const definition = loadDefinition(item.path);
     const hiddenPage = createPage(definition, item.route);
-    await runStartInFlightHide(hiddenPage, 'startLearningSession', item.moduleName);
+    await runStartInFlightHide(
+      hiddenPage,
+      item.startMethod || 'startLearningSession',
+      item.moduleName
+    );
   }
 
   suite.section('6. 投影体系复用会话状态机');

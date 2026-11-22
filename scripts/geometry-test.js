@@ -216,6 +216,34 @@ function checkSolidMesh(suite) {
   suite.check(allClose([...new Set(prismPoints.map((p) => p.z))].sort((a, b) => a - b), [1, 6.5], 1e-12), '五棱柱上下底面 z = 1 / 6.5');
   suite.close(bounds(prismPoints.map((p) => radialDistance(p, 4, 4))).max, 2.3, 1e-12, '五棱柱外接圆半径 = 2.3');
 
+  for (let sides = 3; sides <= 8; sides += 1) {
+    const prism = SG.createSolid('prism', { sides });
+    const pyramid = SG.createSolid('pyramid', { sides });
+    suite.equal(prism.triangles.length, 4 * sides - 4,
+      '参数化棱柱 · ' + sides + ' 棱：三角形数');
+    suite.equal(prism.edges.length, 3 * sides,
+      '参数化棱柱 · ' + sides + ' 棱：棱线数');
+    suite.equal(pyramid.triangles.length, 2 * sides - 2,
+      '参数化棱锥 · ' + sides + ' 棱：三角形数');
+    suite.equal(pyramid.edges.length, 2 * sides,
+      '参数化棱锥 · ' + sides + ' 棱：棱线数');
+    const prismBase = uniquePoints(trianglePoints(prism)
+      .filter((p) => Math.abs(p.z - 1) < 1e-12));
+    const pyramidBase = uniquePoints(trianglePoints(pyramid)
+      .filter((p) => Math.abs(p.z - 1) < 1e-12));
+    suite.equal(prismBase.length, sides,
+      '参数化棱柱 · ' + sides + ' 棱：底面顶点数');
+    suite.equal(pyramidBase.length, sides,
+      '参数化棱锥 · ' + sides + ' 棱：底面顶点数');
+    suite.check(trianglePoints(prism).every(isFinitePoint)
+      && trianglePoints(pyramid).every(isFinitePoint),
+    '参数化平面立体 · ' + sides + ' 棱：坐标有限');
+  }
+  const genericPrismFive = SG.createSolid('prism', { sides: 5 });
+  suite.check(JSON.stringify(genericPrismFive.triangles)
+    === JSON.stringify(SG.createSolid('pentagonalPrism').triangles),
+  '参数化五棱柱与原五棱柱三角形序列一致');
+
   const cylinderPoints = trianglePoints(SG.createSolid('cylinder'));
   suite.close(radialDistance({ x: 4, y: 4 }, 4, 4), 0, 1e-12, '圆柱轴心在 (4, 4)');
   suite.close(bounds(cylinderPoints.map((p) => radialDistance(p, 4, 4))).max, 2.2, 1e-12, '圆柱半径 = 2.2');

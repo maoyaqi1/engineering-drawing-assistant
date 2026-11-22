@@ -14,8 +14,10 @@
 | 路径 | 职责 |
 |---|---|
 | `app.js` | 云开发初始化、隐私授权、`globalData.user` 与本地缓存 |
-| `app.json` | 页面注册（10 个页面） |
-| `pages/index/` | 核心教学画布（点/线/面/基本立体/平面切割立体） |
+| `app.json` | 页面注册（24 个页面） |
+| `pages/index/` | 核心教学画布（点/线/面）、第五/第六章共享立体与截交实现 |
+| `pages/plane-solid-projection/`、`pages/curved-solid-projection/` | 平面/曲面立体的投影 |
+| `pages/plane-solid-intersection/`、`pages/curved-solid-intersection/` | 平面与平面/曲面立体相交 |
 | `pages/projection/` | 投影体系与投影面展开 |
 | `pages/triangle-method/` | 直角三角形法求实长与倾角；2026-11-01 工作区文件哈希冻结 |
 | `pages/right-angle-projection/` | 直角投影定理第一阶段互动原型（平面平行线 + 可拖动的一般位置线） |
@@ -35,9 +37,9 @@
 
 ## 3. 学生端页面
 
-`app.json` 当前注册：`pages/login`、`pages/register`、`pages/index`、`pages/projection`、`pages/survey`、`pages/ai`、`pages/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`、`pages/maximum-slope-line/maximum-slope-line`。
+`app.json` 当前注册 24 个页面，以文件为准。核心入口包括 `pages/home` 七章课程目录、`pages/index` 五种兼容模式、第五章两个立体投影页、第六章两个平面与立体相交页，以及各独立知识点、登录注册、AI、问卷和协议页。
 
-`pages/triangle-method` 已按 `docs/freeze-triangle-method-2026-11-01.md` 冻结；它和 `pages/right-angle-projection` 都从首页“直线”模式进入，`pages/maximum-slope-line` 从首页“平面”模式进入。`pages/video` 源码保留但未注册、不进入小程序包。`pages/roster`、`pages/teacher`、`pages/ruler` 已删除。
+`pages/plane-solid-intersection/` 与 `pages/curved-solid-intersection/` 共享 `section-solid-page.js` 和 `section-solid-view.wxml`，只过滤立体类型，不复制 `section-geometry.js`。旧 `pages/index?mode=section` 保留兼容深链。`pages/video` 源码保留但未注册、不进入小程序包。`pages/roster`、`pages/teacher`、`pages/ruler` 已删除。
 
 ## 4. 几何核心与数据流
 
@@ -47,7 +49,8 @@
    → 页面 data 状态（point / line / plane / solid / section）
    → 几何计算
         · 点线面投影：pages/index/projection.js / math-utils.js
-        · 平面切割立体：pages/index/section-geometry.js（几何真值）
+        · 平面与立体相交：pages/index/section-geometry.js（几何真值）
+          · 第六章两页经 section-solid-page.js 装配，只过滤立体类型
         · 基本立体：pages/index/basic-solid.js（buildSolidGeometry 等）
    → Canvas 2D 绘制（draw-helpers.js / render-scene.js / section-render.js）
 ```

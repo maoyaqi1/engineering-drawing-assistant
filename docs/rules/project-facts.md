@@ -32,9 +32,23 @@
 
 ---
 
-## 现状核对（核对日期 2026-11-20，当前冻结版本 `v1.7.0`）
+## 现状核对（核对日期 2026-11-22，当前工作区冻结版本 `v1.8.0`）
+
+> **2026-11-22 v1.8.0 工作区冻结**：学生端新增线面/面面垂直页；第五章拆分
+> 为平面立体投影与曲面立体投影，AI 教师入口仅保留在平面立体投影页；第六章
+> 拆分为平面与平面立体相交、平面与曲面立体相交，平面立体支持棱柱/棱锥及
+> `3～8` 棱。当前 `app.json` 注册 24 页，全量本地检查 56 项。版本记录见
+> `docs/freeze-v1.8.0-2026-11-22.md`，产品行为与哈希见
+> `docs/freeze-student-product-2026-11-22.md` 和同名 `.sha256`。本次冻结随
+> `v1.8.0` 提交与 annotated tag 固化，不包含云函数部署或线上发布。
 
 > **2026-11-20 v1.7.0 冻结**：课程首页升级为七章知识点导航并新增课程搜索；新增投影法基础、正投影、两直线位置关系、平面的表示方法、线面/面面平行、相交概览和面面相交求交线页面；线面相交与面面相交完成 H/V/W 辅助面、投影联系、三步作图和重置状态收口；面面相交支持 16 种组合，并统一三类投影面垂直面与一般面的正反方案。线面/面面相交页删除底部数值结果横幅。全量本地检查由 40 项增至 53 项。冻结记录见 `docs/freeze-v1.7.0-2026-11-20.md`。
+
+> **2026-11-22 立体投影拆分（工作区，未提交）**：第五章删除“基本立体的介绍”，新增独立页面 `pages/plane-solid-projection/`（棱柱、棱锥）和 `pages/curved-solid-projection/`（圆柱、圆锥、圆球、圆环）。两页共享原 `pages/index` 的立体几何、三视图、尺寸、姿态和重置实现；AI 教师入口仅保留在平面立体投影页。
+
+> **2026-11-22 平面与立体相交拆分（工作区，未提交）**：第六章删除“截交线”和旧“平面与立体相交”入口，保留“直线与立体相交”为待开放；新增 `pages/plane-solid-intersection/`（棱柱、棱锥及 3～8 棱）与 `pages/curved-solid-intersection/`（圆柱、圆锥、圆球、圆环）。两页共享原 `pages/index` 的截交几何、三视图和截平面控件，旧 section 深链保留兼容。`app.json` 当前注册 24 个页面。
+
+> **2026-11-22 立体投影冻结（工作区，未提交）**：两个立体投影页、共享装配/视图/姿态行、原立体几何与三视图依赖、课程入口和专项检查冻结为 `solid-projection-2026-11-22`。行为契约见 `docs/freeze-solid-projection-2026-11-22.md`，逐文件哈希见 `docs/freeze-solid-projection-2026-11-22.sha256`。该冻结不是 Git commit、tag、部署或线上发布。
 
 > **2026-10-28 设计审查修复**：知识点匹配改为“显式关键词优先于纯追问继承”；外部课程检索不再发送历史对话；历史测试账号只由 `teacher` 环境变量 `LEGACY_TEST_ACCOUNT_KEYS` 提供，源码和离线夹具改用合成标识；注册页增加本地登录态守卫。
 
@@ -70,7 +84,7 @@
 
 > **2026-11-20 相交页结果横幅移除（工作区，未提交）**：线面相交页和面面相交页移除底部单独的“作图结果/交线结果”数值横幅，同时删除不再使用的结果状态字段与样式；作图结果继续由画布、步骤说明和三面投影表达。
 
-> **2026-11-20 学生端产品基线冻结（工作区，未提交）**：当前学生端根入口、19 个已注册页面、课程配置、客户端工具、检查脚本、需求测试文档和项目事实冻结为 `student-product-2026-11-20`；完整文件哈希见 `docs/freeze-student-product-2026-11-20.sha256`，行为契约与验证见 `docs/freeze-student-product-2026-11-20.md`。该冻结不是 Git commit、tag、部署或线上发布。
+> **2026-11-20 学生端产品基线冻结（工作区，未提交）**：当时学生端根入口、19 个已注册页面、课程配置、客户端工具、检查脚本、需求测试文档和项目事实冻结为 `student-product-2026-11-20`；完整文件哈希见 `docs/freeze-student-product-2026-11-20.sha256`，行为契约与验证见 `docs/freeze-student-product-2026-11-20.md`。该冻结不是 Git commit、tag、部署或线上发布；后续工作区新增的线面、面面垂直页不改变上述 `v1.7.0` 历史快照。
 
 > **2026-11-08 直线章节冻结（工作区，未提交）**：第二章“直线的投影”四个知识点冻结为 `line-chapter-2026-11-08`，记录见 `docs/freeze-line-chapter-2026-11-08.md`。三个独立知识点页及专项检查按整文件冻结；共享的 `pages/index/`、课程目录和 `app.json` 仍允许平面章节开发修改，但必须保持第二章顺序、路由、七种直线类型、投影拖动和三个知识点的既有行为，并重新通过直线章节回归。
 
@@ -106,7 +120,7 @@
 
 ### 1. 小程序页面清单
 
-`app.json` 的 `pages` 数组当前注册 19 个页面：`pages/login/login`、`pages/register/register`、`pages/home/home`、`pages/index/index`、`pages/projection-method/projection-method`、`pages/orthographic-projection/orthographic-projection`、`pages/two-line-position/two-line-position`、`pages/plane-representation/plane-representation`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`、`pages/maximum-slope-line/maximum-slope-line`、`pages/parallel-relations/parallel-relations`、`pages/intersection-relations/intersection-relations`、`pages/plane-plane-relation/plane-plane-relation`、`pages/line-plane-relation/line-plane-relation`。`pages/parallel-relations/` 提供平行条件静态图文；`pages/intersection-relations/` 先提供相交概念概览，再分别进入线面求交点页和面面求交线页。
+`app.json` 的 `pages` 数组当前注册 24 个页面：`pages/login/login`、`pages/register/register`、`pages/home/home`、`pages/index/index`、`pages/plane-solid-projection/plane-solid-projection`、`pages/curved-solid-projection/curved-solid-projection`、`pages/plane-solid-intersection/plane-solid-intersection`、`pages/curved-solid-intersection/curved-solid-intersection`、`pages/projection-method/projection-method`、`pages/orthographic-projection/orthographic-projection`、`pages/two-line-position/two-line-position`、`pages/plane-representation/plane-representation`、`pages/projection/projection`、`pages/survey/survey`、`pages/ai/ai`、`pages/terms/terms`、`pages/triangle-method/triangle-method`、`pages/right-angle-projection/right-angle-projection`、`pages/maximum-slope-line/maximum-slope-line`、`pages/parallel-relations/parallel-relations`、`pages/perpendicular-relations/perpendicular-relations`、`pages/intersection-relations/intersection-relations`、`pages/plane-plane-relation/plane-plane-relation`、`pages/line-plane-relation/line-plane-relation`。`pages/parallel-relations/` 与 `pages/perpendicular-relations/` 分别提供平行、垂直条件静态图文；第五、第六章各有两个独立立体互动页，共享 `pages/index` 的相应几何与三视图模块；`pages/intersection-relations/` 先提供相交概念概览，再分别进入线面求交点页和面面求交线页。
 
 ### 2. 目录结构（顶层）
 
@@ -129,7 +143,7 @@
 
 ### 4. 自动化测试与 CI
 
-仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 53 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
+仓库已有可自动执行的本地只读检查、离线行为测试、故障注入和大规模记录检查，统一入口为 `node scripts/run-all.js`，当前汇总 56 项。仓库**没有 CI、没有测试框架托管执行**；真实云环境、浏览器和真机验收仍需单独完成。
 
 ### 5. 云函数结构
 
@@ -161,7 +175,7 @@ git -C G:\HFJH diff --stat aaf75d0 HEAD -- pages/ cloudfunctions/ utils/ web/
 | L7 | §34、§36、§43 描述的状态机、动画系统、事件总线在当前 `pages/index/index.js` 未发现实现 | 关键词检索 2026-09-11 |
 | L8 | 已关闭：README、Skill、architecture 与 frozen-modules 已移除当前功能中的已删除页面和尺规模块表述 | `README.md`；项目 Skill |
 | L9 | 已关闭：`.agent/`、`docs/requirements/`、`docs/test/`、`docs/rules/` 已纳入版本控制；未跟踪资产只保留 C10 明确列出的用户文件 | `git ls-files` |
-| L10 | 各基线含义不同：冻结基线 `aaf75d0`、历史版本 `v1.5.1`、上一版本 `v1.6.0`、当前源码冻结 `v1.7.0`（tag 指向本冻结提交） | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.6.0-2026-11-04.md`、`docs/freeze-v1.7.0-2026-11-20.md`、C1 |
+| L10 | 各基线含义不同：冻结基线 `aaf75d0`、历史版本 `v1.5.1`/`v1.6.0`、上一发布版本 `v1.7.0`、当前发布版本 `v1.8.0`（tag `v1.8.0`） | C7、C10、`docs/交接说明.md`、`docs/freeze-v1.6.0-2026-11-04.md`、`docs/freeze-v1.7.0-2026-11-20.md`、`docs/freeze-v1.8.0-2026-11-22.md`、C1 |
 | L11 | C1 与 §2 的指令优先级次序冲突已关闭：2026-09-11 用户裁决采用 C1 的六级次序，§2 已按其重写；§2 原文（“用户 > 更深目录 AGENTS.md > 本文件 > README 与项目规格 > 注释”）仅存于快照第 294–307 行 | `AGENTS.md` C1/§2；`docs/rules/AGENTS-pre-layering.snapshot.md` |
 
 以上均为事实登记，**未对规则文字做任何修改**；是否修订由用户裁决。

@@ -1,0 +1,151 @@
+@import "../index/index.wxss";
+@import "../index/solid-pose-compact.wxss";
+
+.plane-solid-layout {
+  padding-top: 2rpx;
+}
+
+.plane-solid-layout .plane-first-row {
+  display: grid;
+  grid-template-columns: 180rpx minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10rpx;
+  width: 100%;
+  margin-bottom: 4rpx;
+}
+
+.plane-solid-layout .plane-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 180rpx;
+  max-width: 180rpx;
+  min-width: 180rpx;
+  gap: 6rpx;
+  margin: 0;
+}
+
+.plane-solid-layout .plane-type-tabs .solid-type-chip {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  height: 44rpx;
+  line-height: 44rpx;
+  padding: 0 4rpx;
+  font-size: 21rpx;
+}
+
+.plane-solid-layout .plane-sides-row {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 4rpx;
+  margin-left: 24rpx;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 42rpx;
+}
+
+.plane-solid-layout .plane-sides-row .param-name {
+  width: 56rpx;
+}
+
+.plane-solid-layout .plane-sides-row .stepper {
+  flex: 1 1 auto;
+  max-width: 190rpx;
+}
+
+.plane-solid-layout .plane-dimension-group {
+  width: 100%;
+  margin-top: 2rpx;
+}
+
+.plane-solid-layout .plane-dimension-row {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: nowrap;
+  gap: 12rpx;
+  width: 100%;
+}
+
+.plane-solid-layout .plane-dimension-row > .slider-row {
+  flex: 1 1 0;
+  gap: 3rpx;
+  min-width: 0;
+  min-height: 42rpx;
+}
+
+.plane-solid-layout .plane-dimension-row .param-name {
+  width: 58rpx;
+}
+
+.plane-solid-layout .plane-dimension-row .param-val {
+  min-width: 32rpx;
+}
+
+@media (min-width: 700px) {
+  .plane-solid-layout .plane-first-row {
+    grid-template-columns: 110px minmax(0, 1fr);
+    column-gap: 8px;
+    margin-bottom: 3px;
+  }
+
+  .plane-solid-layout .plane-type-tabs {
+    width: 110px;
+    max-width: 110px;
+    min-width: 110px;
+    gap: 4px;
+  }
+
+  .plane-solid-layout .plane-type-tabs .solid-type-chip {
+    height: 24px;
+    line-height: 24px;
+    font-size: 11px;
+  }
+
+  .plane-solid-layout .plane-sides-row {
+    gap: 4px;
+    margin-left: 10px;
+    min-height: 24px;
+  }
+
+  .plane-solid-layout .plane-sides-row .param-name {
+    width: 34px;
+  }
+
+  .plane-solid-layout .plane-sides-row .stepper {
+    max-width: 112px;
+  }
+
+  .plane-solid-layout .plane-dimension-row {
+    gap: 8px;
+  }
+
+  .plane-solid-layout .plane-dimension-row > .slider-row {
+    min-height: 24px;
+  }
+
+  .plane-solid-layout .plane-dimension-row .param-name {
+    width: 34px;
+  }
+
+  .plane-solid-layout .plane-dimension-row .param-val {
+    min-width: 20px;
+  }
+
+}
+
+@media (max-height: 680px) {
+  .plane-solid-layout .plane-first-row {
+    margin-bottom: 2rpx;
+  }
+
+  .plane-solid-layout .plane-type-tabs .solid-type-chip {
+    height: 40rpx;
+    line-height: 40rpx;
+  }
+
+  .plane-solid-layout .plane-dimension-row > .slider-row,
+  .plane-solid-layout .plane-sides-row {
+    min-height: 38rpx;
+  }
+}

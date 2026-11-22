@@ -36,31 +36,22 @@ function ringPoint(cx, cy, z, radius, angle) {
 
 // 教学用多面体：直接给出闭合三角面与结构棱，不保存通用凸多面体拓扑。
 function createTriangularPyramid() {
-  const centerX = 4;
-  const centerY = 4;
-  const radius = 2.5;
-  const base = Array.from({ length: 3 }, (_, index) => {
-    const angle = Math.PI / 6 + index * Math.PI * 2 / 3;
-    return ringPoint(centerX, centerY, 1, radius, angle);
-  });
-  const apex = point(4, 4, 7);
-  const triangles = [
-    [base[0], base[2], base[1]],
-    [base[0], base[1], apex],
-    [base[1], base[2], apex],
-    [base[2], base[0], apex]
-  ];
-  const edges = [
-    [base[0], base[1]], [base[1], base[2]], [base[2], base[0]],
-    [base[0], apex], [base[1], apex], [base[2], apex]
-  ];
-  return { triangles, edges };
+  return createRegularPyramid(3, Math.PI / 6);
 }
 
 function createPentagonalPrism() {
-  // 底/顶面按扇形三角化，侧面按“底边-顶边-下一点”两个三角形拆分；
-  // edges 同时保留底/顶环和竖向结构棱，供绘制层裁剪。
-  const count = 5;
+  return createRegularPrism(5);
+}
+
+function normalizeSideCount(sides, fallback) {
+  const value = Math.round(Number(sides) || fallback);
+  return Math.min(8, Math.max(3, value));
+}
+
+// 参数化正棱柱：与第五章平面立体的棱数语义一致，棱数限定为 3..8。
+// 截交页固定使用当前教学尺寸，只让棱数改变底面多边形。
+function createRegularPrism(sides) {
+  const count = normalizeSideCount(sides, 5);
   const bottom = Array.from({ length: count }, (_, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
     return ringPoint(4, 4, 1, 2.3, angle);
@@ -79,6 +70,30 @@ function createPentagonalPrism() {
     addEdge(edges, bottom[index], bottom[next]);
     addEdge(edges, top[index], top[next]);
     addEdge(edges, bottom[index], top[index]);
+  }
+  return { triangles, edges };
+}
+
+// 参数化正棱锥：底面 n 边形加单一锥尖，锥尖位置和教学尺寸保持原截交模块风格。
+function createRegularPyramid(sides, angleOffset) {
+  const count = normalizeSideCount(sides, 5);
+  const radius = 2.5;
+  const startAngle = Number.isFinite(angleOffset) ? angleOffset : -Math.PI / 2;
+  const base = Array.from({ length: count }, (_, index) => {
+    const angle = startAngle + index * Math.PI * 2 / count;
+    return ringPoint(4, 4, 1, radius, angle);
+  });
+  const apex = point(4, 4, 7);
+  const triangles = [];
+  const edges = [];
+  for (let index = 1; index < count - 1; index += 1) {
+    addTriangle(triangles, base[0], base[index + 1], base[index]);
+  }
+  for (let index = 0; index < count; index += 1) {
+    const next = (index + 1) % count;
+    addTriangle(triangles, base[index], base[next], apex);
+    addEdge(edges, base[index], base[next]);
+    addEdge(edges, base[index], apex);
   }
   return { triangles, edges };
 }
@@ -215,7 +230,16 @@ function createTorus(majorSegments = 72, minorSegments = 28) {
   return { triangles, edges };
 }
 
-function createSolid(type) {
+function createSolid(type, options) {
+  const sideCount = normalizeSideCount(options && options.sides, 5);
+  if (type === 'prism') {
+    const solid = createRegularPrism(sideCount);
+    return { ...solid, sides: sideCount, renderTriangles: solid.triangles };
+  }
+  if (type === 'pyramid') {
+    const solid = createRegularPyramid(sideCount);
+    return { ...solid, sides: sideCount, renderTriangles: solid.triangles };
+  }
   if (type === 'triangularPyramid') {
     const solid = createTriangularPyramid();
     return { ...solid, renderTriangles: solid.triangles };

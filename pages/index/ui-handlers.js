@@ -298,7 +298,9 @@
     },
 
     goToAi() {
-      if (this.data.mode !== 'solid' || !this.data.canUseAi) return;
+      if (this.data.mode !== 'solid'
+        || !this.data.aiEntryEnabled
+        || !this.data.canUseAi) return;
       if (typeof wx !== 'undefined' && wx.navigateTo) {
         wx.navigateTo({ url: '/pages/ai/ai' });
       }

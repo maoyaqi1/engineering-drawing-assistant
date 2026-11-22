@@ -1,0 +1,91 @@
+<view class="perpendicular-page">
+  <view class="page-content">
+    <view class="knowledge-card">
+      <view class="card-heading">
+        <text class="condition-index">1</text>
+        <view class="card-heading-copy">
+          <text class="card-title">直线与平面垂直</text>
+        </view>
+      </view>
+
+      <image
+        class="reference-diagram"
+        src="/images/line-plane-perpendicular-reference.png"
+        mode="widthFix"
+        aria-label="直线与平面垂直参考图：倾斜平面P内AB与CD相交于E，红色KL为平面P的垂线，并给出V面和H面投影"
+      ></image>
+
+      <view class="rule-box">
+        <text class="rule-label">几何条件</text>
+        <text class="rule-text">若一直线垂直于一平面，则必垂直于属于该平面的一切直线。</text>
+
+        <view class="theorem-block">
+          <text class="theorem-label">定理 1</text>
+          <text class="theorem-text">若一直线垂直于一平面，则直线的水平投影必垂直于属于该平面的水平线的水平投影；直线的正面投影必垂直于属于该平面的正平线的正面投影。</text>
+        </view>
+
+        <view class="theorem-block">
+          <text class="theorem-label">定理 2</text>
+          <text class="theorem-text">若一直线的水平投影垂直于属于平面的水平线的水平投影；直线的正面投影垂直于属于平面的正平线的正面投影，则直线必垂直于该平面。</text>
+        </view>
+      </view>
+
+      <view class="video-row">
+        <button
+          class="video-button"
+          data-video-key="planeNormalThroughPoint"
+          bindtap="handleVideoTap"
+          aria-label="播放视频号：过平面外一点作给定平面的法线"
+        >
+          <text class="video-play">▶</text>
+          <view class="video-copy">
+            <text class="video-title">过平面外一点作给定平面的法线</text>
+            <text class="video-source">视频号讲解</text>
+          </view>
+          <text class="video-arrow">›</text>
+        </button>
+      </view>
+    </view>
+
+    <view class="knowledge-card">
+      <view class="card-heading">
+        <text class="condition-index second-index">2</text>
+        <view class="card-heading-copy">
+          <text class="card-title">两平面垂直</text>
+        </view>
+      </view>
+
+      <image
+        class="reference-diagram"
+        src="/images/plane-plane-perpendicular-reference.png"
+        mode="widthFix"
+        aria-label="两平面垂直参考图：左侧为多个过公共垂线AB的平面，中间为垂直情形，右侧为不垂直情形"
+      ></image>
+
+      <view class="rule-box second-rule">
+        <text class="rule-label">几何条件</text>
+        <text class="rule-text">若一直线垂直于一定平面，则包含这条直线的所有平面都垂直于该平面。</text>
+
+        <view class="theorem-block">
+          <text class="theorem-text">两平面相互垂直，则由属于第一个平面的任意一点向第二个平面所作的垂线必属于第一个平面。</text>
+        </view>
+      </view>
+
+      <view class="video-row">
+        <button
+          class="video-button second-video"
+          data-video-key="perpendicularPlaneThroughPoint"
+          bindtap="handleVideoTap"
+          aria-label="播放视频号：过平面外一点作一平面垂直于给定平面"
+        >
+          <text class="video-play">▶</text>
+          <view class="video-copy">
+            <text class="video-title">过平面外一点作一平面垂直于给定平面</text>
+            <text class="video-source">视频号讲解</text>
+          </view>
+          <text class="video-arrow">›</text>
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

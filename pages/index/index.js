@@ -61,6 +61,7 @@
         mode: 'point',
         canvasDragging: false,
         canUseAi: false,
+        aiEntryEnabled: false,
         moduleIndex: 0,
         moduleOptions: ['点', '直线', '平面', '基本立体', '平面切割立体'],
         point: { ...DEFAULT_POINT },

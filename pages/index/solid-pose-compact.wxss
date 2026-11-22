@@ -1,0 +1,148 @@
+.solid-pose-compact {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6rpx;
+  width: 100%;
+}
+
+.solid-pose-compact > .pose-tabs {
+  flex: 0 0 auto;
+  gap: 6rpx;
+  margin: 0;
+}
+
+.solid-pose-compact .pose-tab {
+  flex: 0 0 80rpx;
+  height: 42rpx;
+  line-height: 42rpx;
+  font-size: 21rpx;
+}
+
+.solid-pose-compact > .axis-row {
+  flex: 1 1 0;
+  gap: 8rpx;
+  min-width: 0;
+  margin: 0;
+  justify-content: flex-end;
+}
+
+.solid-pose-compact .axis-selector {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  height: 42rpx;
+  min-width: 0;
+  margin: 0;
+}
+
+.solid-pose-compact .axis-selector .param-name {
+  position: absolute;
+  top: 50%;
+  left: calc(50% - 148rpx);
+  width: 80rpx;
+  text-align: right;
+  transform: translateY(-50%);
+  font-size: 20rpx;
+}
+
+.solid-pose-compact .axis-chip {
+  position: absolute;
+  top: 50%;
+  flex: none;
+  width: 40rpx;
+  height: 38rpx;
+  transform: translateY(-50%);
+}
+
+.solid-pose-compact .axis-chip:nth-child(2) {
+  left: calc(50% - 64rpx);
+}
+
+.solid-pose-compact .axis-chip:nth-child(3) {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.solid-pose-compact .axis-chip:nth-child(4) {
+  left: calc(50% + 24rpx);
+}
+
+.solid-pose-compact .rot90-chip {
+  flex: 0 0 100rpx;
+  width: 100rpx;
+  min-width: 0;
+  height: 38rpx;
+  line-height: 38rpx;
+  margin-left: 0;
+}
+
+.solid-pose-compact > .slider-row {
+  flex: 1 1 100%;
+  gap: 4rpx;
+  min-width: 0;
+}
+
+@media (min-width: 700px) {
+  .solid-pose-compact {
+    gap: 5px;
+  }
+
+  .solid-pose-compact > .pose-tabs {
+    gap: 4px;
+  }
+
+  .solid-pose-compact .pose-tab {
+    flex: 0 0 46px;
+    height: 24px;
+    line-height: 24px;
+    font-size: 11px;
+  }
+
+  .solid-pose-compact > .axis-row {
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .solid-pose-compact .axis-selector {
+    height: 24px;
+  }
+
+  .solid-pose-compact .axis-selector .param-name {
+    left: calc(50% - 88px);
+    width: 44px;
+    font-size: 11px;
+  }
+
+  .solid-pose-compact .axis-chip {
+    width: 24px;
+    height: 22px;
+  }
+
+  .solid-pose-compact .axis-chip:nth-child(2) {
+    left: calc(50% - 40px);
+  }
+
+  .solid-pose-compact .axis-chip:nth-child(3) {
+    left: 50%;
+  }
+
+  .solid-pose-compact .axis-chip:nth-child(4) {
+    left: calc(50% + 16px);
+  }
+
+  .solid-pose-compact .rot90-chip {
+    flex: 0 0 54px;
+    width: 54px;
+    height: 22px;
+    line-height: 22px;
+  }
+}
+
+@media (max-height: 680px) {
+  .solid-pose-compact .pose-tab {
+    height: 40rpx;
+    line-height: 40rpx;
+  }
+}

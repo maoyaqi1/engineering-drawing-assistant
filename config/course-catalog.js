@@ -154,8 +154,12 @@ const chapters = [
       {
         id: 'perpendicular-relations',
         title: '线面、面面垂直',
-        availability: 'planned',
-        keywords: ['线面垂直', '面面垂直', '直线与平面垂直', '平面与平面垂直']
+        availability: 'available',
+        route: { path: '/pages/perpendicular-relations/perpendicular-relations', kind: 'page' },
+        keywords: [
+          '线面垂直', '面面垂直', '直线与平面垂直', '平面与平面垂直',
+          '法线', '垂线', '二面角'
+        ]
       }
     ]
   },
@@ -166,25 +170,18 @@ const chapters = [
     title: '第五章：立体的投影',
     points: [
       {
-        id: 'solid-projection',
-        title: '基本立体的介绍',
-        availability: 'available',
-        route: { path: '/pages/index/index', mode: 'solid', kind: 'index-mode' },
-        keywords: ['立体投影', '基本立体', '三视图', '棱柱', '棱锥', '圆柱', '圆锥', '圆球', '圆环']
-      },
-      {
         id: 'polyhedron-projection',
         title: '平面立体的投影',
         availability: 'available',
-        route: { path: '/pages/index/index', mode: 'solid', kind: 'index-mode' },
-        keywords: ['平面立体', '棱柱', '棱锥', '多面体']
+        route: { path: '/pages/plane-solid-projection/plane-solid-projection', kind: 'page' },
+        keywords: ['平面立体', '棱柱', '棱锥', '多面体', '三视图']
       },
       {
         id: 'curved-solid-projection',
         title: '曲面立体的投影',
         availability: 'available',
-        route: { path: '/pages/index/index', mode: 'solid', kind: 'index-mode' },
-        keywords: ['曲面立体', '回转体', '圆柱', '圆锥', '圆球', '圆环']
+        route: { path: '/pages/curved-solid-projection/curved-solid-projection', kind: 'page' },
+        keywords: ['曲面立体', '回转体', '圆柱', '圆锥', '圆球', '圆环', '三视图']
       }
     ]
   },
@@ -201,18 +198,24 @@ const chapters = [
         keywords: ['直线与立体', '贯穿点', '贯穿线']
       },
       {
-        id: 'section-line-method',
-        title: '截交线',
+        id: 'plane-solid-intersection',
+        title: '平面与平面立体相交',
         availability: 'available',
-        route: { path: '/pages/index/index', mode: 'section', kind: 'index-mode' },
-        keywords: ['截交线', '截交线作图', '特殊点', '可见性']
+        route: {
+          path: '/pages/plane-solid-intersection/plane-solid-intersection',
+          kind: 'page'
+        },
+        keywords: ['截交线', '三棱锥', '五棱柱', '平面立体', '截平面']
       },
       {
-        id: 'plane-solid-intersection',
-        title: '平面与立体相交',
+        id: 'curved-solid-intersection',
+        title: '平面与曲面立体相交',
         availability: 'available',
-        route: { path: '/pages/index/index', mode: 'section', kind: 'index-mode' },
-        keywords: ['平面切割立体', '截平面', '截交线', '截交']
+        route: {
+          path: '/pages/curved-solid-intersection/curved-solid-intersection',
+          kind: 'page'
+        },
+        keywords: ['截交线', '圆柱', '圆锥', '圆球', '圆环', '曲面立体', '截平面']
       }
     ]
   },

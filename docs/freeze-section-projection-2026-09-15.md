@@ -154,3 +154,4 @@ git -C G:\HFJH checkout 734feb9 -- scripts/run-all.js scripts/README.md
 | 2026-09-16 | 同步 Skill 文档 F3 条目 | `.agents/skills/engineering-drawing-assistant/references/frozen-modules.md`（`908919c60c`，+6 行） | 补上拆分后的文件路径、预筛容差约束、`section-projection-check.cjs` 的重跑要求；经用户授权写入 |
 | 2026-09-16 | 规则层与事实层补记 + 打 tag | `AGENTS.md`（C7 性能冻结注记）、`docs/rules/project-facts.md`（2026-09-16 事实更新块）、本记录 | 用户同意后把本次冻结写入规则层与事实层，并打附注 tag `perf-section-v1`；随后推送 `master` 与该 tag |
 | 2026-09-23 | 补记推送状态 | 本记录 §1 | 第 4 次尝试推送成功：`master` `734feb9..d3a021b`、新 tag `perf-section-v1`；`git ls-remote` 核对远端哈希一致，本地与 `origin/master` 已同步 |
+| 2026-11-22 | 第六章平面立体相交支持棱柱/棱锥 3～8 棱 | `pages/index/section-geometry.js`、`section-render.js`、`scripts/geometry-test.js`、`scripts/section-projection-check.cjs` | 用户明确要求扩展。新增参数化正棱柱/正棱锥；截面缓存键加入棱数；旧三棱锥/五棱柱兼容与曲面几何不变。 |

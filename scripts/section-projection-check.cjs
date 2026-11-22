@@ -12,7 +12,7 @@
 //
 // 检查项：
 //   1. 预筛实现仍在（被删掉时脚本必须显式失败，而不是自己和自己比）
-//   2. 切割模式 6 种立体 × 4 组截平面参数 × 3 个视图 × 2 种画布尺寸：可见棱与隐藏棱集合与基准实现一致
+//   2. 切割模式全部立体类型 × 4 组截平面参数 × 3 个视图 × 2 种画布尺寸：可见棱与隐藏棱集合与基准实现一致
 //   3. 预筛确实在生效：重心判定调用次数远低于基准实现（防止「等价但退化回慢实现」）
 //
 // 覆盖路径：`drawSectionProjectionOverlay` → `drawSolidProjection` → `getProjectionLineSets`。
@@ -59,7 +59,10 @@ const SECTION_CASES = [
   { angle: 128, offset: 2 }
 ];
 
-const SOLID_TYPES = ['sphere', 'torus', 'cylinder', 'cone', 'pentagonalPrism', 'triangularPyramid'];
+const SOLID_TYPES = [
+  'sphere', 'torus', 'cylinder', 'cone',
+  'prism', 'pyramid', 'pentagonalPrism', 'triangularPyramid'
+];
 
 const SIZES = [
   { name: '手机竖屏 375x640', width: 375, height: 640 },
@@ -196,7 +199,7 @@ function main() {
   });
 
   suite.note('本脚本只保证「改前 = 改后」；截交几何真值由 scripts/geometry-test.js 独立锁定。');
-  suite.note('真机回归仍需人工执行（AGENTS.md C11）：连续拖角度 / 位置、六种立体、四条回归底线。');
+  suite.note('真机回归仍需人工执行（AGENTS.md C11）：连续拖角度 / 位置、全部立体类型、四条回归底线。');
   process.exitCode = suite.finish();
 }
 

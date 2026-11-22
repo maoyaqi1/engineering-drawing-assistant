@@ -1,0 +1,111 @@
+.section-solid-panel .section-solid-choices {
+  flex: 1 1 240rpx;
+}
+
+.section-solid-row,
+.section-plane-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8rpx;
+  min-width: 0;
+}
+
+.section-plane-row {
+  margin-top: 4rpx;
+}
+
+.section-solid-row > .type-label,
+.section-plane-row > .type-label {
+  flex: none;
+  margin: 0;
+}
+
+.section-solid-sides {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6rpx;
+  margin-left: 8rpx;
+}
+
+.section-solid-sides .param-name {
+  width: 56rpx;
+  font-size: 22rpx;
+}
+
+.section-solid-choices.section-solid-count-2 .type-chip {
+  flex-basis: calc((100% - 8rpx) / 2);
+  max-width: calc((100% - 8rpx) / 2);
+}
+
+.section-solid-choices.section-solid-count-4 .type-chip {
+  flex-basis: calc((100% - 24rpx) / 4);
+  max-width: calc((100% - 24rpx) / 4);
+}
+
+.section-solid-page .card-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-solid-page .card-actions {
+  margin-left: auto;
+}
+
+.section-solid-page .card-actions .ghost-button {
+  flex: 0 0 92rpx;
+  width: 92rpx;
+  min-width: 92rpx;
+  max-width: 92rpx;
+  height: 46rpx;
+  padding: 0;
+  font-size: 20rpx;
+  line-height: 46rpx;
+}
+
+@media (min-width: 500px) {
+  .section-solid-panel .section-solid-choices {
+    flex-basis: 150px;
+  }
+
+  .section-solid-row,
+  .section-plane-row {
+    gap: 4px;
+  }
+
+  .section-plane-row {
+    margin-top: 2px;
+  }
+
+  .section-solid-sides {
+    gap: 3px;
+    margin-left: 4px;
+  }
+
+  .section-solid-sides .param-name {
+    width: 30px;
+    font-size: 11px;
+  }
+
+  .section-solid-choices.section-solid-count-2 .type-chip {
+    flex-basis: calc((100% - 4px) / 2);
+    max-width: calc((100% - 4px) / 2);
+  }
+
+  .section-solid-choices.section-solid-count-4 .type-chip {
+    flex-basis: calc((100% - 12px) / 4);
+    max-width: calc((100% - 12px) / 4);
+  }
+
+  .section-solid-page .card-actions .ghost-button {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    height: 22px;
+    font-size: 11px;
+    line-height: 22px;
+  }
+}

@@ -104,11 +104,11 @@ const requiredAvailable = [
   '最大斜度线',
   '线面、面面平行',
   '线面、面面相交',
-  '基本立体的介绍',
+  '线面、面面垂直',
   '平面立体的投影',
   '曲面立体的投影',
-  '平面与立体相交',
-  '截交线'
+  '平面与平面立体相交',
+  '平面与曲面立体相交'
 ];
 requiredAvailable.forEach((title) => {
   const point = catalog.chapters
@@ -125,7 +125,6 @@ suite.equal(
 
 const requiredPlanned = [
   '投影变换',
-  '线面、面面垂直',
   '直线与立体相交',
   '相贯线',
   '两立体相交'
@@ -243,6 +242,24 @@ suite.check(parallelResults[0]
   && parallelResults[0].id === 'parallel-relations'
   && parallelResults[0].isOpen,
 '“线面平行”可搜索并打开独立图文页');
+const perpendicularPoint = catalog.chapters[3].points.find(
+  (point) => point.id === 'perpendicular-relations'
+);
+suite.check(perpendicularPoint
+  && perpendicularPoint.availability === 'available'
+  && perpendicularPoint.route
+  && perpendicularPoint.route.path
+    === '/pages/perpendicular-relations/perpendicular-relations',
+'线面、面面垂直已映射到独立图文页');
+const perpendicularResults = search.searchKnowledgePoints(
+  catalog,
+  '法线',
+  supportedKinds
+);
+suite.check(perpendicularResults[0]
+  && perpendicularResults[0].id === 'perpendicular-relations'
+  && perpendicularResults[0].isOpen,
+'“法线”可搜索并打开线面、面面垂直图文页');
 suite.equal(
   catalog.chapters[2].points.map((point) => point.title).join(','),
   '平面的表示方法,平面的投影规律,最大斜度线',
@@ -272,13 +289,47 @@ suite.equal(
 );
 suite.equal(
   catalog.chapters[4].points.map((point) => point.title).join(','),
-  '基本立体的介绍,平面立体的投影,曲面立体的投影',
+  '平面立体的投影,曲面立体的投影',
   '第五章知识点名称按要求调整'
 );
+const planeSolidPoint = catalog.chapters[4].points.find(
+  (point) => point.id === 'polyhedron-projection'
+);
+suite.check(planeSolidPoint
+  && planeSolidPoint.route
+  && planeSolidPoint.route.path
+    === '/pages/plane-solid-projection/plane-solid-projection',
+'平面立体的投影已映射到独立互动页');
+const curvedSolidPoint = catalog.chapters[4].points.find(
+  (point) => point.id === 'curved-solid-projection'
+);
+suite.check(curvedSolidPoint
+  && curvedSolidPoint.route
+  && curvedSolidPoint.route.path
+    === '/pages/curved-solid-projection/curved-solid-projection',
+'曲面立体的投影已映射到独立互动页');
+const planeSolidResults = search.searchKnowledgePoints(
+  catalog,
+  '棱锥',
+  supportedKinds
+);
+suite.check(planeSolidResults[0]
+  && planeSolidResults[0].id === 'polyhedron-projection'
+  && planeSolidResults[0].isOpen,
+'“棱锥”可搜索并打开平面立体投影页');
+const curvedSolidResults = search.searchKnowledgePoints(
+  catalog,
+  '圆环',
+  supportedKinds
+);
+suite.check(curvedSolidResults[0]
+  && curvedSolidResults[0].id === 'curved-solid-projection'
+  && curvedSolidResults[0].isOpen,
+'“圆环”可搜索并打开曲面立体投影页');
 suite.equal(
   catalog.chapters[5].points.map((point) => point.title).join(','),
-  '直线与立体相交,截交线,平面与立体相交',
-  '第六章截交线调整到第二位并更名'
+  '直线与立体相交,平面与平面立体相交,平面与曲面立体相交',
+  '第六章保留待开放的直线相交并拆分平面相交页面'
 );
 suite.equal(
   catalog.chapters[6].points.map((point) => point.title).join(','),
@@ -297,13 +348,50 @@ const removedTwoPlaneRelation = catalog.chapters[3].points.find(
 const removedSectionTitle = catalog.chapters[5].points.find(
   (point) => point.title === '截交线的分析与作图'
 );
+const removedSectionLine = catalog.chapters[5].points.find(
+  (point) => point.title === '截交线'
+);
+const removedCombinedIntersection = catalog.chapters[5].points.find(
+  (point) => point.title === '平面与立体相交'
+);
 const removedIntersectionMethod = catalog.chapters[6].points.find(
   (point) => point.title === '相贯线的求作'
 );
 suite.check(!removedPlanePositions && !removedPointLineInPlane
   && !removedTwoPlaneRelation && !removedSectionTitle
+  && !removedSectionLine && !removedCombinedIntersection
   && !removedIntersectionMethod,
-'第三、四、六、七章旧标题已删除');
+'第三、四、六、七章旧标题及第六章合并入口已删除');
+const planeIntersectionPoint = catalog.chapters[5].points.find(
+  (point) => point.id === 'plane-solid-intersection'
+);
+const curvedIntersectionPoint = catalog.chapters[5].points.find(
+  (point) => point.id === 'curved-solid-intersection'
+);
+suite.check(planeIntersectionPoint
+  && planeIntersectionPoint.route
+  && planeIntersectionPoint.route.path
+    === '/pages/plane-solid-intersection/plane-solid-intersection',
+'平面与平面立体相交已映射到独立互动页');
+suite.check(curvedIntersectionPoint
+  && curvedIntersectionPoint.route
+  && curvedIntersectionPoint.route.path
+    === '/pages/curved-solid-intersection/curved-solid-intersection',
+'平面与曲面立体相交已映射到独立互动页');
+const polyhedronResults = search.searchKnowledgePoints(
+  catalog,
+  '五棱柱',
+  supportedKinds
+);
+suite.check(polyhedronResults.some((item) => item.id === 'plane-solid-intersection'
+  && item.isOpen), '“五棱柱”可搜索并打开平面立体相交页');
+const curvedIntersectionResults = search.searchKnowledgePoints(
+  catalog,
+  '截交线',
+  supportedKinds
+);
+suite.check(curvedIntersectionResults.some((item) => item.id === 'curved-solid-intersection'
+  && item.isOpen), '“截交线”可搜索并打开曲面立体相交页');
 suite.equal(search.normalizeQuery('  直线 的 投影  '), '直线的投影', '搜索词规范化');
 suite.equal(search.searchKnowledgePoints(catalog, '   ', supportedKinds).length, 0,
   '空搜索不返回结果');
@@ -348,6 +436,16 @@ if (pageDefinition) {
   navigation.length = 0;
   page.openKnowledgePoint({ currentTarget: { dataset: { id: 'line-projection' } } });
   suite.equal(navigation[0], '/pages/index/index?mode=line', '五模式知识点跳转正确深链');
+  navigation.length = 0;
+  page.openKnowledgePoint({ currentTarget: { dataset: { id: 'plane-solid-intersection' } } });
+  suite.equal(navigation[0],
+    '/pages/plane-solid-intersection/plane-solid-intersection',
+    '平面与平面立体相交知识点跳转独立页面');
+  navigation.length = 0;
+  page.openKnowledgePoint({ currentTarget: { dataset: { id: 'curved-solid-intersection' } } });
+  suite.equal(navigation[0],
+    '/pages/curved-solid-intersection/curved-solid-intersection',
+    '平面与曲面立体相交知识点跳转独立页面');
   navigation.length = 0;
   page.openKnowledgePoint({ currentTarget: { dataset: { id: 'intersection-curve-method' } } });
   suite.equal(navigation.length, 0, '待开放知识点不产生跳转');

@@ -5,6 +5,17 @@
 (function () {
   const api = (typeof wx !== 'undefined' && wx.cloud) ? require('../../utils/api.js') : null;
   const surveyInvite = api ? require('../../utils/survey-invite.js') : null;
+  const SURVEY_LEARNING_PAGES = Object.freeze([
+    'pages/index/index',
+    'pages/plane-solid-projection/plane-solid-projection',
+    'pages/curved-solid-projection/curved-solid-projection',
+    'pages/plane-solid-intersection/plane-solid-intersection',
+    'pages/curved-solid-intersection/curved-solid-intersection'
+  ]);
+
+  function isSurveyLearningPage(page) {
+    return !!page && SURVEY_LEARNING_PAGES.indexOf(page.route) >= 0;
+  }
 
   module.exports = {
     ensureSession() {
@@ -17,7 +28,8 @@
         return;
       }
       if (this._pageVisible && (this._sessionStartPending || this._sessionId)) return;
-      this.refreshAiEntrance();
+      if (this.data.aiEntryEnabled) this.refreshAiEntrance();
+      else if (this.data.canUseAi) this.setData({ canUseAi: false });
       this._pageVisible = true;
       this._sessionCycle = (this._sessionCycle || 0) + 1;
       this._sessionStart = Date.now();
@@ -44,7 +56,7 @@
       }).catch(() => {
         if (sessionCycle === this._sessionCycle) this._sessionStartPending = false;
       });
-      if (surveyInvite && this.route === 'pages/index/index') {
+      if (surveyInvite && isSurveyLearningPage(this)) {
         surveyInvite.onEligiblePageShown(this);
       }
     },
@@ -65,7 +77,7 @@
 
     endSession() {
       this._pageVisible = false;
-      if (surveyInvite && this.route === 'pages/index/index') {
+      if (surveyInvite && isSurveyLearningPage(this)) {
         surveyInvite.onEligiblePageHidden(this);
       }
       if (!api || this._sessionEnded) return;
@@ -86,7 +98,7 @@
         line: '直线的投影',
         plane: '平面的投影',
         solid: '基本立体',
-        section: '平面切割立体'
+        section: this.data.learningChapterName || '平面切割立体'
       };
       const chapterId = this.data.mode;
       api.recordEvent(eventType, Object.assign({
