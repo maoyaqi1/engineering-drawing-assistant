@@ -28,6 +28,8 @@ node scripts/section-projection-check.cjs  # 截交三视图可见性等价性�
 node scripts/ai-knowledge-routing-check.cjs  # AI 教师知识点路由检查（128 项）
 node scripts/integrity-check.js        # 静态接线检查
 node scripts/full-check.cjs            # 全仓静态检查
+node scripts/info-pages-check.cjs      # 产品介绍、育人能力页与版本/联系方式边界
+node scripts/update-reminder-check.cjs # 小程序新版本检查、提醒与实时版本显示
 node scripts/teacher-dashboard-check.cjs # 教师驾驶舱失败态行为检查
 node scripts/offline/run.cjs           # 单个离线云函数自测
 node scripts/offline/run-photo-quota-concurrency.cjs # 拍照配额原子性、幂等和失败返还
@@ -49,6 +51,8 @@ node scripts/offline/run-photo-quota-concurrency.cjs # 拍照配额原子性、�
 | `section-projection-check.cjs` | 切割模式三视图「可见 / 隐藏棱」分类与改动前基准（blob `4ffcfd8874`）一致，且投影包围盒预筛仍在生效 | 只读 | 是 |
 | `integrity-check.js` | `app.json` ↔ 页面文件、`index.wxml` ↔ 页面方法、客户端 action ↔ 云函数路由、打包忽略列表 | 只读 | 是 |
 | `full-check.cjs` | 全仓 JS 语法、JSON、WXSS/WXML 配平、前后端接口一致性、DOM id、敏感信息、调试输出残留 | 只读 | 是 |
+| `info-pages-check.cjs` | “关于我们”和三项育人能力页、首页入口、集中版本配置、联系渠道降级及无学习会话边界 | 只读 | 是 |
+| `update-reminder-check.cjs` | `wx.getUpdateManager` 主动提醒、确认更新、失败提示与当前安装包版本显示 | 只读 | 是 |
 | `layout-check.cjs` | 首页 `getLayout` 与绘图内容是否放得下 | 只读 | 是 |
 | `pad-fit-check.cjs` | 宽屏（PAD / 折叠屏展开）一屏是否放下（按样式表估算） | 只读 | 是 |
 | `phone-fit-check.cjs` | 手机端参数面板折行估算 | 只读 | 否（仅报告） |

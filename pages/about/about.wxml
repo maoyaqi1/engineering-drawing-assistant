@@ -1,0 +1,146 @@
+<view class="info-page about-page">
+  <view class="page-topbar">
+    <button
+      class="back-button"
+      bindtap="handleBack"
+      aria-label="返回上一页"
+    >‹ 返回</button>
+    <text class="topbar-title">关于我们</text>
+    <view class="topbar-spacer" aria-hidden="true"></view>
+  </view>
+
+  <scroll-view class="info-scroll" scroll-y="{{true}}">
+    <view class="info-content">
+      <view class="about-hero">
+        <view class="brand-orbit" aria-hidden="true">
+          <view class="brand-shape brand-shape-a"></view>
+          <view class="brand-shape brand-shape-b"></view>
+          <text class="brand-symbol">△</text>
+        </view>
+        <text class="hero-eyebrow">产品介绍</text>
+        <text class="about-title">关于工程制图学习助手</text>
+        <text class="about-subtitle">{{product.subtitle}}</text>
+      </view>
+
+      <view class="about-section">
+        <view class="section-title-row">
+          <text class="about-index">01</text>
+          <text class="about-section-title">这是一款什么样的产品？</text>
+        </view>
+        <text
+          wx:for="{{product.introduction}}"
+          wx:key="*this"
+          class="body-paragraph {{index > 0 ? 'paragraph-spaced' : ''}}"
+        >{{item}}</text>
+      </view>
+
+      <view class="about-section">
+        <view class="section-title-row">
+          <text class="about-index">02</text>
+          <text class="about-section-title">产品希望解决的问题</text>
+        </view>
+        <view class="problem-list">
+          <view
+            wx:for="{{product.problems}}"
+            wx:key="key"
+            class="problem-card"
+          >
+            <view class="problem-mark" aria-hidden="true">{{item.mark}}</view>
+            <view class="problem-copy">
+              <text class="problem-title">{{item.title}}</text>
+              <text class="problem-description">{{item.description}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="about-section version-section">
+        <view class="section-title-row">
+          <text class="about-index">03</text>
+          <text class="about-section-title">版本与功能</text>
+        </view>
+        <view class="version-head">
+          <view>
+            <text class="version-name">{{product.name}}</text>
+            <text class="version-positioning">{{product.positioning}}</text>
+          </view>
+          <text class="version-badge">{{displayVersion}}</text>
+        </view>
+        <view class="version-block">
+          <text class="version-label">当前主要功能</text>
+          <view class="feature-list">
+            <view
+              wx:for="{{product.features}}"
+              wx:key="*this"
+              class="feature-item"
+            >
+              <text class="feature-dot" aria-hidden="true"></text>
+              <text class="feature-text">{{item}}</text>
+            </view>
+          </view>
+        </view>
+        <view class="version-block update-block">
+          <text class="version-label">{{displayVersion}} 主要更新</text>
+          <view class="update-list">
+            <view
+              wx:for="{{product.versionHighlights}}"
+              wx:key="*this"
+              class="update-item"
+            >
+              <text class="update-index">{{index + 1}}</text>
+              <text class="update-text">{{item}}</text>
+            </view>
+          </view>
+        </view>
+        <text class="version-sync-note">版本和功能随小程序更新同步刷新；发现新版本时会主动提示重启。</text>
+      </view>
+
+      <view class="about-section">
+        <view class="section-title-row">
+          <text class="about-index">04</text>
+          <text class="about-section-title">关于开发团队</text>
+        </view>
+        <text class="team-copy">{{product.teamIntroduction}}</text>
+      </view>
+
+      <view class="about-section contact-section">
+        <view class="section-title-row">
+          <text class="about-index">05</text>
+          <text class="about-section-title">联系我们</text>
+        </view>
+        <view class="contact-list">
+          <view
+            wx:for="{{contactChannels}}"
+            wx:key="key"
+            class="contact-row"
+          >
+            <view class="contact-copy">
+              <text class="contact-title">{{item.title}}</text>
+              <text class="contact-description">{{item.description}}</text>
+              <button
+                wx:if="{{item.isOfficialAccount}}"
+                class="contact-link"
+                data-contact-key="{{item.key}}"
+                bindtap="handleContactTap"
+                hover-class="contact-link-hover"
+                aria-label="{{item.actionLabel}}：{{item.value}}"
+              >{{item.value}}</button>
+              <text wx:elif="{{item.isConfigured}}" class="contact-value">{{item.value}}</text>
+              <text wx:else class="contact-status">{{item.statusText}}</text>
+            </view>
+          </view>
+        </view>
+        <text
+          wx:if="{{hasUnconfiguredContacts}}"
+          class="contact-note"
+        >部分公开联系渠道尚未配置，未配置项不会显示为可点击入口。</text>
+      </view>
+
+      <button
+        class="home-return-button"
+        bindtap="handleBack"
+        aria-label="返回课程首页"
+      >返回课程首页</button>
+    </view>
+  </scroll-view>
+</view>

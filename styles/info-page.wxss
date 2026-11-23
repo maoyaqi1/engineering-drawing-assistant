@@ -1,0 +1,605 @@
+.info-page {
+  --info-navy: #0b3f78;
+  --info-blue: #126fd3;
+  --info-sky: #3d95e6;
+  --info-line: rgba(102, 164, 221, 0.34);
+  --info-muted: #5c7890;
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(88% 42% at 100% 0%, rgba(80, 166, 239, 0.22), rgba(80, 166, 239, 0) 72%),
+    linear-gradient(180deg, #edf8ff 0%, #f8fbfe 54%, #eef5fa 100%);
+  color: var(--info-navy);
+}
+
+.page-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 88rpx;
+  padding: 0 22rpx;
+  border-bottom: 1rpx solid rgba(120, 174, 221, 0.24);
+  background: rgba(244, 250, 255, 0.94);
+}
+
+.back-button,
+.topbar-spacer {
+  flex: none;
+  width: 150rpx;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 150rpx;
+  height: 56rpx;
+  margin: 0;
+  padding: 0 12rpx;
+  border: 1rpx solid rgba(94, 157, 216, 0.32);
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1768b5;
+  font-size: 24rpx;
+  font-weight: 650;
+  line-height: 1;
+  text-align: center;
+}
+
+.back-button::after {
+  border: none;
+}
+
+.back-button-hover {
+  background: #e0f1ff;
+}
+
+.topbar-title {
+  flex: 1;
+  min-width: 0;
+  color: #174e7d;
+  font-size: 28rpx;
+  font-weight: 750;
+  text-align: center;
+}
+
+.info-scroll {
+  height: calc(100vh - 88rpx);
+  background: transparent;
+}
+
+.info-content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 18rpx 20rpx calc(34rpx + env(safe-area-inset-bottom));
+}
+
+.info-card,
+.ability-card,
+.prompt-panel,
+.connection-note {
+  box-sizing: border-box;
+  border: 1rpx solid var(--info-line);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10rpx 26rpx rgba(42, 106, 166, 0.07);
+}
+
+.info-card {
+  border-radius: 22rpx;
+  padding: 22rpx;
+}
+
+.card-kicker,
+.section-caption,
+.hero-eyebrow,
+.prompt-label {
+  display: block;
+  color: #5d7f9b;
+  font-size: 21rpx;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.section-title {
+  display: block;
+  color: #0c4f91;
+  font-size: 34rpx;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.body-paragraph {
+  display: block;
+  margin-top: 10rpx;
+  color: #344f65;
+  font-size: 26rpx;
+  line-height: 1.72;
+}
+
+.paragraph-spaced {
+  margin-top: 16rpx;
+}
+
+.section-heading {
+  margin-top: 24rpx;
+  padding: 0 4rpx 12rpx;
+}
+
+.section-caption {
+  margin-top: 4rpx;
+}
+
+.ability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.ability-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 20rpx;
+  border-radius: 20rpx;
+}
+
+.ability-mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 66rpx;
+  height: 66rpx;
+  margin-right: 16rpx;
+  border: 1rpx solid rgba(73, 148, 216, 0.36);
+  border-radius: 18rpx;
+  background: linear-gradient(145deg, #e8f5ff, #d8ecff);
+  color: #126bc2;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.ability-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.ability-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 9rpx;
+}
+
+.ability-index {
+  flex: none;
+  color: #4c98d3;
+  font-size: 19rpx;
+  font-weight: 800;
+  letter-spacing: 1rpx;
+}
+
+.ability-title {
+  color: #164b78;
+  font-size: 28rpx;
+  font-weight: 780;
+  line-height: 1.4;
+}
+
+.ability-description {
+  display: block;
+  margin-top: 6rpx;
+  color: #49677e;
+  font-size: 24rpx;
+  line-height: 1.62;
+}
+
+.prompt-panel {
+  margin-top: 20rpx;
+  padding: 22rpx;
+  border-color: rgba(85, 157, 219, 0.38);
+  border-radius: 22rpx;
+  background: linear-gradient(145deg, #eef9ff, #f8fcff);
+}
+
+.prompt-heading {
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-title {
+  margin-top: 6rpx;
+  color: #12598f;
+  font-size: 30rpx;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.prompt-items {
+  margin-top: 14rpx;
+}
+
+.prompt-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.prompt-item + .prompt-item {
+  margin-top: 9rpx;
+}
+
+.prompt-dot {
+  flex: none;
+  width: 10rpx;
+  height: 10rpx;
+  margin-top: 15rpx;
+  margin-right: 12rpx;
+  border-radius: 50%;
+  background: #3192db;
+}
+
+.prompt-item-text {
+  flex: 1;
+  color: #345a76;
+  font-size: 24rpx;
+  line-height: 1.62;
+}
+
+.prompt-closing {
+  display: block;
+  margin-top: 16rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx dashed rgba(85, 150, 202, 0.34);
+  color: #0e5f9b;
+  font-size: 25rpx;
+  font-weight: 750;
+  line-height: 1.62;
+}
+
+.practice-panel {
+  box-sizing: border-box;
+  margin-top: 16rpx;
+  padding: 22rpx;
+  border: 1rpx solid rgba(42, 136, 202, 0.42);
+  border-left: 7rpx solid #2388ce;
+  border-radius: 20rpx;
+  background: linear-gradient(145deg, #f4fbff, #eaf7ff);
+  box-shadow: 0 10rpx 26rpx rgba(42, 106, 166, 0.07);
+}
+
+.practice-label {
+  display: block;
+  color: #56809d;
+  font-size: 20rpx;
+  font-weight: 750;
+}
+
+.practice-title {
+  display: block;
+  margin-top: 6rpx;
+  color: #0d568d;
+  font-size: 30rpx;
+  font-weight: 820;
+  line-height: 1.4;
+}
+
+.practice-rule {
+  display: block;
+  margin-top: 10rpx;
+  padding: 10rpx 12rpx;
+  border-radius: 10rpx;
+  background: #ffffff;
+  color: #155f97;
+  font-size: 24rpx;
+  font-weight: 760;
+  line-height: 1.55;
+}
+
+.practice-items {
+  margin-top: 12rpx;
+}
+
+.practice-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.practice-item + .practice-item {
+  margin-top: 9rpx;
+}
+
+.practice-check {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28rpx;
+  height: 28rpx;
+  margin-top: 3rpx;
+  margin-right: 10rpx;
+  border-radius: 7rpx;
+  background: #d9efff;
+  color: #146ca9;
+  font-size: 18rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.practice-item-text {
+  flex: 1;
+  color: #365d78;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.practice-closing {
+  display: block;
+  margin-top: 14rpx;
+  padding-top: 12rpx;
+  border-top: 1rpx dashed rgba(72, 139, 192, 0.34);
+  color: #0e5d93;
+  font-size: 24rpx;
+  font-weight: 760;
+  line-height: 1.6;
+}
+
+.connection-note {
+  margin-top: 16rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 18rpx;
+  background: rgba(244, 250, 255, 0.9);
+}
+
+.connection-title {
+  display: block;
+  color: #205f8f;
+  font-size: 23rpx;
+  font-weight: 800;
+}
+
+.connection-text {
+  display: block;
+  margin-top: 5rpx;
+  color: #557187;
+  font-size: 22rpx;
+  line-height: 1.58;
+}
+
+.home-return-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 82rpx;
+  margin: 22rpx 0 0;
+  padding: 14rpx 20rpx;
+  border: 1rpx solid rgba(73, 145, 210, 0.36);
+  border-radius: 18rpx;
+  background: #ffffff;
+  color: #1469b2;
+  font-size: 26rpx;
+  font-weight: 750;
+  line-height: 1.3;
+}
+
+.home-return-button::after {
+  border: none;
+}
+
+.home-return-button-hover {
+  background: #e8f5ff;
+}
+
+.ability-hero {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 16rpx;
+  padding: 28rpx 24rpx;
+  border: 1rpx solid rgba(111, 172, 226, 0.4);
+  border-radius: 26rpx;
+  background:
+    radial-gradient(80% 120% at 100% 0%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 58%),
+    linear-gradient(135deg, #f9fdff 0%, #dff1ff 100%);
+  box-shadow: 0 14rpx 34rpx rgba(38, 102, 163, 0.1);
+}
+
+.hero-orbit {
+  position: absolute;
+  top: -30rpx;
+  right: -18rpx;
+  width: 190rpx;
+  height: 190rpx;
+  opacity: 0.72;
+}
+
+.orbit-line {
+  position: absolute;
+  border: 2rpx solid rgba(60, 143, 215, 0.34);
+}
+
+.orbit-line-a {
+  top: 36rpx;
+  left: 14rpx;
+  width: 142rpx;
+  height: 142rpx;
+  border-radius: 50%;
+}
+
+.orbit-line-b {
+  top: 65rpx;
+  left: 43rpx;
+  width: 84rpx;
+  height: 84rpx;
+  border-radius: 18rpx;
+  transform: rotate(26deg);
+}
+
+.hero-glyph {
+  position: absolute;
+  top: 74rpx;
+  left: 57rpx;
+  color: #2c84ca;
+  font-size: 58rpx;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.hero-title {
+  position: relative;
+  display: block;
+  margin-top: 8rpx;
+  color: #0b477d;
+  font-size: 50rpx;
+  font-weight: 820;
+  line-height: 1.2;
+  letter-spacing: 1rpx;
+}
+
+.hero-lead {
+  position: relative;
+  display: block;
+  max-width: 76%;
+  margin-top: 9rpx;
+  color: #3f6888;
+  font-size: 25rpx;
+  line-height: 1.55;
+}
+
+.ability-thinking .ability-mark,
+.ability-thinking .hero-orbit {
+  filter: none;
+}
+
+.ability-exploring {
+  background:
+    radial-gradient(88% 42% at 100% 0%, rgba(70, 181, 189, 0.18), rgba(70, 181, 189, 0) 72%),
+    linear-gradient(180deg, #eefafb 0%, #f8fcfd 54%, #eef6fa 100%);
+}
+
+.ability-exploring .hero-glyph,
+.ability-exploring .ability-mark {
+  color: #167c89;
+}
+
+.ability-exploring .prompt-panel {
+  background: linear-gradient(145deg, #effafa, #f9fdfd);
+}
+
+.ability-tools {
+  background:
+    radial-gradient(88% 42% at 100% 0%, rgba(83, 139, 220, 0.2), rgba(83, 139, 220, 0) 72%),
+    linear-gradient(180deg, #edf5ff 0%, #f8fbfe 54%, #eef4fa 100%);
+}
+
+@media (min-width: 700px) {
+  .page-topbar {
+    height: 56px;
+    padding: 0 24px;
+  }
+
+  .back-button,
+  .topbar-spacer {
+    width: 100px;
+  }
+
+  .back-button {
+    width: 100px;
+    height: 34px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .topbar-title {
+    font-size: 17px;
+  }
+
+  .info-scroll {
+    height: calc(100vh - 56px);
+  }
+
+  .info-content {
+    padding: 14px 22px 26px;
+  }
+
+  .ability-hero {
+    padding: 20px 22px;
+    border-radius: 17px;
+  }
+
+  .hero-title {
+    font-size: 30px;
+  }
+
+  .hero-lead {
+    font-size: 14px;
+  }
+
+  .info-card,
+  .prompt-panel,
+  .practice-panel {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .ability-card {
+    padding: 14px;
+    border-radius: 13px;
+  }
+
+  .ability-mark {
+    width: 44px;
+    height: 44px;
+    margin-right: 12px;
+    border-radius: 11px;
+    font-size: 18px;
+  }
+
+  .body-paragraph,
+  .ability-description,
+  .prompt-item-text,
+  .practice-item-text {
+    font-size: 14px;
+  }
+
+  .section-title,
+  .prompt-title,
+  .practice-title {
+    font-size: 19px;
+  }
+
+  .ability-title {
+    font-size: 16px;
+  }
+
+  .home-return-button {
+    min-height: 50px;
+    margin-top: 16px;
+    border-radius: 11px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .info-content {
+    padding-right: 14rpx;
+    padding-left: 14rpx;
+  }
+
+  .hero-title {
+    font-size: 45rpx;
+  }
+
+  .hero-lead {
+    max-width: 82%;
+    font-size: 23rpx;
+  }
+
+  .ability-description,
+  .prompt-item-text {
+    font-size: 23rpx;
+  }
+}

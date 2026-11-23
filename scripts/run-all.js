@@ -38,6 +38,8 @@ const STEPS = [
   { name: '静态接线检查', script: 'scripts/integrity-check.js' },
   { name: '整体静态检查', script: 'scripts/full-check.cjs' },
   { name: '课程首页骨架检查', script: 'scripts/home-course-check.cjs' },
+  { name: '产品介绍与能力页检查', script: 'scripts/info-pages-check.cjs' },
+  { name: '版本更新提醒检查', script: 'scripts/update-reminder-check.cjs' },
   { name: 'index 五模式深链检查', script: 'scripts/index-mode-route-check.cjs' },
   { name: '学习页导航迁移检查', script: 'scripts/navigation-migration-check.cjs' },
   { name: '阶段 4 路由与管理检查', script: 'scripts/stage4-route-check.cjs' },

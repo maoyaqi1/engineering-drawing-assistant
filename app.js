@@ -1,4 +1,5 @@
 const api = require('./utils/api.js');
+const { setupMiniProgramUpdate } = require('./utils/app-update.js');
 
 // 小程序全局入口。这里只保存跨页面共享且生命周期短的状态：
 //   user：当前登录学生快照，同时持久化到本地缓存；
@@ -19,6 +20,7 @@ App({
     if (typeof wx !== 'undefined' && wx.cloud) {
       wx.cloud.init({ traceUser: true });
     }
+    setupMiniProgramUpdate();
     // 隐私授权：微信触发隐私接口授权请求时，转交当前页面渲染合规弹窗。
     // 注意（2026-09-25 踩过的坑）："同意"必须由 <button open-type="agreePrivacyAuthorization">
     // 触发，resolve 还要带 buttonId；用 wx.showModal 冒充同意按钮时微信不认可，

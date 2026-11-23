@@ -261,3 +261,15 @@ git diff --check
 | `scripts/geometry-test.js` | `7E57C825B88280095B251C95BB72DC6C540E027FC453FF67841D3A371D9BE442` |
 | `scripts/section-solid-split-check.cjs` | `D8380288B6CD09E90B4536DD7DEF7922FEFFB7578050507E8DC94522F092D209` |
 | `scripts/section-projection-check.cjs` | `C81F28F8792103A8D48640304D06DDF4411390EE4E10C7023A65C0B0A82ACCA6` |
+
+## 19. 2026-11-22 产品理念入口授权扩展
+
+用户明确要求在产品名称及“动脑思考 / 动手探索 / 善用工具”三个首页理念入口
+新增独立介绍页。`app.json` 仅增加四个页面注册，课程章节、知识点顺序、搜索、
+点线面模式、立体和截交页面均未改变。
+
+本轮 `app.json` 新哈希：
+
+| 文件 | SHA-256 |
+| --- | --- |
+| `app.json` | `01A8E65AC93125D2648D1D10644556FCCDF06CFBBF7C289A47873C00C9B87816` |

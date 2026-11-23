@@ -1,0 +1,105 @@
+<view class="info-page ability-page {{themeClass}}">
+  <view class="page-topbar">
+    <button
+      class="back-button"
+      bindtap="handleBack"
+      aria-label="返回上一页"
+    >‹ 返回</button>
+    <text class="topbar-title">{{pageContent.navigationTitle}}</text>
+    <view class="topbar-spacer" aria-hidden="true"></view>
+  </view>
+
+  <scroll-view class="info-scroll" scroll-y="{{true}}">
+    <view class="info-content">
+      <view class="ability-hero">
+        <view class="hero-orbit" aria-hidden="true">
+          <view class="orbit-line orbit-line-a"></view>
+          <view class="orbit-line orbit-line-b"></view>
+          <text class="hero-glyph">{{pageContent.heroGlyph}}</text>
+        </view>
+        <text class="hero-eyebrow">{{pageContent.eyebrow}}</text>
+        <text class="hero-title">{{pageContent.title}}</text>
+        <text class="hero-lead">{{pageContent.subtitle}}</text>
+      </view>
+
+      <view class="info-card introduction-card">
+        <text class="card-kicker">认识这项能力</text>
+        <text
+          wx:for="{{pageContent.introduction}}"
+          wx:key="*this"
+          class="body-paragraph {{index > 0 ? 'paragraph-spaced' : ''}}"
+        >{{item}}</text>
+      </view>
+
+      <view class="section-heading">
+        <text class="section-title">能力培养</text>
+        <text class="section-caption">三项能力相互联系，共同支持工程素养</text>
+      </view>
+
+      <view class="ability-list">
+        <view
+          wx:for="{{pageContent.abilities}}"
+          wx:key="index"
+          class="ability-card"
+        >
+          <view class="ability-mark" aria-hidden="true">
+            <text>{{item.mark}}</text>
+          </view>
+          <view class="ability-copy">
+            <view class="ability-heading">
+              <text class="ability-index">{{item.index}}</text>
+              <text class="ability-title">{{item.title}}</text>
+            </view>
+            <text class="ability-description">{{item.description}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="prompt-panel">
+        <view class="prompt-heading">
+          <text class="prompt-label">学习启发</text>
+          <text class="prompt-title">{{pageContent.prompt.title}}</text>
+        </view>
+        <view class="prompt-items">
+          <view
+            wx:for="{{pageContent.prompt.items}}"
+            wx:key="*this"
+            class="prompt-item"
+          >
+            <text class="prompt-dot" aria-hidden="true"></text>
+            <text class="prompt-item-text">{{item}}</text>
+          </view>
+        </view>
+        <text class="prompt-closing">{{pageContent.prompt.closing}}</text>
+      </view>
+
+      <view class="practice-panel">
+        <text class="practice-label">{{pageContent.practice.label}}</text>
+        <text class="practice-title">{{pageContent.practice.title}}</text>
+        <text class="practice-rule">{{pageContent.practice.rule}}</text>
+        <view class="practice-items">
+          <view
+            wx:for="{{pageContent.practice.items}}"
+            wx:key="*this"
+            class="practice-item"
+          >
+            <text class="practice-check" aria-hidden="true">✓</text>
+            <text class="practice-item-text">{{item}}</text>
+          </view>
+        </view>
+        <text class="practice-closing">{{pageContent.practice.closing}}</text>
+      </view>
+
+      <view class="connection-note">
+        <text class="connection-title">三项能力共同生长</text>
+        <text class="connection-text">带着问题思考，用铅笔和尺规动手验证，再以规范工具表达结果，三项能力在同一个作图过程中彼此支撑。</text>
+      </view>
+
+      <button
+        class="home-return-button"
+        bindtap="handleBack"
+        aria-label="返回课程首页"
+      >返回课程首页</button>
+    </view>
+  </scroll-view>
+</view>

@@ -30,7 +30,7 @@ Page({
       { label: '教学视频', selected: false },
       { label: 'CAD/三维软件', selected: false },
       { label: '和同学讨论', selected: false },
-      { label: '自己想象', selected: false },
+      { label: '自己推理', selected: false },
       { label: '其他', selected: false }
     ],
     q1: 0,

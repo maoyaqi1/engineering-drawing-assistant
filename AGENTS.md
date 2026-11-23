@@ -3,8 +3,8 @@
 > 适用范围：本文件所在目录及其全部子目录。
 > 文件结构：**第一部分「多 Agent 协作章程」（C1–C12）** 是所有 Agent 的最高级协作规则；**第二部分「开发章程」（§1–§64）** 是技术实现规则。执行优先级与冲突处理见 §C1。
 > 文档状态：第二部分写于源码落盘之前，尚未随实现同步更新；凡与现有代码或 `README.md` 冲突之处，以现有实现为准，并按 §C1 / §2 先报告冲突、再动手。
-> 目标版本：当前源码基线 `v1.6.0`（本冻结提交，Git tag `v1.6.0`）。
-> 事实核对日期：2026-11-04（上一冻结版本 `v1.5.1` + `v1.6.0` 工作区）。
+> 目标版本：当前源码基线 `v1.9.0`（本冻结提交，Git tag `v1.9.0`）。
+> 事实核对日期：2026-11-23。
 
 
 ---
@@ -43,7 +43,7 @@
 
 当前事实（2026-11-03 更新）：
 
-1. `app.json` 注册 **11 个页面**：`login`、`register`、`index`、`projection`、`survey`、`ai`、`terms`、`triangle-method`、`right-angle-projection`、`maximum-slope-line`、`line-plane-relation`。`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 均已删除；`pages/video/` 源码保留但未注册、不进入小程序包，也不得提供播放入口。
+1. `app.json` 注册 **28 个页面**，包含登录注册、课程首页、产品理念页、点/线/面主画布、各知识点互动页、立体投影与相交页、AI 教师、问卷和协议页；完整权威列表以 `app.json` 为准。`pages/teacher/`、`pages/roster/`、`pages/ruler/`、`web/ruler.html` 均已删除；`pages/video/` 源码保留但未注册、不进入小程序包，也不得提供播放入口。
 2. `utils/` 当前只有 `api.js`；`utils/geo.js` 已随尺规作图模块移除，不存在 `teacher-api.js`。
 3. 当前实现为 Canvas 2D；专题规则中保留的 Three.js/WebGL 条目是历史或前瞻规则，不得据此引入依赖。
 4. `pages/index/index.js` 已拆分为页面 data/生命周期装配，当前约 104 行；几何、交互、绘制与截交实现位于 `pages/index/` 的其他模块。代码仍通过 Page `this` 组合，属于待优化依赖问题，而不是单文件行数问题。

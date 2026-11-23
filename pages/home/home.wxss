@@ -122,6 +122,20 @@
   min-width: 0;
 }
 
+.home-title-link {
+  display: flex;
+  align-items: center;
+  align-self: flex-start;
+  max-width: 100%;
+  border-radius: 7rpx;
+  color: inherit;
+  text-decoration: none;
+}
+
+.home-title-hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
 .home-title {
   color: #064b96;
   font-size: 41rpx;
@@ -179,6 +193,11 @@
   border-radius: 18rpx;
   background: linear-gradient(150deg, rgba(255, 255, 255, 0.96), rgba(232, 246, 255, 0.84));
   box-shadow: 0 8rpx 20rpx rgba(50, 120, 187, 0.08);
+}
+
+.philosophy-item-hover {
+  border-color: rgba(82, 157, 228, 0.76);
+  background: linear-gradient(150deg, #ffffff, #dcf1ff);
 }
 
 .philosophy-mark {

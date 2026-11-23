@@ -7,7 +7,14 @@
             <text>△</text>
           </view>
           <view class="brand-copy">
-            <text class="home-title">工程制图学习助手</text>
+            <navigator
+              class="home-title-link"
+              url="/pages/about/about"
+              hover-class="home-title-hover"
+              aria-label="查看工程制图学习助手产品介绍"
+            >
+              <text class="home-title">工程制图学习助手</text>
+            </navigator>
             <text class="home-slogan">理解投影规律 · 探索空间形体 · 培育工程思维</text>
           </view>
           <navigator
@@ -21,29 +28,44 @@
 
       <view class="philosophy-band" aria-label="课程学习理念">
         <view class="philosophy-items">
-          <view class="philosophy-item">
+          <navigator
+            class="philosophy-item"
+            url="/pages/thinking/thinking"
+            hover-class="philosophy-item-hover"
+            aria-label="查看动脑思考能力介绍"
+          >
             <text class="philosophy-mark">思</text>
             <view>
               <text class="philosophy-title">动脑思考</text>
               <text class="philosophy-copy">空间分析与判断</text>
             </view>
-          </view>
+          </navigator>
           <view class="philosophy-divider"></view>
-          <view class="philosophy-item">
+          <navigator
+            class="philosophy-item"
+            url="/pages/exploring/exploring"
+            hover-class="philosophy-item-hover"
+            aria-label="查看动手探索能力介绍"
+          >
             <text class="philosophy-mark">探</text>
             <view>
               <text class="philosophy-title">动手探索</text>
               <text class="philosophy-copy">观察操作与验证</text>
             </view>
-          </view>
+          </navigator>
           <view class="philosophy-divider"></view>
-          <view class="philosophy-item">
+          <navigator
+            class="philosophy-item"
+            url="/pages/tools/tools"
+            hover-class="philosophy-item-hover"
+            aria-label="查看善用工具能力介绍"
+          >
             <text class="philosophy-mark">器</text>
             <view>
               <text class="philosophy-title">善用工具</text>
               <text class="philosophy-copy">辅助表达与求解</text>
             </view>
-          </view>
+          </navigator>
         </view>
       </view>
 
